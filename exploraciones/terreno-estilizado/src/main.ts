@@ -187,7 +187,7 @@ async function main() {
   baseBtn.addEventListener("click", () => setStyle("base"));
   styBtn.addEventListener("click", () => setStyle("estilizado"));
   // Prueba de materiales A/B/C (?material=a|b|c, tecla M). A = actual (por defecto).
-  let variant: MaterialVariant = (["a", "b", "c"] as MaterialVariant[]).find((x) => x === params.get("material")) ?? "a";
+  let variant: MaterialVariant = (["a", "b", "c", "n"] as MaterialVariant[]).find((x) => x === params.get("material")) ?? "n"; // Corregido por defecto (mejora demostrada)
   materialEl.value = variant;
   const setVariant = (v: MaterialVariant) => {
     variant = v;
@@ -229,7 +229,7 @@ async function main() {
     if ((e.target as HTMLElement).closest("select")) return;
     if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
     if (e.key.toLowerCase() === "d") setDetail(!detail);
-    if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : "a");
+    if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : variant === "c" ? "n" : "a");
   });
   exaggerationEl.addEventListener("change", async () => {
     exaggeration = Number(exaggerationEl.value);
@@ -342,6 +342,15 @@ async function main() {
   Object.assign(window, {
     __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
     __bench: bench,
+    // Diagnóstico por capas sobre el material estilizado: a = colores base, b = + variación de color,
+    // c = + detalle al 15 %, d = material completo.
+    __capa: (c: "a" | "b" | "c" | "d") => {
+      const u = (terrain as unknown as { styleUniforms?: { uColorVar: { value: number }; uDetailGain: { value: number } } })?.styleUniforms;
+      if (!u) return;
+      u.uColorVar.value = c === "a" ? 0 : 1;
+      u.uDetailGain.value = c === "a" || c === "b" ? 0 : c === "c" ? 0.15 : 1;
+      requestRender();
+    },
     __pose: (i: number) => {
       applyPose(ctx, i);
       requestRender();

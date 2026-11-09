@@ -15,7 +15,7 @@ npm run dev      # http://localhost:3400/?base=brown
 - **Medir**: corre el banco de medición (5 cámaras fijas × 20 cuadros, tiempo de GPU por consulta de temporizador).
 - Tecla `D` o `?detalle=0`: apaga el detalle de cerca (fase 3A) para comparar.
 - Selector **Calidad** (Automática / Alta / Media / Baja) o `?calidad=alta|media|baja` (fase 4).
-- Selector **Material (prueba)** A / B / C, tecla `M` o `?material=a|b|c`. A (actual) es el predeterminado.
+- Selector **Material**: Corregido (predeterminado), A anterior, B, C; tecla `M` o `?material=n|a|b|c`.
 - Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
 - Los terrenos se leen de `../terreno-nitidez/public` (mismo formato; evita duplicar ~8,5 MB). Ver `vite.config.ts`.
 
@@ -218,7 +218,61 @@ Capturas (misma cámara): `capturas/material-cerca-{A,B,C}.jpg`, `capturas/mater
 
 ### Recomendación
 
-**C**: elimina la dirección única de las ondas (la repetición más evidente), suma variación de baja frecuencia y es **22 % más barata que A**. B es apenas más barata que C (0,25 ms) pero conserva el patrón repetido; queda como alternativa liviana si hiciera falta. A sigue como predeterminado hasta que se confirme el cambio.
+**C**: elimina la dirección única de las ondas (la repetición más evidente), suma variación de baja frecuencia y es **22 % más barata que A**. B es apenas más barata que C (0,25 ms) pero conserva el patrón repetido. **Superada por la corrección de abajo**: C seguía mostrando ondas y roca arrugada porque la causa estaba en el contenido del mapa de detalle, no en la proyección.
+
+## Corrección de nieve y roca (material predeterminado)
+
+Problema reportado: ondas artificiales muy marcadas en la nieve y roca demasiado ruidosa y arrugada.
+
+### Diagnóstico por capas
+
+Misma cámara, luz y geometría; capas activadas progresivamente sobre el material estilizado (`window.__capa` en desarrollo). "Ruido" = diferencia media de brillo entre píxeles vecinos (×1000), separada en píxeles de nieve (claros, poco saturados) y de roca (marrones). Dos cámaras: cerca (nieve plana + costa) y roca (paredes).
+
+| Capa | Nieve (cerca / roca) | Roca (cerca / roca) |
+|---|---|---|
+| A · solo colores base sobre el relieve REMA | 10,8 / 5,8 | 16,5 / 13,4 |
+| B · + variación de color (cavidades, manchas, vetas) | 11,2 / 6,0 | **35,2 / 30,6** |
+| C · + detalle de normales al 15 % | 11,6 / 6,9 | 35,8 / 32,9 |
+| D · material anterior completo (triplanar) | **17,6 / 17,8** | **42,7 / 61,4** |
+| D · con muestreo aperiódico | 17,1 / 18,0 | 26,9 / 58,3 |
+
+Causas exactas:
+
+1. **Ondas de la nieve** → canal de nieve de `detailTexture()`: una onda seno de amplitud 0,35 y **dirección fija** (10 ondas por mosaico de 110 m ≈ 11 m), con fuerza de normal 9. Aun al 20 % se percibe por su regularidad. Sin detalle (capas A–B) la nieve está limpia; con detalle completo el ruido sube ×1,6–×3.
+2. **Roca arrugada** → dos causas sumadas: (a) la **variación de color** multiplicaba la roca por las cavidades al 25 % (calculadas a 4 m) y la mezclaba con vetas de ruido de hasta ~1 m: duplica el ruido (16,5 → 35,2); (b) el **canal de roca del detalle**: fbm crestado de 4 octavas (rasgos de hasta ~1,7 m) con fuerza 40 × 1,7.
+
+Revisado y descartado: *normalScale* y convención OpenGL/DirectX (no hay mapas importados; los generados usan una sola convención), *colorSpace* (texturas de datos en `NoColorSpace`, correcto), *displacement* (no existe: alturas solo de REMA), KTX2 (no hay texturas de imagen).
+
+### Corrección (`src/detail-corrected.ts`, `MAT_N` en `src/shaders.ts`)
+
+| | Anterior | Corregido |
+|---|---|---|
+| Nieve · detalle | seno direccional (0,35 · 9 · 0,2) | ruido isótropo fino (~1–2 m), intensidad 0,06 |
+| Nieve · acabado | rugosidad 0,82 | 0,92 (mate) |
+| Roca · color | cavidades 25 % + vetas de ~1 m | solo baja frecuencia + cavidades 15 % |
+| Roca · detalle | fbm crestado 4 octavas, intensidad 1,7 | 2 octavas suaves (formas de 8–15 m), intensidad 0,75 |
+| Transición roca/nieve | umbral con ruido fino | umbral con ruido de baja frecuencia |
+| Proyección / lecturas por píxel | triplanar / 11 | eje dominante / 4 (sin muestreo aperiódico) |
+
+### Validación
+
+Brown, nivel 4 m, LOD, calidad alta, lienzo 1482×797 (dpr 1,25), GPU integrada AMD Radeon.
+
+| | Anterior | Corregido |
+|---|---|---|
+| Ruido nieve (cerca / roca) | 17,6 / 17,8 | **12,8 / 11,5** |
+| Ruido roca (cerca / roca) | 42,7 / 61,4 | **17,8 / 17,3** |
+| GPU por cuadro, mediana | 4,83 ms | **3,67 ms** (−24 %) |
+| GPU por cuadro, p95 | 7,74 ms | **4,80 ms** (−38 %) |
+| Cámara cercana | 7,01 ms | 4,14 ms |
+| Draw calls / triángulos (cámara media) | 4 / 315 k | 4 / 315 k |
+| Descarga | sin cambios (texturas generadas) | igual |
+| Memoria GPU extra | — | ~1,4 MB (mapa de detalle corregido, con mipmaps) |
+| FPS reales | no válido en esta sesión (pestaña oculta durante la prueba) | ídem |
+
+En la prueba anterior A y C ya daban 59,9 FPS (topeados a 60 Hz) con un costo de GPU mayor que el corregido.
+
+Capturas (misma cámara): `capturas/diag-roca-{A-colores-base,B-variacion-color,D-actual,corregido}.jpg` y `capturas/material-cerca-{A,corregido}.jpg`.
 
 ## Pendiente (no medido o fuera de las fases 1 a 4)
 

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { BuiltMsg, UpdatedMsg, Vec3 } from "./worker";
 import { baseMaterial, seaPlaneMaterial, styleUniforms, stylizedMaterial, type GridUniforms, type MaterialVariant } from "./shaders";
 import { detailTexture, noiseTexture } from "./materials";
+import { detailTextureCorrected } from "./detail-corrected";
 import { ChunkedTerrain, STEPS, type LodStats } from "./lod";
 
 export interface Level {
@@ -52,6 +53,8 @@ export interface Terrain {
   setLodTarget(px: number): void;
   /** Prueba de materiales A/B/C (solo afecta al estilo Interpretación). */
   setVariant(v: MaterialVariant): void;
+  /** Uniforms del estilo (diagnóstico por capas). */
+  styleUniforms: ReturnType<typeof styleUniforms>;
   update(k: number): Promise<{ lightMs: number }>;
   dispose(): void;
 }
@@ -104,6 +107,7 @@ export class TerrainLoader {
     const light = dataTex(b.light, b.mesh.width, b.mesh.height);
     const tex = { surface, light };
     detailTexture().anisotropy = maxAniso; // antes 8 fijo
+    detailTextureCorrected().anisotropy = maxAniso;
     noiseTexture().anisotropy = maxAniso;
     let variant: MaterialVariant = "a";
     const meshCell = level.cellSizeM * MESH_STRIDE;
@@ -122,7 +126,7 @@ export class TerrainLoader {
       geometry.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3));
       geometry.setAttribute("surfUv", new THREE.BufferAttribute(b.uvs, 2));
       geometry.computeBoundingSphere();
-      const styl = { a: stylizedMaterial(su, { variant: "a" }), b: stylizedMaterial(su, { variant: "b" }), c: stylizedMaterial(su, { variant: "c" }) };
+      const styl = { a: stylizedMaterial(su, { variant: "a" }), b: stylizedMaterial(su, { variant: "b" }), c: stylizedMaterial(su, { variant: "c" }), n: stylizedMaterial(su, { variant: "n" }) };
       const pick = (s: Style) => (s === "base" ? baseMat : styl[variant]);
       const baseMat = baseMaterial(tex);
       const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(geometry, pick(style));
@@ -136,6 +140,7 @@ export class TerrainLoader {
         beforeRender: () => {},
         setStyle: (s) => ((style_ = s), (mesh.material = pick(s))),
         setVariant: (v) => ((variant = v), (mesh.material = pick(style_))),
+        styleUniforms: su,
         setDetail: (on) => (su.uDetailOn.value = on ? 1 : 0),
         setLodTarget: () => {},
         update: async (kk) => {
@@ -177,7 +182,7 @@ export class TerrainLoader {
     const skirts = STEPS.map((s) => ({ value: (s * meshCell * 1.5 + 5) * k }));
     const lodStyl = (vr: MaterialVariant) => STEPS.map((_, i) => stylizedMaterial(su, { grid, skirt: skirts[i], far: i >= 2, seaByPlane: true, variant: vr }));
     const baseMats = STEPS.map((_, i) => baseMaterial(tex, { grid, skirt: skirts[i] }));
-    const stylMats = { a: lodStyl("a"), b: lodStyl("b"), c: lodStyl("c") };
+    const stylMats = { a: lodStyl("a"), b: lodStyl("b"), c: lodStyl("c"), n: lodStyl("n") };
     const lodPick = (s: Style) => (s === "base" ? baseMats : stylMats[variant]);
     const chunked = new ChunkedTerrain(b.meshHeights, b.meshLand, b.mesh.width, b.mesh.height, meshCell, lodPick(style), k);
     chunked.skipSea = style === "estilizado";
@@ -193,6 +198,7 @@ export class TerrainLoader {
       beforeRender: (camera, h) => chunked.update(camera, h),
       setDetail: (on) => (su.uDetailOn.value = on ? 1 : 0),
       setLodTarget: (px) => (chunked.targetPx = px),
+      styleUniforms: su,
       setVariant: (v) => {
         variant = v;
         chunked.setMaterials(lodPick(style_));
@@ -218,7 +224,7 @@ export class TerrainLoader {
       },
       dispose: () => {
         chunked.dispose();
-        [...baseMats, ...stylMats.a, ...stylMats.b, ...stylMats.c, seaMat].forEach((m) => m.dispose());
+        [...baseMats, ...stylMats.a, ...stylMats.b, ...stylMats.c, ...stylMats.n, seaMat].forEach((m) => m.dispose());
         surface.dispose();
         light.dispose();
         heightTex.dispose();

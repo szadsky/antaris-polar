@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { detailTexture, lin, noiseTexture, type SharedTextures } from "./materials";
+import { detailTextureCorrected } from "./detail-corrected";
 
 /**
  * Materiales del terreno. Dos estilos sobre las mismas texturas calculadas:
@@ -99,7 +100,12 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     uNoise: { value: noiseTexture() },
     // Fase 3A: detalle de cerca (normales generadas; interpretación). 1 = activo.
     uDetail: { value: detailTexture() },
+    uDetailN: { value: detailTextureCorrected() },
     uDetailOn: { value: 1 },
+    // Capas de diagnóstico (no cambian nada con los valores por defecto):
+    // uColorVar = variación de color (cavidades, manchas, vetas); uDetailGain = intensidad del detalle.
+    uColorVar: { value: 1 },
+    uDetailGain: { value: 1 },
     uDetailFade: { value: new THREE.Vector2(500, 2200) },
     uHalf: { value: new THREE.Vector2(...p.halfSize) },
     uSeaY: { value: p.seaY },
@@ -120,8 +126,8 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
 export type StyleUniforms = ReturnType<typeof styleUniforms>;
 
 const STYLE_FRAG_PARS = `
-uniform sampler2D uSurface, uLight, uNoise, uDetail;
-uniform float uDetailOn;
+uniform sampler2D uSurface, uLight, uNoise, uDetail, uDetailN;
+uniform float uDetailOn, uColorVar, uDetailGain;
 uniform vec2 uDetailFade;
 uniform vec3 uSnow, uSnowShade, uRockA, uRockB, uIce, uSeaDeep, uSeaShallow, uFoam;
 uniform float uSeaY, uEdgeHaze;
@@ -181,8 +187,8 @@ float steep = 1.0 - n.y;
 float cav = surf.b;
 float shore = lgt.g;
 gSun = lgt.r;
-#if defined(MAT_B) || defined(MAT_C)
-// B/C: una sola lectura cenital de baja frecuencia (mosaico de 1900 m):
+#if defined(MAT_B) || defined(MAT_C) || defined(MAT_N)
+// B/C/N: una sola lectura cenital de baja frecuencia (mosaico de 1900 m):
 // R = manchas suaves (~240 m), G = vetas fbm (~30–120 m).
 vec2 mac = texture2D(uNoise, vWorld.xz * (1.0 / 1900.0)).rg;
 float big = mac.r;
@@ -196,14 +202,25 @@ float fine = 0.5; // lejos las vetas no se distinguen: 3 lecturas menos
 float fine = triNoise(vWorld, n, 1.0 / 70.0).g;
 #endif
 #endif
-float rockT = smoothstep(0.30, 0.34, steep + (big - 0.5) * 0.16 + (fine - 0.5) * 0.05);
-vec3 rock = mix(uRockA, uRockB, smoothstep(0.35, 0.75, fine * 0.6 + big * 0.4));
-rock *= 0.75 + 0.25 * cav;
-vec3 snow = mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav));
-#if defined(MAT_B) || defined(MAT_C)
+#ifdef MAT_N
+// Corregido: borde roca/nieve irregular solo con baja frecuencia (sin moteado).
+float rockT = smoothstep(0.29, 0.35, steep + (big - 0.5) * 0.12 * uColorVar);
+#else
+float rockT = smoothstep(0.30, 0.34, steep + ((big - 0.5) * 0.16 + (fine - 0.5) * 0.05) * uColorVar);
+#endif
+#ifdef MAT_N
+// Corregido: tono de roca solo por baja frecuencia; cavidades suaves (15 %, antes 25 %).
+vec3 rock = mix(uRockA, uRockB, mix(0.5, smoothstep(0.3, 0.7, big), uColorVar));
+rock *= mix(1.0, 0.85 + 0.15 * cav, uColorVar);
+#else
+vec3 rock = mix(uRockA, uRockB, mix(0.5, smoothstep(0.35, 0.75, fine * 0.6 + big * 0.4), uColorVar));
+rock *= mix(1.0, 0.75 + 0.25 * cav, uColorVar);
+#endif
+vec3 snow = mix(uSnow, mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav)), uColorVar);
+#if defined(MAT_B) || defined(MAT_C) || defined(MAT_N)
 // Variación de baja frecuencia: nieve venteada algo más fría/gris en zonas amplias; roca más o menos clara.
-snow *= mix(vec3(1.0), vec3(0.9, 0.94, 0.99), smoothstep(0.45, 0.8, big));
-rock *= mix(0.86, 1.12, big);
+snow *= mix(vec3(1.0), vec3(0.9, 0.94, 0.99), smoothstep(0.45, 0.8, big) * uColorVar);
+rock *= mix(1.0, mix(0.86, 1.12, big), uColorVar);
 #endif
 // Hielo (interpretación): paredes empinadas junto a la costa y cerca del nivel del mar.
 float lowAlt = 1.0 - smoothstep(25.0, 60.0, vWorld.y - uSeaY);
@@ -212,30 +229,44 @@ vec3 land = mix(mix(snow, rock, rockT), uIce * (0.8 + 0.2 * fine), iceT);
 float foam;
 vec3 sea = seaColor(shore, fine, foam);
 diffuseColor.rgb = mix(land, sea, isSea);
+#ifdef MAT_N
+gRough = mix(mix(mix(0.92, 0.95, rockT), 0.3, iceT), mix(0.16, 0.7, foam), isSea); // nieve mate
+#else
 gRough = mix(mix(mix(0.82, 0.95, rockT), 0.28, iceT), mix(0.16, 0.7, foam), isSea);
+#endif
 vec3 nd = n;
 #ifndef FAR
 // Detalle de cerca (triplanar, 3 lecturas): grietas en roca, ondas de viento en nieve.
 // Se desvanece entre 500 y 2200 m; casi nulo en hielo; nada en el agua.
-float dAmt = uDetailOn * (1.0 - smoothstep(uDetailFade.x, uDetailFade.y, length(cameraPosition - vWorld))) * (1.0 - isSea);
+float dAmt = uDetailOn * uDetailGain * (1.0 - smoothstep(uDetailFade.x, uDetailFade.y, length(cameraPosition - vWorld))) * (1.0 - isSea);
 if (dAmt > 0.001) {
-#if defined(MAT_B) || defined(MAT_C)
-  // B/C: una sola proyección, la del eje dominante de la normal (sin triplanar completo).
+#if defined(MAT_B) || defined(MAT_C) || defined(MAT_N)
+  // B/C/N: una sola proyección, la del eje dominante de la normal (sin triplanar completo).
   vec3 an = abs(n);
   vec2 puv;
   int ax;
   if (an.y >= an.x && an.y >= an.z) { puv = vWorld.xz; ax = 1; }
   else if (an.x >= an.z) { puv = vWorld.zy; ax = 0; }
   else { puv = vWorld.xy; ax = 2; }
+#ifdef MAT_N
+  puv *= 1.0 / 60.0; // mosaico de 60 m: roca con formas de 8–15 m; nieve con grano de ~1–2 m
+  vec4 dd = texture2D(uDetailN, puv) * 2.0 - 1.0; // 1 lectura
+#else
   puv *= 1.0 / 97.0; // mosaico de 97 m: no es múltiplo de las otras escalas
-#ifdef MAT_C
+#endif
+#if defined(MAT_N)
+#elif defined(MAT_C)
   vec4 dd = aperiodicDetail(uDetail, puv, fine); // 2 lecturas
 #else
   vec4 dd = texture2D(uDetail, puv) * 2.0 - 1.0; // 1 lectura
 #endif
   vec2 d2 = mix(dd.zw, dd.xy, rockT);
   vec3 pert = ax == 1 ? vec3(d2.x, 0.0, d2.y) : ax == 0 ? vec3(0.0, d2.y, d2.x) : vec3(d2.x, d2.y, 0.0);
+#ifdef MAT_N
+  float str = mix(0.06, 0.75, rockT) * (1.0 - iceT * 0.85) * dAmt; // nieve casi lisa; roca moderada
+#else
   float str = mix(0.2, 1.7, rockT) * (1.0 - iceT * 0.85) * dAmt;
+#endif
   nd = normalize(n + pert * str);
 #else
   vec3 w3 = pow(abs(n), vec3(4.0)); w3 /= (w3.x + w3.y + w3.z);
@@ -274,7 +305,7 @@ export interface StyleVariant extends VertexPath {
   /** Prueba de materiales: a = actual, b = básico optimizado, c = b + muestreo aperiódico. */
   variant?: MaterialVariant;
 }
-export type MaterialVariant = "a" | "b" | "c";
+export type MaterialVariant = "a" | "b" | "c" | "n";
 
 export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0 });
@@ -283,6 +314,7 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
   if (v.seaByPlane) defines.SEA_BY_PLANE = "";
   if (v.variant === "b") defines.MAT_B = "";
   if (v.variant === "c") defines.MAT_C = "";
+  if (v.variant === "n") defines.MAT_N = "";
   (m as unknown as { defines: Record<string, string> }).defines = defines;
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, u);
