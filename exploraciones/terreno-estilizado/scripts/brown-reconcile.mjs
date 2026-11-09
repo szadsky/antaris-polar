@@ -27,12 +27,18 @@ export function reconcile({bytes,level,meta,nx,ny,cx,cy,step,stride,vertexLand,l
         }
     }
   }
+  // Estimate the local REMA ocean fill away from the uncertain ADD strip.
+  const samples=[];
+  for(let i=0;i<z.length;i+=17) if(!vertexLand[i] && !near[i] && Number.isFinite(z[i])) samples.push(z[i]);
+  samples.sort((a,b)=>a-b);
+  const fill=samples.length>=32 ? samples[samples.length>>1] : -Infinity;
+  const cutoff=Math.max(-0.5,fill+meta.heights.stepM);
   const seen=new Uint8Array(z.length),queue=new Int32Array(z.length);
   let head=0,tail=0;
   function visit(i){
     // Half a metre below mean sea level covers quantisation and the existing
     // display dequantisation. The independent ocean covers that submerged edge.
-    if(!seen[i] && near[i] && z[i]>-0.5){seen[i]=1;queue[tail++]=i;}
+    if(!seen[i] && near[i] && z[i]>cutoff){seen[i]=1;queue[tail++]=i;}
   }
   for(let i=0;i<z.length;i++) if(vertexLand[i])visit(i);
   while(head<tail){
@@ -45,10 +51,10 @@ export function reconcile({bytes,level,meta,nx,ny,cx,cy,step,stride,vertexLand,l
     candidate(x,y){const i=y*w+x;return seen[i]||seen[i+1]||seen[i+w]||seen[i+w+1];},
     footprint(tri){
       const ids=tri.map(([x,y])=>y*w+x);
-      if(!ids.some(i=>seen[i]) || ids.some(i=>!Number.isFinite(z[i]) || (z[i]>-0.5 && !seen[i])))return null;
+      if(!ids.some(i=>seen[i]) || ids.some(i=>!Number.isFinite(z[i]) || (z[i]>cutoff && !seen[i])))return null;
       const ring=[];
       for(let j=0;j<3;j++){
-        const k=(j+2)%3,a=z[ids[k]]+0.5,b=z[ids[j]]+0.5;
+        const k=(j+2)%3,a=z[ids[k]]-cutoff,b=z[ids[j]]-cutoff;
         if((a>0)!==(b>0)){
           const t=a/(a-b);
           ring.push(tri[k].map((v,n)=>v+(tri[j][n]-v)*t));

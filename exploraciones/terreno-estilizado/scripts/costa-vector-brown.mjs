@@ -7,10 +7,12 @@ import clip from "polygon-clipping";
 import earcut from "earcut";
 import { rasterizeLand } from "../../terreno-nitidez/scripts/coastline.mjs";
 
-const dir = new URL("../../terreno-nitidez/public/terreno/brown/", import.meta.url);
+const id=process.argv[2] ?? "brown";
+if(!/^[a-z0-9-]+$/.test(id)) throw Error("Base inválida");
+const dir = new URL(`../../terreno-nitidez/public/terreno/${id}/`, import.meta.url);
 const meta = JSON.parse(await fs.readFile(new URL("terreno.json", dir)));
-const {features} = JSON.parse(await fs.readFile(new URL("../../../data/costa/brown.json", import.meta.url)));
-const lines=JSON.parse(await fs.readFile(new URL("../../../data/costa/brown-lines.json",import.meta.url)));
+const {features} = JSON.parse(await fs.readFile(new URL(`../../../data/costa/${id==="carlini"?"add-v7.12-potter-cove":id}.json`, import.meta.url)));
+const lines=JSON.parse(await fs.readFile(new URL(`../../../data/costa/${id}-lines.json`,import.meta.url)));
 if(lines.spatialReference.wkid!==3031 || lines.exceededTransferLimit)throw Error("Referencia de líneas inválida");
 const stride = 2, tile = 32;
 for (const level of meta.levels) {

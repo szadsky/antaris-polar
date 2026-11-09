@@ -46,7 +46,7 @@ export function guessDevice(): DeviceGuess {
   // Celular = sin ningún puntero fino (mouse/trackpad) o pantalla chica. Una laptop táctil con
   // trackpad cuenta como escritorio (antes "pointer: coarse" la confundía con un celular).
   // Se usa la pantalla física (no la ventana, que puede estar chica al cargar).
-  const mobile = !matchMedia("(any-pointer: fine)").matches || Math.min(screen.width, screen.height) < 500;
+  const mobile = !matchMedia("(any-pointer: fine)").matches || Math.min(screen.width, screen.height) < 500 || matchMedia("(max-width: 600px)").matches;
   const nav = navigator as Navigator & { deviceMemory?: number };
   const cores = nav.hardwareConcurrency ?? 8;
   const mem = nav.deviceMemory ?? 8;

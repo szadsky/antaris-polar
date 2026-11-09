@@ -256,6 +256,7 @@ async function main() {
     if (pin) { pin.group.visible = !hidden; pinEl.hidden = hidden; }
     requestRender();
   };
+  if (device.mobile && !params.has("ui")) setUiHidden(true);
   uiToggleEl.addEventListener("click", () => setUiHidden(!document.body.classList.contains("no-ui")));
   addEventListener("keydown", (e) => {
     if ((e.target as HTMLElement).closest("select")) return;

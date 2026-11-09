@@ -90,7 +90,7 @@ export class TerrainLoader {
       if (r.ok) return { sdf: await r.arrayBuffer(), mask: null };
       return { sdf: null, mask: level.maskFile ? await get(`${dir}/${level.maskFile}`) : null };
     };
-    const [bin, { sdf, mask }, vector] = await Promise.all([get(`${dir}/${level.file}`), coast(), meta.id === "brown" ? get(`${dir}/malla-${level.name}-${geo}.bin.gz`) : null]);
+    const [bin, { sdf, mask }, vector] = await Promise.all([get(`${dir}/${level.file}`), coast(), get(`${dir}/malla-${level.name}-${geo}.bin.gz`)]);
     const fetchMs = performance.now() - t0;
     const key = `${dir}/${level.file}`;
     const b = await this.call<BuiltMsg>(
