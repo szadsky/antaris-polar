@@ -165,7 +165,3 @@ Las **skills de Claude Code** son procedimientos para el asistente durante el de
 
 **Objetivo final:** convertir Antaris Polar en un prototipo educativo competitivo, abierto, documentado, escalable, científicamente riguroso y visualmente extraordinario, sin sacrificar facilidad de navegación ni funcionamiento real.
 
-
----
-
-Reglas del framework (Next.js 16): @AGENTS.md

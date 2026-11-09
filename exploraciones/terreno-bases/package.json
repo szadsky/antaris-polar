@@ -1,8 +1,8 @@
 {
-  "name": "antaris-terreno-3d",
+  "name": "antaris-exploracion-terreno-bases",
   "version": "0.1.0",
   "private": true,
-  "description": "Prototipo aislado: terreno antártico navegable a partir de un recorte REMA verificado.",
+  "description": "Exploración aislada (prueba): mapa de bases antárticas argentinas y terrenos REMA 3D navegables. No es el sitio.",
   "type": "module",
   "scripts": {
     "convert": "node scripts/convert-rema.mjs",

@@ -1,34 +1,39 @@
-# Antaris Polar
+# Antaris Polar · exploraciones
 
-Plataforma web educativa e inmersiva sobre ciencia antártica. Prototipo para **SoberaníaTech 2026**, Eje 02: Antártida, Ciencia y Conocimiento Abierto.
+Plataforma web educativa sobre ciencia antártica para **SoberaníaTech 2026** (Eje 02: Antártida, Ciencia y Conocimiento Abierto).
 
-> Estado: prototipo temprano. Los contenidos marcados como **borrador** no están verificados.
+> **El sitio todavía no está implementado.** Este repositorio reúne **exploraciones aisladas**: pruebas de secciones, técnicas y datos que después pueden integrarse (o descartarse). Cada exploración se corre sola y no depende de las demás.
 
-## Cómo correrlo
+## Exploraciones
 
-Requiere Node 20 o superior.
+| Exploración | Qué prueba | Estado | Fecha |
+|---|---|---|---|
+| [terreno-bases](exploraciones/terreno-bases/) | Mapa de las 13 bases antárticas argentinas y terreno 3D navegable de cada una con relieve real REMA 2 m, mar según la costa SCAR ADD | Prueba funcional | 2026-11-08 |
+
+Para correr una exploración:
 
 ```bash
+cd exploraciones/<nombre>
 npm install
 npm run dev
 ```
 
-Abrí http://localhost:3000.
-
 ## Estructura
 
-| Ruta | Qué es |
-|---|---|
-| `src/app/page.tsx` | Home: escena de exploración y lista accesible de puntos |
-| `src/app/descubrir/page.tsx` | Índice de descubrimientos (acceso sin 3D) |
-| `src/app/descubrir/[slug]/page.tsx` | Página educativa: objetivo, explicación, evidencia y fuentes |
-| `src/content/` | Contenido editorial tipado (`types.ts`) y datos (`descubrimientos.ts`) |
-| `src/components/` | Componentes de interfaz reutilizables |
+```
+exploraciones/<nombre>/   cada prueba, autocontenida (su package.json y su README)
+pipeline/                 obtención y verificación de datos, compartida entre exploraciones
+data/                     metadatos, controles y datos livianos (los rasters crudos no se versionan)
+CLAUDE.md                 contexto y reglas del proyecto
+```
 
-## Rigor del contenido
+## Datos y licencias
 
-Cada afirmación declara su tipo de evidencia (observación, modelo, simulación, hipótesis, conclusión o reconstrucción artística) y las fuentes que la sostienen. Un descubrimiento solo pasa a `verificado` cuando sus fuentes fueron revisadas (URL, acceso, licencia, escala y fecha).
+| Fuente | Uso | Licencia |
+|---|---|---|
+| REMA v2.0 (Polar Geospatial Center) | Relieve | CC BY 4.0 |
+| SCAR Antarctic Digital Database v7.12 | Costa | CC BY 4.0 (confirmar para v7.12) |
+| COMNAP Antarctic Facilities (nov 2024) | Ubicación de bases | Solo uso educativo y no comercial; citar "COMNAP 2024" |
+| GeographicLib GeoidEval (EGM2008/EGM96) | Alturas sobre el nivel del mar | Servicio público de cálculo |
 
-## Stack
-
-Next.js 16 (App Router) · React 19 · TypeScript · CSS Modules.
+Los GeoTIFF REMA crudos (~100 MB) no se versionan: se regeneran con `pipeline/rema` y se verifican con el sha256 guardado en `data/rema/<base>_2m.json`.

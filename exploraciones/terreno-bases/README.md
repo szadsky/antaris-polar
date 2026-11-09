@@ -1,14 +1,19 @@
-# Terreno 3D · caleta Potter (prototipo aislado)
+# Exploración · terreno de las bases argentinas
 
-Visor navegable del relieve real de caleta Potter (isla 25 de Mayo) a partir de REMA, con el mar delimitado por la costa oficial del SCAR ADD. Se integra al sitio más adelante.
+> **Prueba aislada, no es el sitio.** Explora si se puede ubicar las bases antárticas argentinas en un mapa y entrar a un terreno 3D navegable con relieve real de cada una, con peso y rendimiento razonables para web.
+
+Dos vistas:
+- `bases.html`: mapa de la Antártida con las 13 bases (COMNAP) sobre la costa SCAR ADD.
+- `index.html?base=<id>`: terreno 3D de 8×8 km alrededor de la base, relieve REMA 2 m y mar según la costa ADD.
 
 ## Correrlo
 
 ```bash
 npm install
-npm run convert   # GeoTIFF REMA + costa ADD → public/terrain/
-npm run dev       # http://localhost:3200  (?res=512 o ?res=1024 fuerza un nivel)
+npm run dev       # http://localhost:3200/bases.html  ·  terreno: /?base=carlini  (?res=512 o ?res=1024 fuerza un nivel)
 ```
+
+Los terrenos y el mapa ya procesados están en `public/`, así que no hace falta correr el pipeline. Para regenerarlos: `npm run build:map` y `npm run convert -- --all` (ver más abajo).
 
 `convert` toma el DEM de mayor resolución en `../../data/rema/` y la costa en `../../data/costa/`.
 
@@ -76,7 +81,7 @@ npm run build:map   # CSV COMNAP + costa ADD → public/map/ (--refresh vuelve a
 
 ```bash
 cd ../../pipeline/rema && node fetch-bases.mjs     # REMA 2 m (8×8 km centrados en cada base) + geoide + costa ADD
-cd ../../prototipos/terreno-3d && npm run convert -- --all
+cd ../../exploraciones/terreno-bases && npm run convert -- --all
 ```
 
 - Las 13 tienen 0 % sin dato. Belgrano II no tiene mar en su recuadro (está tierra adentro).

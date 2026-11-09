@@ -35,7 +35,7 @@ const HALF_M = 4000;
 const ADD_HIGH =
   'https://services7.arcgis.com/tPxy1hrFDhJfZ0Mf/arcgis/rest/services/High_resolution_vector_polygons_of_the_Antarctic_coastline/FeatureServer/1';
 
-const { bases } = JSON.parse(readFileSync(join(root, 'prototipos', 'terreno-3d', 'public', 'map', 'antartida.json'), 'utf8'));
+const { bases } = JSON.parse(readFileSync(join(root, 'exploraciones', 'terreno-bases', 'public', 'map', 'antartida.json'), 'utf8'));
 const todo = bases.filter((b) => b.id !== 'carlini' && (!only || only.includes(b.id)));
 const summary = [];
 
