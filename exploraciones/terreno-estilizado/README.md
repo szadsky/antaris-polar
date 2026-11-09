@@ -398,6 +398,17 @@ Pedido: volver a una iluminación realista como la del commit anterior y darle m
 - **Textura de nieve** (`capturas/nieve-textura-legible.jpg`): Snow007A a 2 m por mosaico no se veía desde 200 m o más, porque quedaba por debajo de un píxel. Ahora va a 8 m por mosaico con intensidad 0,6 y se lee como grano de viento, sin volver a las lomitas. La escala es artística: la fuente no publica el tamaño real.
 - Vista final con las 6 cámaras de prueba: `capturas/terreno-final-luz-commit.jpg`.
 
+### Día despejado e interfaz ocultable
+
+- **Luz nublada → día despejado** (`capturas/luz-niebla-distancia.jpg`, `luz-dia-despejado.jpg`):
+  - La niebla no era la causa: empieza a 4,4 km y alejarla casi no cambió la imagen.
+  - El aspecto de cielo cubierto venía del balance: mucho relleno de cielo (1,05) respecto del sol (2,6).
+  - Ahora: sol #fff3e0 a 3,3, relleno #b3d3f0 a 0,75, y cielo de fondo, niebla y reflejo del agua #a6c8e6. Mismo modelo de luz realista, sin bandas ni postprocesado.
+- **Ocultar la interfaz** (`capturas/interfaz-oculta.jpg`):
+  - Botón "Ocultar interfaz" arriba a la derecha, o tecla **H**. Oculta el panel, las métricas y el marcador de la base, y deja solo el botón ("Mostrar interfaz"), semitransparente.
+  - Es accesible: botón con `aria-pressed`, `aria-keyshortcuts`, foco visible y 44 px de alto para uso táctil.
+  - Con `?ui=0` (modo captura) tampoco se muestra el botón.
+
 ### Medido (Brown, Chrome, GPU integrada AMD Radeon, lienzo 1243×797 dpr 1,25)
 
 | | Commit aprobado | Ahora |

@@ -38,7 +38,7 @@ async function main() {
   if (typeof DecompressionStream === "undefined") return showStatus("Este navegador es demasiado antiguo para descomprimir el terreno.");
 
   const params = new URLSearchParams(location.search);
-  if (params.get("ui") === "0") document.body.classList.add("no-ui");
+  if (params.get("ui") === "0") document.body.classList.add("no-ui", "captura");
   const index: { bases: { id: string; nombre: string }[] } = await (await fetch("/terreno/index.json")).json();
   const baseId = (params.get("base") ?? "brown").replace(/[^a-z0-9-]/g, "");
   for (const b of index.bases) baseEl.add(new Option(b.nombre.replace(/^Base (Antártica )?/, ""), b.id, false, b.id === baseId));
@@ -104,14 +104,15 @@ async function main() {
     },
     estilizado: () => {
       // Cielo frío y luminoso; rebote de nieve como luz de suelo (evita roca negra).
-      scene.background = new THREE.Color("#b9cddb");
-      scene.fog = new THREE.Fog("#b9cddb", size * 0.55, size * 2.5);
-      // Luz realista del commit 005af20 (se probó una luz más fría y luego en bandas; se volvió a esta).
-      hemi.color.set("#cfe0ee");
+      // Día despejado: la luz del commit 005af20 se veía nublada (mucho relleno de cielo respecto del sol).
+      // Cielo más azul y sol más fuerte con menos relleno: más contraste, sin cambiar el modelo de luz.
+      scene.background = new THREE.Color("#a6c8e6"); // antes #b9cddb
+      scene.fog = new THREE.Fog("#a6c8e6", size * 0.55, size * 2.5);
+      hemi.color.set("#b3d3f0"); // antes #cfe0ee
       hemi.groundColor.set("#8796a0");
-      hemi.intensity = 1.05;
-      sun.color.set("#fff0d8");
-      sun.intensity = 2.6;
+      hemi.intensity = 0.75; // antes 1,05
+      sun.color.set("#fff3e0"); // antes #fff0d8
+      sun.intensity = 3.3; // antes 2,6
       sun.position.set(SUN[0], SUN[1], SUN[2]).multiplyScalar(size);
       renderer.toneMapping = THREE.NeutralToneMapping; // no "quema" la nieve como ACES
       renderer.toneMappingExposure = 0.95;
@@ -246,8 +247,20 @@ async function main() {
     }
   });
   qualityNoteEl.textContent = `Calidad ${initialTier}${forcedTier ? "" : " (automática)"}: ${forcedTier ? "forzada por URL" : device.reason}. Mide con ${quality.source === "gpu" ? "temporizador de GPU" : "intervalo entre cuadros"}.`;
+  // Ocultar / mostrar la interfaz para ver mejor el terreno (botón o tecla H). El botón queda visible.
+  const uiToggleEl = document.getElementById("ui-toggle") as HTMLButtonElement;
+  const setUiHidden = (hidden: boolean) => {
+    document.body.classList.toggle("no-ui", hidden);
+    uiToggleEl.textContent = hidden ? "Mostrar interfaz" : "Ocultar interfaz";
+    uiToggleEl.title = (hidden ? "Mostrar" : "Ocultar") + " la interfaz (tecla H)";
+    uiToggleEl.setAttribute("aria-pressed", String(hidden));
+    if (pin) { pin.group.visible = !hidden; pinEl.hidden = hidden; }
+    requestRender();
+  };
+  uiToggleEl.addEventListener("click", () => setUiHidden(!document.body.classList.contains("no-ui")));
   addEventListener("keydown", (e) => {
     if ((e.target as HTMLElement).closest("select")) return;
+    if (e.key.toLowerCase() === "h" && !document.body.classList.contains("captura")) setUiHidden(!document.body.classList.contains("no-ui"));
     if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
     if (e.key.toLowerCase() === "d") setDetail(!detail);
     if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : variant === "c" ? "n" : "a");
@@ -302,7 +315,7 @@ async function main() {
       pin.setExaggeration(exaggeration);
       scene.add(pin.group);
       pinEl.textContent = meta.base.nombre.replace(/^Base (Antártica )?/, "Base ");
-      pinEl.hidden = params.get("ui") === "0";
+      pinEl.hidden = document.body.classList.contains("no-ui");
     }
     sourceEl.textContent = describeSource(meta, t);
     requestRender();

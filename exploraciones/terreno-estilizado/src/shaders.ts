@@ -155,7 +155,7 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     // Agua (estilizada, sin simulación): x = pendiente de las ondas · y = reflejo del cielo (Fresnel)
     // · z = velocidad de las ondas (0 = quietas) · w = rugosidad del agua.
     uSeaLook: { value: new THREE.Vector4(0.05, 0.3, 0.5, 0.22) },
-    uSky: { value: lin("#b9cddb") },
+    uSky: { value: lin("#a6c8e6") }, // mismo cielo que el fondo
     uTime: { value: 0 },
     uFoam: { value: lin("#dfeef3") },
   };
