@@ -1,0 +1,123 @@
+{
+  "generado": "2026-11-09T03:11:54.002Z",
+  "stepM": 0.5,
+  "bases": [
+    {
+      "id": "belgrano-ii",
+      "nombre": "Base Antártica Belgrano II",
+      "permanente": true,
+      "kb": [
+        536,
+        185
+      ]
+    },
+    {
+      "id": "carlini",
+      "nombre": "Base Antártica Carlini",
+      "permanente": true,
+      "kb": [
+        699,
+        228
+      ]
+    },
+    {
+      "id": "esperanza",
+      "nombre": "Base Antártica Esperanza",
+      "permanente": true,
+      "kb": [
+        584,
+        194
+      ]
+    },
+    {
+      "id": "marambio",
+      "nombre": "Base Antártica Marambio",
+      "permanente": true,
+      "kb": [
+        503,
+        182
+      ]
+    },
+    {
+      "id": "petrel",
+      "nombre": "Base Antártica Petrel",
+      "permanente": true,
+      "kb": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "san-martin",
+      "nombre": "Base Antártica San Martín",
+      "permanente": true,
+      "kb": [
+        467,
+        157
+      ]
+    },
+    {
+      "id": "orcadas",
+      "nombre": "Base Orcadas",
+      "permanente": true,
+      "kb": [
+        671,
+        224
+      ]
+    },
+    {
+      "id": "brown",
+      "nombre": "Base Antártica Brown",
+      "permanente": false,
+      "kb": [
+        860,
+        296
+      ]
+    },
+    {
+      "id": "camara",
+      "nombre": "Base Antártica Cámara",
+      "permanente": false,
+      "kb": [
+        283,
+        100
+      ]
+    },
+    {
+      "id": "decepcion",
+      "nombre": "Base Antártica Decepción",
+      "permanente": false,
+      "kb": [
+        540,
+        189
+      ]
+    },
+    {
+      "id": "matienzo",
+      "nombre": "Base Antártica Matienzo",
+      "permanente": false,
+      "kb": [
+        153,
+        56
+      ]
+    },
+    {
+      "id": "melchior",
+      "nombre": "Base Antártica Melchior",
+      "permanente": false,
+      "kb": [
+        375,
+        133
+      ]
+    },
+    {
+      "id": "primavera",
+      "nombre": "Base Antártica Primavera",
+      "permanente": false,
+      "kb": [
+        397,
+        137
+      ]
+    }
+  ]
+}

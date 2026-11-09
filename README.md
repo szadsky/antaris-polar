@@ -9,6 +9,7 @@ Plataforma web educativa sobre ciencia antártica para **SoberaníaTech 2026** (
 | Exploración | Qué prueba | Estado | Fecha |
 |---|---|---|---|
 | [terreno-bases](exploraciones/terreno-bases/) | Mapa de las 13 bases antárticas argentinas y terreno 3D navegable de cada una con relieve real REMA 2 m, mar según la costa SCAR ADD | Prueba funcional | 2026-11-08 |
+| [terreno-nitidez](exploraciones/terreno-nitidez/) | Terreno más nítido sin pesar más: alturas a 4 m con precisión de 0,5 m, luz y color por píxel, sombreado de cavidades. Botón Antes/Después | Prueba funcional | 2026-11-09 |
 
 Para correr una exploración:
 

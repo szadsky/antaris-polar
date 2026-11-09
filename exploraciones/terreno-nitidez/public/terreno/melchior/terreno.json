@@ -1,0 +1,60 @@
+{
+  "id": "melchior",
+  "base": {
+    "id": "melchior",
+    "nombre": "Base Antártica Melchior",
+    "permanente": false,
+    "lat": -64.325705,
+    "lon": -62.976329,
+    "projected": [
+      -2525759.44,
+      1288253.38
+    ]
+  },
+  "geoid": {
+    "egm2008": 18.7384,
+    "egm96": 17.2423
+  },
+  "origin": [
+    -2529760,
+    1292254
+  ],
+  "original": {
+    "width": 4000,
+    "height": 4000,
+    "resolutionM": 2
+  },
+  "heights": {
+    "minM": 17.1015625,
+    "maxM": 212.3359375,
+    "stepM": 0.5,
+    "encoding": "uint16 delta-planar-v1 + gzip; 0 = sin dato; h = minM + (q−1)·stepM",
+    "reference": "elipsoide WGS84"
+  },
+  "levels": [
+    {
+      "name": "4m",
+      "file": "relieve-4m.bin.gz",
+      "maskFile": "mar-4m.mask.gz",
+      "width": 2000,
+      "height": 2000,
+      "cellSizeM": 4,
+      "transferBytes": 383494
+    },
+    {
+      "name": "8m",
+      "file": "relieve-8m.bin.gz",
+      "maskFile": "mar-8m.mask.gz",
+      "width": 1000,
+      "height": 1000,
+      "cellSizeM": 8,
+      "transferBytes": 136520
+    }
+  ],
+  "fuentes": {
+    "relieve": "Reference Elevation Model of Antarctica (REMA) — Mosaics v2.0 (REMA v2.0 DEM mosaic, 2 m)",
+    "relieveCita": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+    "costa": "SCAR Antarctic Digital Database v7.12 (2025), polígonos alta resolución",
+    "base": "COMNAP Antarctic Facilities, nov 2024"
+  }
+}

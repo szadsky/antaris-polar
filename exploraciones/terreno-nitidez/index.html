@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Terreno nítido · Antaris Polar (exploración)</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="Terreno 3D. Arrastrá para mover, rueda o pellizco para acercar."></canvas>
+    <div id="status" class="status" role="status" aria-live="polite">Cargando terreno…</div>
+    <div id="pin" class="pin" hidden></div>
+
+    <aside class="hud" aria-label="Controles del terreno">
+      <p class="hud__eyebrow">Exploración · terreno más nítido sin pesar más</p>
+      <label class="hud__row">
+        Base
+        <select id="base"></select>
+      </label>
+      <div class="hud__row">
+        Sombreado
+        <div class="segmented" role="group" aria-label="Comparar sombreado">
+          <button type="button" id="mode-before" aria-pressed="false">Antes</button>
+          <button type="button" id="mode-after" aria-pressed="true">Después</button>
+        </div>
+      </div>
+      <label class="hud__row">
+        Exageración vertical
+        <select id="exaggeration">
+          <option value="1" selected>1× (real)</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </label>
+      <p id="mode-note" class="hud__note"></p>
+      <p id="source" class="hud__source"></p>
+      <p class="hud__help">Tecla <kbd>A</kbd>: alternar Antes/Después · Arrastrar: mover · Clic derecho o dos dedos: girar · Rueda: zoom</p>
+    </aside>
+
+    <section class="metrics" aria-label="Métricas de rendimiento">
+      <pre id="metrics"></pre>
+      <button id="copy-metrics" type="button">Copiar métricas</button>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

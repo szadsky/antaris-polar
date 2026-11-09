@@ -1,0 +1,21 @@
+{
+  "name": "antaris-exploracion-terreno-nitidez",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Exploración aislada (prueba): terreno REMA más nítido sin aumentar la descarga. Luz y color por píxel, sombreado de cavidades y detalle a 4 m. No es el sitio.",
+  "type": "module",
+  "scripts": {
+    "convert": "node scripts/convert.mjs",
+    "dev": "vite --port 3300",
+    "build": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "geotiff": "^2.1.3",
+    "three": "^0.181.2"
+  },
+  "devDependencies": {
+    "@types/three": "^0.181.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "carlini",
+  "base": {
+    "id": "carlini",
+    "nombre": "Base Antártica Carlini",
+    "permanente": true,
+    "lat": -62.2379,
+    "lon": -58.666842,
+    "projected": [
+      -2626084.1,
+      1598766.47
+    ]
+  },
+  "geoid": {
+    "egm2008": 21.7964,
+    "egm96": 21.9998
+  },
+  "origin": [
+    -2631000,
+    1603500
+  ],
+  "original": {
+    "width": 4000,
+    "height": 4000,
+    "resolutionM": 2
+  },
+  "heights": {
+    "minM": 21.921875,
+    "maxM": 397.7109375,
+    "stepM": 0.5,
+    "encoding": "uint16 delta-planar-v1 + gzip; 0 = sin dato; h = minM + (q−1)·stepM",
+    "reference": "elipsoide WGS84"
+  },
+  "levels": [
+    {
+      "name": "4m",
+      "file": "relieve-4m.bin.gz",
+      "maskFile": "mar-4m.mask.gz",
+      "width": 2000,
+      "height": 2000,
+      "cellSizeM": 4,
+      "transferBytes": 716236
+    },
+    {
+      "name": "8m",
+      "file": "relieve-8m.bin.gz",
+      "maskFile": "mar-8m.mask.gz",
+      "width": 1000,
+      "height": 1000,
+      "cellSizeM": 8,
+      "transferBytes": 233352
+    }
+  ],
+  "fuentes": {
+    "relieve": "Reference Elevation Model of Antarctica (REMA) — Mosaics v2.0 (REMA v2.0 DEM mosaic, 2 m)",
+    "relieveCita": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+    "costa": "SCAR Antarctic Digital Database v7.12 (2025), polígonos alta resolución",
+    "base": "COMNAP Antarctic Facilities, nov 2024"
+  }
+}

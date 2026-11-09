@@ -1,0 +1,60 @@
+{
+  "id": "matienzo",
+  "base": {
+    "id": "matienzo",
+    "nombre": "Base Antártica Matienzo",
+    "permanente": false,
+    "lat": -64.975865,
+    "lon": -60.070948,
+    "projected": [
+      -2393018.89,
+      1377661.96
+    ]
+  },
+  "geoid": {
+    "egm2008": 18.4664,
+    "egm96": 18.1266
+  },
+  "origin": [
+    -2397018,
+    1381662
+  ],
+  "original": {
+    "width": 4000,
+    "height": 4000,
+    "resolutionM": 2
+  },
+  "heights": {
+    "minM": 18.0078125,
+    "maxM": 164.3984375,
+    "stepM": 0.5,
+    "encoding": "uint16 delta-planar-v1 + gzip; 0 = sin dato; h = minM + (q−1)·stepM",
+    "reference": "elipsoide WGS84"
+  },
+  "levels": [
+    {
+      "name": "4m",
+      "file": "relieve-4m.bin.gz",
+      "maskFile": "mar-4m.mask.gz",
+      "width": 2000,
+      "height": 2000,
+      "cellSizeM": 4,
+      "transferBytes": 156875
+    },
+    {
+      "name": "8m",
+      "file": "relieve-8m.bin.gz",
+      "maskFile": "mar-8m.mask.gz",
+      "width": 1000,
+      "height": 1000,
+      "cellSizeM": 8,
+      "transferBytes": 57146
+    }
+  ],
+  "fuentes": {
+    "relieve": "Reference Elevation Model of Antarctica (REMA) — Mosaics v2.0 (REMA v2.0 DEM mosaic, 2 m)",
+    "relieveCita": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+    "costa": "SCAR Antarctic Digital Database v7.12 (2025), polígonos alta resolución",
+    "base": "COMNAP Antarctic Facilities, nov 2024"
+  }
+}
