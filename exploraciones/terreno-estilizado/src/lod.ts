@@ -18,7 +18,7 @@ export const STEPS = [1, 2, 4, 8]; // paso de cada nivel (celdas)
 /** Un bloque solo se considera "todo mar" si no hay tierra a menos de este margen (celdas):
  *  el agua costera la dibuja el terreno. 12 celdas × 8 m ≈ 96 m. */
 const COAST_MARGIN = 12;
-/** Tamaño máximo de una celda del nivel elegido en pantalla (px): más chico = más detalle. */
+/** Tamaño máximo por defecto de una celda del nivel elegido en pantalla (px): más chico = más detalle. */
 const TARGET_PX = 7;
 
 interface Chunk {
@@ -52,6 +52,8 @@ export class ChunkedTerrain {
   stats: LodStats = { visibles: 0, descartados: 0, porNivel: [0, 0, 0, 0], triangulos: 0 };
   /** Saltear bloques que son todo mar (cuando el agua la dibuja el plano). */
   skipSea = true;
+  /** Calidad adaptativa (fase 4): tamaño máximo de una celda en pantalla. */
+  targetPx = TARGET_PX;
 
   constructor(
     heights: Float32Array,
@@ -136,7 +138,7 @@ export class ChunkedTerrain {
       const d = Math.max(1, c.box.distanceToPoint(camera.position));
       const cellPx = (this.cell / d) * pxPerRad; // tamaño en pantalla de una celda de 8 m
       let li = 0;
-      while (li < STEPS.length - 1 && STEPS[li + 1] * cellPx <= TARGET_PX) li++;
+      while (li < STEPS.length - 1 && STEPS[li + 1] * cellPx <= this.targetPx) li++;
       const a = this.offsets[li];
       a.setXY(counts[li], c.col, c.row);
       counts[li]++;

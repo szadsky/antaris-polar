@@ -47,6 +47,8 @@ export interface Terrain {
   setStyle(s: Style): void;
   /** Fase 3A: activa/desactiva el detalle de cerca (interpretación). */
   setDetail(on: boolean): void;
+  /** Fase 4: densidad del LOD (px por celda en pantalla). Sin efecto en modo completa. */
+  setLodTarget(px: number): void;
   update(k: number): Promise<{ lightMs: number }>;
   dispose(): void;
 }
@@ -126,6 +128,7 @@ export class TerrainLoader {
         beforeRender: () => {},
         setStyle: (s) => ((style_ = s), (mesh.material = mats[s])),
         setDetail: (on) => (su.uDetailOn.value = on ? 1 : 0),
+        setLodTarget: () => {},
         update: async (kk) => {
           const r = await this.call<UpdatedMsg>("updated", { type: "update", key, exaggeration: kk, sun: this.sun });
           geometry.setAttribute("position", new THREE.BufferAttribute(r.positions, 3));
@@ -180,6 +183,7 @@ export class TerrainLoader {
       lodStats: () => chunked.stats,
       beforeRender: (camera, h) => chunked.update(camera, h),
       setDetail: (on) => (su.uDetailOn.value = on ? 1 : 0),
+      setLodTarget: (px) => (chunked.targetPx = px),
       setStyle: (s) => {
         style_ = s;
         chunked.setMaterials(mats[s]);

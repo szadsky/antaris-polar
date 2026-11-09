@@ -3,6 +3,7 @@ import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { MESH_STRIDE, TerrainLoader, type GeoMode, type Level, type Style, type Terrain, type TerrainMeta } from "./terrain";
 import { Metrics } from "./metrics";
 import { applyPose, runBench, type BenchCtx } from "./bench";
+import { AdaptiveQuality, TIERS, guessDevice, type Tier } from "./quality";
 import type { Vec3 } from "./worker";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -16,6 +17,8 @@ const styBtn = $<HTMLButtonElement>("style-sty");
 const noteEl = $("style-note");
 const sourceEl = $("source");
 const metricsEl = $("metrics");
+const qualityEl = $<HTMLSelectElement>("quality");
+const qualityNoteEl = $("quality-note");
 
 /** Sol de la interpretación: bajo (≈20°) y de costado respecto de la vista inicial. Fijo. */
 const SUN: Vec3 = normalize([-0.8, 0.36, 0.5]);
@@ -46,11 +49,15 @@ async function main() {
   if (!metaRes.ok) return showStatus(`No hay terreno procesado para "${baseId}".`);
   const meta: TerrainMeta = await metaRes.json();
   document.title = `${meta.base.nombre} · Terreno estilizado · Antaris Polar`;
-  const plan = levelPlan(meta.levels, params.get("nivel"));
+  // ─── Calidad (fase 4): nivel inicial por dispositivo, o forzado con ?calidad= ───
+  const device = guessDevice();
+  const forcedTier = (["alta", "media", "baja"] as Tier[]).find((t) => t === params.get("calidad")) ?? null;
+  const initialTier: Tier = forcedTier ?? device.tier;
+  const plan = levelPlan(meta.levels, params.get("nivel"), initialTier === "baja" ? "8m" : device.level);
 
   // ─── Render ───
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: devicePixelRatio < 2, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, TIERS[initialTier].dpr));
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
@@ -63,6 +70,8 @@ async function main() {
   Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, screenSpacePanning: false, minDistance: 60, maxDistance: size * 2.2, keyPanSpeed: 20 });
   controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
   controls.listenToKeyEvents(window);
+  // Movimiento reducido (preferencia del sistema): sin inercia de cámara.
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) controls.enableDamping = false;
 
   // Dos "looks": luces, tono, niebla y mar extendido.
   const hemi = new THREE.HemisphereLight();
@@ -111,6 +120,8 @@ async function main() {
   const v = new THREE.Vector3();
   let pin: ReturnType<typeof buildPin> = null;
   let dirty = true, running = false, idleFrames = 0;
+  // Se asigna más abajo; el bucle puede correr antes (p. ej. por un resize temprano).
+  let qualityRef: AdaptiveQuality | null = null;
   const frame = () => {
     const moved = controls.update();
     if (!moved && !dirty) {
@@ -125,7 +136,9 @@ async function main() {
     idleFrames = 0;
     dirty = false;
     terrain?.beforeRender(camera, renderer.domElement.height);
+    qualityRef?.begin();
     renderer.render(scene, camera);
+    qualityRef?.end(moved);
     if (pin) {
       v.copy(pin.top).project(camera);
       pinEl.style.opacity = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 ? "1" : "0";
@@ -174,9 +187,32 @@ async function main() {
   let detail = params.get("detalle") !== "0";
   const setDetail = (on: boolean) => {
     detail = on;
-    terrain?.setDetail(on);
+    terrain?.setDetail(on && TIERS[quality.tier].detail);
     requestRender();
   };
+  // Aplica un nivel de calidad: DPR, densidad del LOD y detalle de cerca.
+  const applyTier = (t: Tier, why: string) => {
+    renderer.setPixelRatio(Math.min(devicePixelRatio, TIERS[t].dpr));
+    renderer.setSize(innerWidth, innerHeight, false);
+    terrain?.setLodTarget(TIERS[t].lodPx);
+    terrain?.setDetail(detail && TIERS[t].detail);
+    qualityNoteEl.textContent = `Calidad ${t}${quality.auto ? " (automática)" : ""}: ${why}`;
+    requestRender();
+  };
+  const quality = new AdaptiveQuality(renderer.getContext() as WebGL2RenderingContext, initialTier, device.budgetMs, applyTier);
+  quality.auto = !forcedTier;
+  qualityRef = quality;
+  qualityEl.value = forcedTier ?? "auto";
+  qualityEl.addEventListener("change", () => {
+    const v = qualityEl.value;
+    quality.auto = v === "auto";
+    if (quality.auto) applyTier(quality.tier, "ajuste automático según el tiempo de GPU");
+    else {
+      quality.tier = v as Tier;
+      applyTier(v as Tier, "elegida a mano");
+    }
+  });
+  qualityNoteEl.textContent = `Calidad ${initialTier}${forcedTier ? "" : " (automática)"}: ${forcedTier ? "forzada por URL" : device.reason}. Mide con ${quality.source === "gpu" ? "temporizador de GPU" : "intervalo entre cuadros"}.`;
   addEventListener("keydown", (e) => {
     if ((e.target as HTMLElement).closest("select")) return;
     if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
@@ -217,7 +253,8 @@ async function main() {
     if (pin) scene.remove(pin.group);
     terrain = t;
     t.setStyle(style);
-    t.setDetail(detail);
+    t.setDetail(detail && TIERS[quality.tier].detail);
+    t.setLodTarget(TIERS[quality.tier].lodPx);
     scene.add(t.object);
     seaPlane.material = t.seaMaterial ?? seaPlainMat;
     placeSea(t);
@@ -268,7 +305,8 @@ async function main() {
     benchResult = {
       estilo: style,
       geometria: geo,
-      detalle: detail,
+      detalle: detail && TIERS[quality.tier].detail,
+      calidad: { nivel: quality.tier, automatica: quality.auto, ultimaMedianaMs: quality.lastMedianMs, fuente: quality.source, dispositivo: device },
       base: baseId,
       nivel: metrics.load?.level,
       ...r,
@@ -287,7 +325,7 @@ async function main() {
   };
   $("bench").addEventListener("click", () => void bench());
   Object.assign(window, {
-    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, get terrain() { return terrain; } },
+    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, quality, applyTier, get terrain() { return terrain; } },
     __bench: bench,
     __pose: (i: number) => {
       applyPose(ctx, i);
@@ -296,11 +334,11 @@ async function main() {
   });
 }
 
-function levelPlan(levels: Level[], forced: string | null): Level[] {
+/** 8 m primero; si el dispositivo da para 4 m, después 4 m. ?nivel=4m|8m fuerza uno. */
+function levelPlan(levels: Level[], forced: string | null, max: "4m" | "8m"): Level[] {
   const by = (n: string) => levels.find((l) => l.name === n)!;
   if (forced && levels.some((l) => l.name === forced)) return [by(forced)];
-  const constrained = matchMedia("(pointer: coarse)").matches || innerWidth < 800;
-  return constrained ? [by("8m")] : [by("8m"), by("4m")];
+  return max === "8m" ? [by("8m")] : [by("8m"), by("4m")];
 }
 
 function buildPin(meta: TerrainMeta, t: Terrain, size: number) {

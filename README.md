@@ -10,7 +10,7 @@ Plataforma web educativa sobre ciencia antártica para **SoberaníaTech 2026** (
 |---|---|---|---|
 | [terreno-bases](exploraciones/terreno-bases/) | Mapa de las 13 bases antárticas argentinas y terreno 3D navegable de cada una con relieve real REMA 2 m, mar según la costa SCAR ADD | Prueba funcional | 2026-11-08 |
 | [terreno-nitidez](exploraciones/terreno-nitidez/) | Terreno más nítido sin pesar más: alturas a 4 m con precisión de 0,5 m, luz y color por píxel, sombreado de cavidades. Botón Antes/Después | Prueba funcional | 2026-11-09 |
-| [terreno-estilizado](exploraciones/terreno-estilizado/) | Interpretación artística basada en REMA (estética de videojuego premium): sombras de sol fijo, roca/nieve/hielo/agua, bordes integrados; terreno por bloques con LOD (GPU −67 %, memoria 79 → 30 MB); detalle de cerca generado (0 bytes). Banco de medición reproducible | Fases 1–3A de 4 | 2026-11-09 |
+| [terreno-estilizado](exploraciones/terreno-estilizado/) | Interpretación artística basada en REMA (estética de videojuego premium): sombras de sol fijo, roca/nieve/hielo/agua, bordes integrados; terreno por bloques con LOD (GPU −67 %, memoria 79 → 30 MB); detalle de cerca generado (0 bytes); calidad adaptativa. Banco de medición reproducible | Fases 1–4 (3B pendiente) | 2026-11-09 |
 
 Reglas técnicas para el 3D: [`.claude/rules/3d-performance.md`](.claude/rules/3d-performance.md).
 

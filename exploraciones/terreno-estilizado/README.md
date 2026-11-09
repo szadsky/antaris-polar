@@ -1,4 +1,4 @@
-# Exploración · terreno estilizado (fases 1, 2 y 3A)
+# Exploración · terreno estilizado (fases 1, 2, 3A y 4)
 
 > **Prueba aislada, no es el sitio.** **Interpretación artística basada en REMA**, no una reconstrucción geográfica exacta. El relieve es dato (REMA v2.0, costa SCAR ADD v7.12); las sombras de un sol fijo, los materiales, el hielo costero, la variación procedural y el tratamiento de bordes son estilización.
 
@@ -14,6 +14,7 @@ npm run dev      # http://localhost:3400/?base=brown
 - Botón **Base / Interpretación** (tecla `A`): "Base" reproduce el sombreado de [`terreno-nitidez`](../terreno-nitidez/) para comparar con la misma app, datos y cámaras.
 - **Medir**: corre el banco de medición (5 cámaras fijas × 20 cuadros, tiempo de GPU por consulta de temporizador).
 - Tecla `D` o `?detalle=0`: apaga el detalle de cerca (fase 3A) para comparar.
+- Selector **Calidad** (Automática / Alta / Media / Baja) o `?calidad=alta|media|baja` (fase 4).
 - Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
 - Los terrenos se leen de `../terreno-nitidez/public` (mismo formato; evita duplicar ~8,5 MB). Ver `vite.config.ts`.
 
@@ -127,8 +128,39 @@ Las reglas piden KTX2 solo cuando lo justifique una textura descargada. Hoy **no
 
 Capturas: `capturas/brown-cerca-fase2.jpg` → `capturas/brown-cerca-fase3a-detalle.jpg` (misma cámara).
 
-## Pendiente (no medido o fuera de las fases 1, 2 y 3A)
+## Fase 4 · calidad adaptativa
+
+Qué cambió (`src/quality.ts`):
+
+| Nivel | DPR máx. | Densidad LOD (px por celda) | Detalle de cerca | Alturas al cargar |
+|---|---|---|---|---|
+| Alta | 2 | 7 | sí | 4 m (progresivo desde 8 m) |
+| Media | 1,25 | 11 | sí | 4 m en escritorio, 8 m en celular |
+| Baja | 1 | 18 | no | 8 m |
+
+- **Nivel inicial por dispositivo** (heurística, no medición): celular = sin ningún puntero fino o pantalla física < 500 px en su lado corto; gama baja = ≤ 4 núcleos o ≤ 4 GB (`deviceMemory`). Escritorio → alta (media si es gama baja); celular → media (baja si es gama baja).
+- **Ajuste automático** mientras la cámara se mueve: mediana de 40 cuadros del tiempo de GPU (`EXT_disjoint_timer_query_webgl2`). Baja de nivel si supera el presupuesto (12 ms escritorio, 26 ms celular); sube solo tras 3 ventanas seguidas por debajo del 35 % del presupuesto; espera 3 s entre cambios. Sin temporizador de GPU (frecuente en celulares y Safari) usa el intervalo entre cuadros y **solo baja** (rAF está topeado por la pantalla).
+- El nivel de alturas no cambia en caliente (implicaría volver a descargar y procesar).
+- **Movimiento reducido**: con `prefers-reduced-motion` la cámara no tiene inercia.
+
+### Medido
+
+Brown, estilo Interpretación + LOD, lienzo 1600×900 (dpr 1,25), nivel de alturas 8 m, mismas 5 cámaras. **No comparable con las tablas anteriores** (otro lienzo y otro nivel de alturas).
+
+| Nivel | GPU mediana | GPU p95 | Triángulos (5 cámaras) |
+|---|---|---|---|
+| Alta | 4,1 ms | 5,0 ms | 138–376 k |
+| Media | 3,3 ms | 5,3 ms | 38–267 k |
+| Baja (dpr 1) | 2,0 ms | 2,9 ms | 12–174 k |
+
+Verificado:
+- Bajada automática: con un presupuesto imposible (0,2 ms) pasó de alta a media y respetó la espera.
+- Escritorio (mouse, pantalla 1536×864) → alta, 4 m.
+- Emulación de celular (375×812, táctil) → media, 8 m, sin scroll horizontal. La emulación hereda núcleos y memoria de la PC; un celular real de gama media reportaría menos y quedaría en baja.
+
+Errores encontrados y corregidos: la primera heurística usaba `pointer: coarse` y el ancho de la ventana; en el navegador del panel (y en laptops táctiles) clasificaba la PC como celular.
+
+## Pendiente (no medido o fuera de las fases 1 a 4)
 
 - **FPS reales y celular**: no medidos (el panel frena `requestAnimationFrame`; el banco usa render sincrónico).
-- **Fase 4**: calidad adaptativa (DPR, sombras, detalle) según el tiempo por cuadro.
 - La línea serpenteante sobre la nieve de Petrel también aparece en el dato (no es costa ADD); sin identificar.
