@@ -12,8 +12,12 @@ function rippleMap() {
   return tex;
 }
 export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial:Tier) {
+  const aspect=window.innerWidth/Math.max(1,window.innerHeight);
+  const longest=mobile?384:768;
+  const reflectionWidth=Math.max(128,Math.round(longest*Math.min(1,aspect)));
+  const reflectionHeight=Math.max(128,Math.round(longest*Math.min(1,1/aspect)));
   const mesh=new Water(new THREE.PlaneGeometry(size*8,size*8),{
-    textureWidth:mobile?128:192,textureHeight:mobile?128:192,waterNormals:rippleMap(),waterColor:0x103a42,
+    textureWidth:reflectionWidth,textureHeight:reflectionHeight,waterNormals:rippleMap(),waterColor:0x103a42,
     sunColor:0xd9eafa,sunDirection:sun,distortionScale:1.05,clipBias:0.0001,fog:true,
   });
   mesh.rotation.x=-Math.PI/2;
@@ -44,7 +48,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   function buildProxy(t:Terrain) {
     const {width,height,cellSizeM}=t.level;
     const endX=(t.meshSize.width-1)*2,endZ=(t.meshSize.height-1)*2;
-    const segments=Math.min(mobile?32:128,endX,endZ);
+    const segments=Math.min(mobile?72:160,endX,endZ);
     const grid=new THREE.PlaneGeometry(t.widthM,t.depthM,segments,segments).rotateX(-Math.PI/2);
     const positions=grid.getAttribute("position");
     const colors=new Float32Array(positions.count*3);

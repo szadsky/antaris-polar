@@ -222,3 +222,15 @@ select {
 .no-ui .pin {
   display: none !important;
 }
+
+.hud {width:min(292px,calc(100vw - 24px));border-radius:16px;padding:14px;gap:9px;background:rgba(13,28,38,.94);max-height:calc(100dvh - 32px);overflow:auto}
+.polar-title {display:flex;align-items:center;gap:10px;padding:3px 2px 9px}
+.polar-title span {color:#a8d6ed;font-size:24px;line-height:1}
+.polar-title h1 {font-size:20px;letter-spacing:-.045em;font-weight:650}
+.polar-details {border-top:1px solid var(--line);padding-top:6px}
+.polar-details summary,.metrics summary {cursor:pointer;padding:7px 2px;font-weight:550}
+.polar-details p {margin:7px 2px}
+.metrics {display:block;border-radius:13px;background:rgba(13,28,38,.94);padding:3px 12px}
+.metrics[open] {padding:9px 12px}
+.hud button {font-family:inherit}
+@media(max-width:600px){.hud{top:max(66px,calc(env(safe-area-inset-top) + 58px));max-height:calc(100dvh - 86px)}.metrics{display:none}.hud button,.polar-details summary{min-height:42px}}

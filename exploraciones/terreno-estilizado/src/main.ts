@@ -1,3 +1,4 @@
+import { mountViewControls } from "./view-controls";
 import { createOcean } from "./ocean";
 import { loadTerrainTextures } from "./terrain-textures";
 import * as THREE from "three";
@@ -130,8 +131,37 @@ async function main() {
   const wavesOn = () => style === "estilizado" && !reducedMotion && seaPlane.visible && document.visibilityState === "visible" && (terrain?.styleUniforms.uSeaLook.value.z ?? 0) > 0;
   // Se asigna más abajo; el bucle puede correr antes (p. ej. por un resize temprano).
   let qualityRef: AdaptiveQuality | null = null;
+  // Protect the eye and near plane when orbiting or panning across a cliff.
+  function keepCameraAboveSurface() {
+    if (!terrain) return;
+    const t=terrain, {cellSizeM,width}=t.level;
+    const step=cellSizeM*MESH_STRIDE;
+    let floor=t.seaLevelM ?? 0;
+    const gx=(camera.position.x+t.widthM/2)/step;
+    const gz=(camera.position.z+t.depthM/2)/step;
+    if (gx>=0 && gz>=0 && gx<=t.meshSize.width-1 && gz<=t.meshSize.height-1) {
+      // Sample the two REMA triangles in this cell, so a nearby summit
+      // cannot push the camera up when crossing a grid boundary.
+      const x=Math.min(Math.floor(gx),t.meshSize.width-2);
+      const z=Math.min(Math.floor(gz),t.meshSize.height-2);
+      const u=gx-x, v=gz-z;
+      const sample=(dx:number,dz:number)=>t.heightsM[(z+dz)*MESH_STRIDE*width+(x+dx)*MESH_STRIDE];
+      const h=u+v<=1
+        ? sample(0,0)*(1-u-v)+sample(1,0)*u+sample(0,1)*v
+        : sample(1,1)*(u+v-1)+sample(1,0)*(1-v)+sample(0,1)*(1-u);
+      if(Number.isFinite(h)) floor=Math.max(floor,h);
+    }
+    const minY=floor*exaggeration+camera.near*1.5;
+    if(camera.position.y<minY-0.001){
+      camera.position.y=minY;
+      camera.lookAt(controls.target);
+      camera.updateMatrixWorld();
+      dirty=true;
+    }
+  }
   const frame = () => {
     const moved = controls.update();
+    keepCameraAboveSurface();
     const now = performance.now();
     const waves = wavesOn();
     if (waves && terrain) { terrain.styleUniforms.uTime.value = now / 1000; ocean.time(now / 1000); }
@@ -191,8 +221,10 @@ async function main() {
   let terrain: Terrain | null = null;
   let benchResult: unknown = null;
 
+  let syncViewControls: (()=>void) | undefined;
   const setStyle = (s: Style) => {
     style = s;
+    syncViewControls?.();
     baseBtn.setAttribute("aria-pressed", String(s === "base"));
     styBtn.setAttribute("aria-pressed", String(s === "estilizado"));
     LOOKS[s]();
@@ -212,6 +244,7 @@ async function main() {
   const setVariant = (v: MaterialVariant) => {
     variant = v;
     materialEl.value = v;
+    syncViewControls?.();
     terrain?.setVariant(v);
     requestRender();
   };
@@ -287,6 +320,7 @@ async function main() {
     }
     setTimeout(() => ($("copy-metrics").textContent = "Copiar métricas"), 1500);
   });
+  syncViewControls=mountViewControls(()=>style,setStyle);
   setStyle(style);
 
   // Texturas KTX2 de roca y nieve: en paralelo al terreno; no retrasan la primera vista.

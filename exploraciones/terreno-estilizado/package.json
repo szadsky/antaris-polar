@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
+    "dialkit": "^2.2.0",
     "three": "^0.181.2"
   },
   "devDependencies": {

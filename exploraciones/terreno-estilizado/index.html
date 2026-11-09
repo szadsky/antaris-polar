@@ -6,14 +6,18 @@
     <title>Terreno estilizado · Antaris Polar (exploración)</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
-  <body>
+  <body class="dialkit-root">
     <canvas id="scene" aria-label="Terreno 3D. Arrastrá para mover, rueda o pellizco para acercar."></canvas>
     <div id="status" class="status" role="status" aria-live="polite">Cargando terreno…</div>
     <div id="pin" class="pin" hidden></div>
     <button id="ui-toggle" class="ui-toggle" type="button" aria-pressed="false" aria-keyshortcuts="h" title="Ocultar la interfaz (tecla H)">Ocultar interfaz</button>
 
     <aside class="hud" aria-label="Controles del terreno">
-      <p class="hud__eyebrow">Exploración · terreno estilizado (fase 1)</p>
+      <header class="polar-title"><span aria-hidden="true">✳</span><h1>Antaris Polar</h1></header>
+      <div id="dial-base"></div>
+      <div id="dial-style" role="group" aria-label="Estilo del terreno"></div>
+      <details class="polar-details"><summary>Ajustes de vista</summary><div id="dial-exaggeration"></div><div id="dial-quality"></div><div id="dial-material"></div></details>
+      <div hidden>
       <label class="hud__row">
         Base
         <select id="base"></select>
@@ -51,19 +55,21 @@
           <option value="baja">Baja</option>
         </select>
       </label>
+      </div>
+      <details class="polar-details"><summary>Datos y navegación</summary>
       <p id="quality-note" class="hud__source"></p>
       <p id="style-note" class="hud__note"></p>
       <p id="source" class="hud__source"></p>
       <p class="hud__help">Tecla <kbd>A</kbd>: alternar estilo · <kbd>H</kbd>: ocultar interfaz · Arrastrar: mover · Clic derecho o dos dedos: girar · Rueda: zoom</p>
-    </aside>
+    </details></aside>
 
-    <section class="metrics" aria-label="Métricas de rendimiento">
+    <details class="metrics"><summary>Rendimiento</summary>
       <pre id="metrics"></pre>
       <div class="metrics__actions">
         <button id="bench" type="button">Medir</button>
         <button id="copy-metrics" type="button">Copiar métricas</button>
       </div>
-    </section>
+    </details>
 
     <script type="module" src="/src/main.ts"></script>
   </body>
