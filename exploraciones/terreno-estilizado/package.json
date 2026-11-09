@@ -1,0 +1,19 @@
+{
+  "name": "antaris-exploracion-terreno-estilizado",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Exploración aislada (prueba): interpretación artística del terreno REMA con estética de videojuego premium y rendimiento medido. No es el sitio ni una reconstrucción geográfica exacta.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3400",
+    "build": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "three": "^0.181.2"
+  },
+  "devDependencies": {
+    "@types/three": "^0.181.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7"
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Terreno estilizado · Antaris Polar (exploración)</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="Terreno 3D. Arrastrá para mover, rueda o pellizco para acercar."></canvas>
+    <div id="status" class="status" role="status" aria-live="polite">Cargando terreno…</div>
+    <div id="pin" class="pin" hidden></div>
+
+    <aside class="hud" aria-label="Controles del terreno">
+      <p class="hud__eyebrow">Exploración · terreno estilizado (fase 1)</p>
+      <label class="hud__row">
+        Base
+        <select id="base"></select>
+      </label>
+      <div class="hud__row">
+        Estilo
+        <div class="segmented" role="group" aria-label="Estilo del terreno">
+          <button type="button" id="style-base" aria-pressed="false">Base</button>
+          <button type="button" id="style-sty" aria-pressed="true">Interpretación</button>
+        </div>
+      </div>
+      <label class="hud__row">
+        Exageración vertical
+        <select id="exaggeration">
+          <option value="1" selected>1× (real)</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </label>
+      <p id="style-note" class="hud__note"></p>
+      <p id="source" class="hud__source"></p>
+      <p class="hud__help">Tecla <kbd>A</kbd>: alternar estilo · Arrastrar: mover · Clic derecho o dos dedos: girar · Rueda: zoom</p>
+    </aside>
+
+    <section class="metrics" aria-label="Métricas de rendimiento">
+      <pre id="metrics"></pre>
+      <div class="metrics__actions">
+        <button id="bench" type="button">Medir</button>
+        <button id="copy-metrics" type="button">Copiar métricas</button>
+      </div>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
