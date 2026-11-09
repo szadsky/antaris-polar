@@ -4,7 +4,8 @@
  *   - surface (resolución completa, RGBA8): R,G normal (x,z) Sobel · B cavidades · A clase
  *     (0 sin dato · 128 mar según costa ADD · 255 tierra/hielo);
  *   - light (resolución de malla, RGBA8): R sombra del sol (255 = al sol) · G cercanía a la
- *     costa (255 en la línea de costa → 0 a SHORE_M) · B,A sin uso.
+ *     costa (255 en la línea de costa → 0 a SHORE_M) · B curvatura con signo del REMA (128 plano,
+ *     > 128 surco/hondonada, < 128 cresta; escalas de 8 y 24 m) · A sin uso.
  * Nada de esto se descarga. Las sombras corresponden a un sol fijo (interpretación).
  */
 
@@ -15,6 +16,11 @@ export interface BuildMsg {
   key: string;
   bin: ArrayBuffer;
   mask: ArrayBuffer | null;
+  /**
+   * Distancia con signo a la costa ADD (scripts/costa-sdf.mjs): uint8 delta por filas, 128 = costa,
+   * 1 m por unidad, + tierra. Si viene, reemplaza a `mask`.
+   */
+  sdf?: ArrayBuffer | null;
   width: number;
   height: number;
   cellSizeM: number;
@@ -67,7 +73,11 @@ interface Grid {
   full: boolean;
   heights: Float32Array;
   land: Uint8Array | null;
+  /** Distancia con signo a la costa (m, + tierra), resolución completa; null sin ella. */
+  sdf: Int8Array | null;
   cavity: Uint8Array;
+  /** Curvatura con signo (128 = plano, + surco, − cresta), resolución completa. */
+  curv: Uint8Array;
   shore: Uint8Array; // a resolución de malla
 }
 
@@ -81,16 +91,22 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
     if (msg.type === "build") {
       const t0 = performance.now();
       const raw = await gunzipMaybe(msg.bin);
-      const land = msg.mask ? await gunzipMaybe(msg.mask) : null;
+      // Costa: distancia con signo (sub-celda) o, si falta, la máscara binaria.
+      const sdf = msg.sdf ? decodeSdf(await gunzipMaybe(msg.sdf), msg.width) : null;
+      let land: Uint8Array | null = msg.mask && !sdf ? await gunzipMaybe(msg.mask) : null;
+      if (sdf) {
+        land = new Uint8Array(sdf.length);
+        for (let i = 0; i < sdf.length; i++) land[i] = sdf[i] > 0 ? 1 : 0;
+      }
       const q = decodeDeltaPlanar(raw, msg.width);
       const heights = new Float32Array(q.length);
       for (let i = 0; i < q.length; i++) heights[i] = q[i] === 0 ? NaN : (q[i] - 1) * msg.stepM;
       dequantize(heights, msg.width, msg.height, msg.stepM, 12);
       const t1 = performance.now();
 
-      const cavity = cavityShade(heights, msg.width, msg.height, msg.cellSizeM);
+      const { cavity, curv } = cavityShade(heights, msg.width, msg.height, msg.cellSizeM);
       const shore = shoreProximity(land, msg.width, msg.height, msg.stride, msg.cellSizeM);
-      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, cavity, shore };
+      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, sdf, cavity, curv, shore };
       grids.set(msg.key, g);
       const surface = surfaceTexture(g, msg.exaggeration);
       const t2 = performance.now();
@@ -134,7 +150,7 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
 
 // ─── Superficie (resolución completa) ──────────────────────
 function surfaceTexture(g: Grid, k: number): Uint8Array {
-  const { w, h, cell, heights, land, cavity } = g;
+  const { w, h, cell, heights, land, cavity, sdf } = g;
   const out = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -146,7 +162,10 @@ function surfaceTexture(g: Grid, k: number): Uint8Array {
       out[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
       out[i * 4 + 1] = Math.round((nz * 0.5 + 0.5) * 255);
       out[i * 4 + 2] = cavity[i];
-      out[i * 4 + 3] = Number.isNaN(heights[i]) ? 0 : isSea ? 128 : 255;
+      // A = distancia con signo a la costa: 128 + 8 × metros (±12 m), interpolable → la línea
+      // tierra/agua cae entre texeles, sin escalones. Sin distancia: ±12 m fijos. 0 = sin dato.
+      const sd = sdf ? sdf[i] : isSea ? -12 : 12;
+      out[i * 4 + 3] = Number.isNaN(heights[i]) ? 0 : 128 + Math.max(-12, Math.min(12, sd)) * 8;
     }
   }
   return out;
@@ -184,7 +203,7 @@ function sobelNormalXZ(hs: Float32Array, w: number, h: number, x: number, y: num
  * solo si cambia la exageración vertical.
  */
 function lightTexture(g: Grid, k: number, sun: Vec3): Uint8Array {
-  const { w, h, cell, stride, heights, shore } = g;
+  const { w, h, cell, stride, heights, shore, curv } = g;
   const mw = Math.floor((w - 1) / stride) + 1;
   const mh = Math.floor((h - 1) / stride) + 1;
   const mc = cell * stride;
@@ -226,6 +245,7 @@ function lightTexture(g: Grid, k: number, sun: Vec3): Uint8Array {
       }
       out[i * 4] = Math.round(Math.max(0, Math.min(1, lit)) * 255);
       out[i * 4 + 1] = shore[i];
+      out[i * 4 + 2] = curv[y * stride * w + x * stride];
       out[i * 4 + 3] = 255;
     }
   }
@@ -267,6 +287,18 @@ function shoreProximity(land: Uint8Array | null, w: number, h: number, stride: n
   return out;
 }
 
+/** Distancia con signo: uint8 delta por filas (128 = costa, 1 m por unidad) → metros (Int8). */
+function decodeSdf(buf: Uint8Array, w: number): Int8Array {
+  const q = new Uint8Array(buf.length);
+  for (let i = 0; i < buf.length; i++) {
+    const prev = i % w ? q[i - 1] : i >= w ? q[i - w] : 0;
+    q[i] = (prev + buf[i]) & 0xff;
+  }
+  const out = new Int8Array(q.length);
+  for (let i = 0; i < q.length; i++) out[i] = q[i] - 128;
+  return out;
+}
+
 /** Nivel del relleno de mar de REMA (mediana de las alturas marcadas como mar). */
 function seaLevel(hs: Float32Array, land: Uint8Array | null): number | null {
   if (!land) return null;
@@ -278,7 +310,7 @@ function seaLevel(hs: Float32Array, land: Uint8Array | null): number | null {
 }
 
 // ─── Cavidades y des-cuantización (igual que terreno-nitidez) ─
-function cavityShade(hs: Float32Array, w: number, h: number, cell: number): Uint8Array {
+function cavityShade(hs: Float32Array, w: number, h: number, cell: number): { cavity: Uint8Array; curv: Uint8Array } {
   const W1 = w + 1;
   const sum = new Float64Array(W1 * (h + 1));
   const cnt = new Float64Array(W1 * (h + 1));
@@ -293,10 +325,23 @@ function cavityShade(hs: Float32Array, w: number, h: number, cell: number): Uint
   }
   const radiiM = [8, 24, 64], depthM = [1.5, 4, 10], weight = [0.35, 0.35, 0.3];
   const out = new Uint8Array(w * h);
+  // Curvatura con signo: (media del entorno − altura) a 8 y 24 m. Positiva en surcos y hondonadas,
+  // negativa en crestas y aristas. Es el relieve REMA, sin datos nuevos.
+  const curv = new Uint8Array(w * h).fill(128);
+  const crR = [8, 24], crD = [2, 5];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x;
     const v = hs[i];
     if (v !== v) { out[i] = 255; continue; }
+    let c = 0;
+    for (let s = 0; s < 2; s++) {
+      const r = Math.max(1, Math.round(crR[s] / cell));
+      const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
+      const S = sum[y1 * W1 + x1] - sum[y0 * W1 + x1] - sum[y1 * W1 + x0] + sum[y0 * W1 + x0];
+      const C = cnt[y1 * W1 + x1] - cnt[y0 * W1 + x1] - cnt[y1 * W1 + x0] + cnt[y0 * W1 + x0];
+      c += 0.5 * Math.max(-1, Math.min(1, (S / C - v) / crD[s]));
+    }
+    curv[i] = Math.round(128 + c * 127);
     let occ = 0;
     for (let s = 0; s < 3; s++) {
       const r = Math.max(1, Math.round(radiiM[s] / cell));
@@ -307,7 +352,7 @@ function cavityShade(hs: Float32Array, w: number, h: number, cell: number): Uint
     }
     out[i] = Math.round((1 - 0.55 * occ) * 255);
   }
-  return out;
+  return { cavity: out, curv };
 }
 
 function dequantize(hs: Float32Array, w: number, h: number, step: number, iterations: number) {

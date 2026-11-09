@@ -274,6 +274,152 @@ En la prueba anterior A y C ya daban 59,9 FPS (topeados a 60 Hz) con un costo de
 
 Capturas (misma cámara): `capturas/diag-roca-{A-colores-base,B-variacion-color,D-actual,corregido}.jpg` y `capturas/material-cerca-{A,corregido}.jpg`.
 
+## Texturas de roca y nieve (KTX2), borde nieve-roca y costa
+
+Sobre el material Corregido aprobado. Cambios uno por vez, con capturas desde las mismas cámaras: `capturas/texturas-antes.jpg`, `texturas-despues-borde.jpg`, `texturas-despues-costa.jpg`, `costa-sin-escalones.jpg`, `roca-acantilado-20m.jpg` y `texturas-final.jpg`.
+
+### Qué se hizo
+
+- **Texturas** (`scripts/texturas.mjs`; procedencia en `src/assets/texturas.json`, todas CC0):
+  - Roca: Poly Haven *Marble Cliff 05* (Amal Kumar), 20 × 20 m reales. Se usan color y normal (OpenGL). **Reemplazada después por *Marble Cliff 04*** (ver más abajo).
+  - Del color de la roca se usa solo la luminancia: es mármol claro, así que su estructura se lleva a la paleta de roca aprobada (percentiles 5–95 calculados en el build). La roca no queda blanca.
+  - Nieve: ambientCG *Snow007A*. Solo la normal, porque el color de la nieve lo da el material. ambientCG no publica su tamaño real: **se supone 2 m**.
+  - Formato: 512 px, KTX2 Basis ETC1S con mipmaps (color en sRGB, normales en modo normal map).
+  - Herramientas de build: System.Drawing (Windows) reescala y `ktx2-encoder` (devDependency, MIT) codifica.
+  - En la página se usa el transcodificador de Three.js (`examples/jsm/libs/basis`), copiado a `basis/` en el build. No se agregan librerías de render.
+- **Técnicas de three-landscape** adaptadas al shader existente, sin instalar la librería:
+  - Pesos por la máscara de pendiente (`rockT`).
+  - Muestreo aperiódico (técnica 3 de I. Quílez) con `textureGrad`.
+  - Normales mezcladas con RNM sobre la normal REMA.
+  - Desvanecimiento por distancia.
+- **Proyección biplanar**: los dos ejes dominantes de la normal REMA, sin el tercero. No hay estiramiento en pendientes y como mucho se leen dos planos por textura.
+- **Lecturas condicionadas**: la roca se lee solo si `rockT > 0` y la nieve solo si `rockT < 1`; las normales, solo de cerca. Los bloques lejanos del LOD no leen normales.
+- **Un material compartido** por todos los bloques. Las tres texturas son uniforms comunes.
+- **Roca**: textura de acantilado a su escala física (20 m), con color y normal. Reemplazó a *Rock 01* (Poly Haven, 1,5 m), que se probó primero.
+  - *Rock 01* era piedra de grano fino, sin fracturas: desde 150–600 m (la cámara no baja de 60 m) se promediaba en un color parejo a cualquier escala entre 1,5 y 30 m.
+  - Con *Marble Cliff 05* las fracturas se leen sin capas procedurales; la capa de relieve procedural de 8–15 m se quitó (una lectura menos por píxel).
+  - Escalas comparadas desde la misma cámara: 12, 20 y 35 m. Se eligió 20 m, el tamaño real.
+- **Borde nieve-roca**:
+  - El umbral de pendiente se corre con las cavidades REMA: la nieve queda en las hondonadas y la roca asoma en lo convexo.
+  - La transición se recorta a ~1 píxel con `fwidth`: nítida a cualquier distancia y con antialiasing.
+- **Costa sin dientes de sierra**:
+  - Tierra y agua salen de la distancia con signo a la costa ADD (`scripts/costa-sdf.mjs`, `costa-4m/8m.sdf.gz`), interpolada entre texeles y recortada a ~1 píxel. Antes salían de una máscara binaria de 4 m, que dibujaba escalones.
+  - No se tocó la geometría.
+
+### Ajuste: roca más definida y borde de nieve menos duro
+
+Pedido: "las rocas se ven muy suaves y sin definición; la nieve está definida demasiado dura". Comparado desde las mismas cámaras (`capturas/roca-definida-antes-despues.jpg`, `borde-nieve-anchos.jpg`, `texturas-final-ajustada.jpg`).
+
+- **Por qué la roca se veía suave**: a 20 m por mosaico, desde 170–600 m las fracturas de la textura ocupan pocos píxeles y el mipmap las promedia.
+- **Corrección de la roca**:
+  - **Capa macro de la misma textura a 80 m**, con muestreo aperiódico: placas y fracturas de decenas de metros, legibles a 200–800 m. Modula color y normal.
+  - Detalle de 20 m con normal ×2, contraste del color ×1,6 y gradientes ×0,6 (mipmap algo más nítido a media distancia).
+  - Sin textura nueva ni ruido procedural (uniforms `uRockLook`, `uRockMacro` en `src/shaders.ts`).
+- **Corrección del borde de nieve**: la transición pasó de ~1 píxel (recorte duro) a ±0,02 de pendiente, sin bajar nunca de 1 píxel. Se compararon ±0,02 y ±0,04; con ±0,04 el borde ya queda borroso.
+- **Costo de la capa macro** (misma página, alternando 2 veces): 3,22–3,55 ms con ella y 3,26–3,27 ms sin ella. Entre 0 y +0,3 ms, dentro de la variación entre corridas. Sin descarga extra.
+
+### Optimización visual con técnicas de Three.js: roca *Marble Cliff 04*
+
+Pedido: roca gris con fracturas, definida de cerca y a media distancia; nieve sutil; sin postprocesado, sin más geometría, sin librerías de terreno. Antes se probó un material de "caras planas" sobre REMA, que se descartó y se quitó del código (`src/facet-texture.ts` eliminado).
+
+- **Textura de roca: *Marble Cliff 04*** (Poly Haven, Amal Kumar, CC0), **12,66 × 12,66 m reales** (tamaño publicado). Tiene bloques y fracturas grandes.
+  - Se descartó ambientCG *Rock030*: es grano fino con vetas y, desde 170–600 m, se vuelve un ruido tipo "alfombra" con tinte verde oliva (`capturas/roca-rock030-descartada.jpg`).
+  - Antes se usó *Marble Cliff 05* (20 m), que se veía suave a media distancia.
+- **Color**: gris mineral. Se usa la luminancia de la foto (el mármol es crema), normalizada a una luminancia media lineal de 0,18 y levemente fría. Uniform `uRockTone` = (luminancia, fracción de color de la foto = 0).
+- **Escala física**: detalle a 12,66 m y la misma textura a 90 m como capa media (muestreo aperiódico, sin repetición visible). Normal ×1, contraste ×1 y gradientes de mipmap estándar: con normal ×2 y gradientes ×0,6 se veía granulado.
+- **Proyección**: biplanar por la normal REMA (sin el eje más débil, segundo plano solo si pesa ≥ 15 %). Sin triplanar completo y sin estiramiento en paredes.
+- **Nieve**: sin cambios. Las ondulaciones de las vistas de nieve vienen del relieve REMA: se ven iguales con el detalle apagado (`capturas/nieve-origen-ondulaciones.jpg`). El microrelieve Snow007A ya es muy discreto (normal ×0,35, solo de cerca).
+- **Nitidez**:
+  - Anisotropía de las texturas KTX2 bajada a 8, la "moderada" del pedido. Con 16, 8 y 4 no hubo diferencia visible (`capturas/anisotropia-16-8-4.jpg`).
+  - Lienzo: el nivel *alta* ya usa hasta dpr 2, limitado por la pantalla (aquí 1,25).
+  - Niebla, geometría REMA, LOD y navegación sin cambios.
+- **Comparaciones** desde las mismas cámaras: `capturas/roca-marble-cliff-04.jpg`; vista final con las 6 cámaras de prueba: `capturas/terreno-optimizacion-final.jpg`.
+- **Costo de la capa media de 90 m** (alternando 2 veces): con ella 3,10 y 2,69 ms; sin ella 2,73 y 2,72 ms. Entre 0 y +0,4 ms, dentro de la variación entre corridas.
+
+### Surcos del relieve en la roca y volumen en la nieve
+
+Pedido: la roca se veía como una textura repetida y no se notaban los surcos ni las formaciones; la nieve se veía plana. Cambios uno por vez, desde las mismas cámaras.
+
+- **Diagnóstico** (`capturas/roca-diagnostico-surcos.jpg`): los surcos están en el relieve REMA (se ven con la roca sin textura), pero la textura uniforme y la normal de la capa de 90 m los tapaban. Esa normal es un relieve inventado a la escala de los surcos reales.
+- **Curvatura con signo del REMA** (`src/worker.ts`): media del entorno menos la altura, a 8 y 24 m. Se guarda en el canal B de la textura de luz, que estaba sin uso: 128 es plano, más es surco u hondonada, menos es cresta. No agrega descarga ni lecturas de textura: ese texel ya se leía.
+- **Roca** (`uRockRelief`): surcos oscurecidos (×0,9) y crestas apenas aclaradas (×0,25, tope ×1,2). Se quitó la normal de la capa de 90 m: dos lecturas menos por píxel de roca. El albedo de 90 m se conserva, porque sin él la roca vuelve a verse uniforme.
+  - Capturas: `capturas/roca-surcos-curvatura.jpg`, `roca-surcos-intensidad.jpg`.
+  - Con las crestas a ×0,9 y tope ×1,7 las aristas quedaban como estelas blancas: `capturas/roca-estelas-antes.jpg` y `roca-estelas-despues.jpg`.
+- **Nieve** (`uSnowRelief` = 1,5): con la misma curvatura, las hondonadas y los surcos quedan algo más sombreados y fríos y las lomas apenas más claras. Sin ruido.
+- **Exposición** de 0,95 a 0,85: la nieve al sol quedaba en la zona que el tone mapping comprime y perdía volumen (`capturas/nieve-volumen-exposicion.jpg`). La roca y el mar se oscurecen apenas.
+- **Costo** (misma página, alternando 2 veces la versión anterior y esta): 3,38–3,46 ms antes y 3,46–3,47 ms ahora. Sin diferencia medible. Vista final: `capturas/terreno-surcos-volumen-final.jpg`.
+- **Sin blanco en la roca** (`uRockTone.z` = 0,3): las zonas claras del mármol de la foto llegaban a ~1,6 veces el gris medio y al sol se veían como un moteado blanco. Ahora solo se conserva el 30 % de lo que supera la media (`capturas/roca-sin-blanco.jpg`). El tono medio quedó después en 0,17 (ver "Roca pálida y borrosa → definida").
+- **Interpretación**: la cobertura de nieve y roca, los tonos y el sombreado son una representación artística sobre el relieve REMA, no un dato observado. La curvatura sí sale de las alturas REMA.
+
+### Dirección de arte "Detailed Cozy 3D", fase 1: roca sólida y luz fría
+
+- **Luz** (`src/main.ts`, estilo Interpretación; `capturas/luz-relleno-cielo-frio.jpg`):
+  - Cielo #cfe0ee → #bcd4ec y suelo #8796a0 → #9aaab6, con intensidad 1,05 → 1,35. Las caras de roca a la sombra pasan de casi negras a gris azulado con detalle, y las sombras de la nieve quedan azuladas.
+  - Sol #fff0d8 → #fff6ea, intensidad 2,6 → 2,9: separa mejor los planos al sol de los que están a la sombra.
+  - Sin postprocesado ni luces nuevas.
+
+- **Roca pálida y borrosa → definida** (`capturas/roca-corregido-vs-prueba-c.jpg`, `roca-fracturas.jpg`):
+  - El primer intento contra el moteado blanco (contraste 0,4, mipmap ×2) dejó la roca pálida y borrosa, y se descartó.
+  - Con la textura nítida (contraste 1, normal 0,9) quedaba un grano sin fracturas legibles. La normal del mármol es de alta frecuencia a cualquier escala; se probaron 12,66 m, 30 m y una capa de 35 m.
+  - La prueba "C" sí se veía definida, por su relieve de detalle generado en el navegador (caras angulosas de 2–15 m, mosaico de 97 m, aperiódico, 0 bytes de descarga). Ahora ese relieve se aplica **solo a la roca** del material Corregido (`uRockFrac` = 1,7), sin las ondas de nieve de "C", sobre el color real de *Marble Cliff 04*, con los surcos REMA y solo de cerca. Es una interpretación artística: no son fracturas medidas.
+  - El moteado blanco lo evita `uRockTone.z` = 0,3 (zonas claras de la foto al 30 %), con tono medio 0,17.
+- **Agua** (`capturas/agua-color-reflejo-ondas.jpg`):
+  - Azul petróleo oscuro: profundo #14303f → #0b2a35, costero #2b5a6b → #1b4b57.
+  - Reflejo aproximado del cielo: Fresnel de Schlick con un color fijo, sin reflejos planares ni env map, intensidad 0,3. Con 0,55 el horizonte quedaba gris.
+  - Ondas: solo la normal, sin mover geometría ni simular. Son 5 ondas direccionales de 6 a 41 m, con la velocidad de fase de aguas profundas ×0,5. Cada onda se apaga por debajo de ~10 píxeles, para evitar franjas a la distancia. Rugosidad 0,16 → 0,22, para brillos más contenidos.
+  - `uSeaLook` = (pendiente 0,05, reflejo 0,3, velocidad 0,5, rugosidad 0,22). Es el mismo código en el terreno costero y en el plano del mar.
+- **Movimiento del agua y render a demanda** (`src/main.ts`): antes la escena no se redibujaba en reposo. Ahora, con el estilo Interpretación, se redibuja a ~24 cuadros/s en reposo para mover el agua; con la cámara en movimiento sigue al ritmo normal. No anima con `prefers-reduced-motion`, con la pestaña oculta ni en el estilo Base. **Costo**: en reposo la GPU deja de estar inactiva, unos 24 × ~7 ms ≈ 17 % de ocupación en este equipo.
+- **Espuma**: sin cambios. Se compararon la actual, a la mitad y sin espuma, y la diferencia es mínima: ya es angosta y cortada.
+- **Costo por cuadro** (GPU, consultas de tiempo, mediana en 4 cámaras cercanas y de costa, alternando 3 veces la versión sin fracturas ni ondas y la nueva): antes 6,53–6,64 ms, ahora 6,61–7,20 ms, o sea **+0,1 a +0,6 ms**. Los valores absolutos son mayores que los de la tabla porque las cámaras son más cercanas, con todo el detalle; sirven solo para comparar.
+- Vista final: `capturas/fase1-roca-agua-final.jpg`.
+- **Roca sin cambios de color** (`capturas/roca-sin-cambios-color.jpg`): las manchas claras venían de la capa de color de 90 m, y las bandas oscuras del oscurecido de surcos (0,9). Se apagó la capa de 90 m (dos lecturas menos) y el oscurecido de surcos bajó a 0,4, con crestas a 0,1. La roca queda en un gris parejo y las formas las dan la luz sobre las fracturas y el relieve.
+- **Montaña pálida → nieve limpia** (`capturas/palido-diagnostico.jpg`, `nieve-volumen-suave.jpg`): se compararon cuatro factores, uno por columna (volumen de nieve, exposición, relleno). El que agrisaba la montaña era el tono de volumen de la nieve (0,80/0,87/0,97 en todas las hondonadas). Ahora el tono es 0,90/0,94/1,00 y se aplica solo en surcos marcados (umbral 0,15): la nieve queda blanca y el volumen se lee en los surcos.
+
+### Estilizado: luz en bandas, menos rugosidad y nieve limpia
+
+Pedido: más estilizado y menos rugoso, mejor nieve. Hasta acá la fase 1 se había aplicado en partes sueltas, con luz realista (Lambert) y roca con mucha rugosidad generada. Capturas: `capturas/estilizado-luz-bandas.jpg`, `estilizado-nieve-lomitas.jpg` y `estilizado-antes-despues.jpg`.
+
+- **Luz en bandas** (`stylRamp`, `uStylize.x` = 1): la luz directa usa tres zonas con transiciones suaves (sombra, medio tono, luz) en lugar del degradado de Lambert. Se aplica dentro de la luz de Three.js, sin pases nuevos ni postprocesado.
+- **Menos rugosidad en la roca**:
+  - Normal REMA de un mipmap más grueso (`uStylize.y` = 1,5, unos 11 m), solo para sombrear y clasificar. La geometría y el LOD no cambian.
+  - Fracturas generadas de 1,7 a 0,6 (`uRockFrac`) y normal de la textura de 0,9 a 0,4.
+- **Nieve limpia**:
+  - Las "lomitas" no venían de las normales (sin cambio con suavizado de hasta 64 m) ni de la sombra precalculada. Venían del sombreado por cavidades a 24 y 64 m, más el volumen por curvatura agregado antes.
+  - Ahora: cavidades en la nieve al 20 %, volumen por curvatura apagado (`uSnowRelief` = 0) y normal de la nieve más suavizada (`uStylize.z` = 3, unos 32 m). Microrelieve Snow007A de 0,35 a 0,1.
+  - El volumen de la nieve lo dan las formas grandes del REMA bajo la luz en bandas.
+- **Costo** (GPU, consultas de tiempo, 4 cámaras, alternando 3 veces): antes 7,32–7,61 ms, ahora 7,24–7,84 ms. Sin diferencia medible.
+
+### Estado actual: luz realista del commit 005af20 y nieve con textura
+
+Pedido: volver a una iluminación realista como la del commit anterior y darle más textura a la nieve.
+
+- **Luz**: los valores son idénticos a los del commit 005af20 (cielo #cfe0ee, suelo #8796a0 a 1,05; sol #fff0d8 a 2,6; exposición 0,95), sin luz en bandas (`uStylize.x` = 0). Las variantes de luz fría con relleno y de luz en bandas quedan descartadas; el código de las bandas se conserva apagado.
+- **Se mantiene del estilizado**: normales REMA suavizadas para el sombreado (roca 1,5 y nieve 3), fracturas de roca a 0,6, roca gris pareja y agua.
+- **Textura de nieve** (`capturas/nieve-textura-legible.jpg`): Snow007A a 2 m por mosaico no se veía desde 200 m o más, porque quedaba por debajo de un píxel. Ahora va a 8 m por mosaico con intensidad 0,6 y se lee como grano de viento, sin volver a las lomitas. La escala es artística: la fuente no publica el tamaño real.
+- Vista final con las 6 cámaras de prueba: `capturas/terreno-final-luz-commit.jpg`.
+
+### Medido (Brown, Chrome, GPU integrada AMD Radeon, lienzo 1243×797 dpr 1,25)
+
+| | Commit aprobado | Ahora |
+|---|---|---|
+| GPU por cuadro, mediana (alternando versiones; con *Rock 01*) | 2,03–2,51 ms | 2,80–3,24 ms (**+0,5 a +0,9 ms**, ≈ +30 %) |
+| GPU por cuadro, mediana (versión con *Marble Cliff 05*) | — | 3,20–3,30 ms |
+| GPU por cuadro, mediana (**versión actual, *Marble Cliff 04***) | — | **2,69–3,10 ms** (p95 3,6–4,4 ms) |
+| GPU por cuadro, p95 | 2,83–3,02 ms | 3,9–4,4 ms |
+| FPS reales (órbita, panel visible) | — | 59,9 con *Rock 01*; 53,2 con *Marble Cliff 05*; **59,8 con la versión actual** (cuadro medio 16,7 ms, p95 17,0 ms; tope de 60 Hz). Una primera corrida dio 20 FPS con pausas largas del panel y la prueba la marcó como no válida |
+| Draw calls / triángulos (cámara media) | 4 / 312 k | 4 / 312 k |
+| Texturas en memoria | 6 | 9 (+3 KTX2 de 512 px transcodificadas a BC7: ~0,33 MB de GPU cada una con mipmaps, ≈ 1 MB en total) |
+| Memoria JS (heap usado, Chrome) | — | 59 MB |
+| Descarga: texturas KTX2 | — | +219,1 KB (roca 67,2 + 92,0, nieve 59,9) |
+| Descarga: transcodificador Basis (wasm + js, brotli) | — | +212 KB |
+| Descarga: JS de la página (brotli) | 122 KB | 142 KB (+20 KB, sobre todo KTX2Loader) |
+| Descarga: costa de Brown (4 m + 8 m) | 18 KB (máscara) | 55 KB (distancia con signo) |
+| **Total adicional en escritorio (Brown)** | — | **≈ +490 KB** |
+
+### Pendiente
+
+- Junto a la costa el terreno dibuja el agua a la altura del relleno de REMA, que no es plano: en vistas rasantes aparecen superficies de agua inclinadas (estaba también en el commit aprobado). No se corrigió porque requiere tocar la geometría del mar.
+
 ## Pendiente (no medido o fuera de las fases 1 a 4)
 
 - **FPS reales y celular**: no medidos (el panel frena `requestAnimationFrame`; el banco usa render sincrónico).

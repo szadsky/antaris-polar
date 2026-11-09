@@ -84,13 +84,19 @@ export class TerrainLoader {
 
   async load(dir: string, meta: TerrainMeta, level: Level, k: number, style: Style, maxAniso: number, geo: GeoMode): Promise<Terrain> {
     const t0 = performance.now();
-    const [bin, mask] = await Promise.all([get(`${dir}/${level.file}`), level.maskFile ? get(`${dir}/${level.maskFile}`) : null]);
+    // Costa: distancia con signo a la costa ADD (scripts/costa-sdf.mjs); si falta, la máscara binaria.
+    const coast = async () => {
+      const r = await fetch(`${dir}/costa-${level.name}.sdf.gz`);
+      if (r.ok) return { sdf: await r.arrayBuffer(), mask: null };
+      return { sdf: null, mask: level.maskFile ? await get(`${dir}/${level.maskFile}`) : null };
+    };
+    const [bin, { sdf, mask }] = await Promise.all([get(`${dir}/${level.file}`), coast()]);
     const fetchMs = performance.now() - t0;
     const key = `${dir}/${level.file}`;
     const b = await this.call<BuiltMsg>(
       "built",
-      { type: "build", key, bin, mask, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa" },
-      mask ? [bin, mask] : [bin]
+      { type: "build", key, bin, mask, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", sdf },
+      [bin, ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
     );
 
     const dataTex = (data: Uint8Array, w: number, h: number) => {

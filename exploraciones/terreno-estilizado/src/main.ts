@@ -1,3 +1,4 @@
+import { loadTerrainTextures } from "./terrain-textures";
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { MESH_STRIDE, TerrainLoader, type GeoMode, type Level, type Style, type Terrain, type TerrainMeta } from "./terrain";
@@ -105,6 +106,7 @@ async function main() {
       // Cielo frío y luminoso; rebote de nieve como luz de suelo (evita roca negra).
       scene.background = new THREE.Color("#b9cddb");
       scene.fog = new THREE.Fog("#b9cddb", size * 0.55, size * 2.5);
+      // Luz realista del commit 005af20 (se probó una luz más fría y luego en bandas; se volvió a esta).
       hemi.color.set("#cfe0ee");
       hemi.groundColor.set("#8796a0");
       hemi.intensity = 1.05;
@@ -122,10 +124,27 @@ async function main() {
   const v = new THREE.Vector3();
   let pin: ReturnType<typeof buildPin> = null;
   let dirty = true, running = false, idleFrames = 0;
+  // Agua en movimiento (estilo Interpretación): en reposo se redibuja solo a ~24 cuadros/s; nada con
+  // prefers-reduced-motion, con la pestaña oculta ni en el estilo Base.
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const WAVE_IDLE_MS = 1000 / 24;
+  let lastWaveMs = 0;
+  const wavesOn = () => !reducedMotion && seaPlane.visible && document.visibilityState === "visible" && (terrain?.styleUniforms.uSeaLook.value.z ?? 0) > 0;
   // Se asigna más abajo; el bucle puede correr antes (p. ej. por un resize temprano).
   let qualityRef: AdaptiveQuality | null = null;
   const frame = () => {
     const moved = controls.update();
+    const now = performance.now();
+    const waves = wavesOn();
+    if (waves && terrain) terrain.styleUniforms.uTime.value = now / 1000;
+    if (!moved && !dirty && waves) {
+      // en reposo: solo el agua se mueve, a cadencia reducida
+      if (now - lastWaveMs < WAVE_IDLE_MS) return;
+      lastWaveMs = now;
+      terrain?.beforeRender(camera, renderer.domElement.height);
+      renderer.render(scene, camera);
+      return;
+    }
     if (!moved && !dirty) {
       if (++idleFrames > 5) {
         renderer.setAnimationLoop(null);
@@ -157,6 +176,8 @@ async function main() {
     }
   };
   controls.addEventListener("change", requestRender);
+  // al volver a la pestaña, retomar el movimiento del agua (el bucle se detiene cuando está oculta)
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && requestRender());
   controls.addEventListener("start", requestRender);
   addEventListener("resize", () => {
     camera.aspect = innerWidth / innerHeight;
@@ -254,6 +275,10 @@ async function main() {
   });
   setStyle(style);
 
+  // Texturas KTX2 de roca y nieve: en paralelo al terreno; no retrasan la primera vista.
+  let texInfo: { ms: number; bytes: number } | null = null;
+  void loadTerrainTextures(renderer, maxAniso).then((r) => ((texInfo = r), requestRender()));
+
   // ─── Carga progresiva ───
   const loader = new TerrainLoader(SUN);
   const t0 = performance.now();
@@ -330,6 +355,7 @@ async function main() {
         texturas: +(t.gpuBytes().textures / 1048576).toFixed(1),
       },
       descargaKB: Math.round(t.level.transferBytes / 1024),
+      texturas: texInfo ? { descargaKB: +(texInfo.bytes / 1024).toFixed(1), cargaMs: Math.round(texInfo.ms) } : null,
       cargaMs: { primeraVista: Math.round(firstViewMs), worker: Math.round(t.ms.decode + t.ms.surface + t.ms.light + t.ms.mesh), sombras: Math.round(t.ms.light) },
       pantalla: `${renderer.domElement.width}×${renderer.domElement.height} (dpr ${renderer.getPixelRatio()})`,
       gpu: metrics.snapshot().gpu,

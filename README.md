@@ -37,6 +37,8 @@ CLAUDE.md                 contexto y reglas del proyecto
 |---|---|---|
 | REMA v2.0 (Polar Geospatial Center) | Relieve | CC BY 4.0 |
 | SCAR Antarctic Digital Database v7.12 | Costa | CC BY 4.0 (confirmar para v7.12) |
+| Poly Haven · Marble Cliff 04 (Amal Kumar) | Textura de roca de acantilado, 12,66 m (terreno-estilizado) | CC0 |
+| ambientCG · Snow007A | Microrelieve de nieve (terreno-estilizado) | CC0 |
 | COMNAP Antarctic Facilities (nov 2024) | Ubicación de bases | Solo uso educativo y no comercial; citar "COMNAP 2024" |
 | GeographicLib GeoidEval (EGM2008/EGM96) | Alturas sobre el nivel del mar | Servicio público de cálculo |
 
