@@ -13,8 +13,8 @@ function rippleMap() {
 }
 export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial:Tier) {
   const mesh=new Water(new THREE.PlaneGeometry(size*8,size*8),{
-    textureWidth:mobile?96:192,textureHeight:mobile?96:192,waterNormals:rippleMap(),waterColor:0x103a42,
-    sunColor:0xd9eafa,sunDirection:sun,distortionScale:1.5,clipBias:0.0001,fog:true,
+    textureWidth:mobile?128:192,textureHeight:mobile?128:192,waterNormals:rippleMap(),waterColor:0x103a42,
+    sunColor:0xd9eafa,sunDirection:sun,distortionScale:1.05,clipBias:0.0001,fog:true,
   });
   mesh.rotation.x=-Math.PI/2;
   mesh.name="océano";
@@ -22,13 +22,17 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   mat.transparent=false;mat.depthWrite=true;
   // Give solid terrain priority on equal depth samples at grazing angles.
   mat.polygonOffset=true;mat.polygonOffsetFactor=1;mat.polygonOffsetUnits=1;
-  const officialFragment=mat.fragmentShader;
+  const officialFragment=mat.fragmentShader
+    .replace("vec3( 1.5, 1.0, 1.5 )","vec3( 0.78, 1.0, 0.78 )")
+    .replace("100.0, 2.0, 0.5","65.0, 1.25, 0.5");
   const mobileFragment=officialFragment.replace(/vec4 getNoise\( vec2 uv \) \{[\s\S]*?\}/,`
     vec4 getNoise(vec2 uv) {
-      vec4 swell=texture2D(normalSampler,uv/103.0+vec2(time/17.0,time/29.0));
-      vec4 ripple=texture2D(normalSampler,uv/34.0+vec2(-time/31.0,time/37.0));
-      return (swell*.65+ripple*.35)*2.0-1.0;
-    }
+      mat2 rot=mat2(.7986,.6018,-.6018,.7986);
+      vec2 bend=vec2(sin(dot(uv,vec2(.009,.005))),sin(dot(uv,vec2(-.004,.011))));
+      vec3 swell=texture2D(normalSampler,(uv+13.0*bend)/147.0+time*vec2(.019,.012)).xyz*2.0-1.0;
+      vec3 ripple=texture2D(normalSampler,rot*(uv-9.0*bend)/56.3+time*vec2(-.014,.021)).xyz*2.0-1.0;
+      vec2 slopes=.69*swell.xy+.31*(ripple.xy*rot);
+      return vec4(slopes,mix(swell.z,ripple.z,.31),1.0);    }
   `);
   const skyFragment=mobileFragment.replace(/vec3 reflectionSample = [^;]+;/,
     "vec3 reflectionSample=mix(vec3(.24,.36,.44),vec3(.085,.16,.22),clamp(reflect(-eyeDirection,surfaceNormal).y,0.,1.));");  // A reflection only needs the silhouette and broad snow/rock tones.
@@ -78,7 +82,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     world.copy(camera.matrixWorld);projection.copy(camera.projectionMatrix);dirty=false;
   };
   function quality(t:Tier) {
-    high=t==="alta" || (mobile && t==="media");
+    high=mobile || t==="alta";
     const fragment=high ? (mobile ? mobileFragment : officialFragment) : skyFragment;
     if(mat.fragmentShader!==fragment){mat.fragmentShader=fragment;mat.needsUpdate=true;}
 
