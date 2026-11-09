@@ -105,3 +105,49 @@ function pct(a: number[], p: number) {
   return s[Math.min(s.length - 1, Math.floor(p * s.length))];
 }
 const round = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * FPS reales: la cámara recorre una órbita alrededor de la base durante `seconds` y se
+ * dibuja en cada requestAnimationFrame. Mide el intervalo entre cuadros (incluye todo:
+ * CPU, GPU y composición del navegador). Solo es válido con la pestaña visible: el
+ * navegador frena rAF en pestañas ocultas (`valido` lo indica).
+ */
+export function runFpsTest(ctx: BenchCtx, seconds = 6): Promise<{
+  fps: number;
+  frametimeMs: { promedio: number; p95: number };
+  cuadros: number;
+  valido: boolean;
+}> {
+  const { renderer, scene, camera, controls, origin, size } = ctx;
+  return new Promise((resolve) => {
+    const intervals: number[] = [];
+    let last = 0;
+    const t0 = performance.now();
+    let hidden = document.visibilityState !== "visible";
+    const step = (now: number) => {
+      if (document.visibilityState !== "visible") hidden = true;
+      const t = (now - t0) / 1000;
+      const a = (t / seconds) * Math.PI * 2;
+      controls.target.set(origin.x, size * 0.01, origin.z);
+      camera.position.set(origin.x + Math.sin(a) * size * 0.35, size * 0.16, origin.z + Math.cos(a) * size * 0.35);
+      camera.lookAt(controls.target);
+      ctx.beforeRender?.();
+      renderer.render(scene, camera);
+      if (last) intervals.push(now - last);
+      last = now;
+      if (t < seconds) requestAnimationFrame(step);
+      else {
+        const s = [...intervals].sort((x, y) => x - y);
+        const avg = intervals.reduce((p, c) => p + c, 0) / intervals.length;
+        resolve({
+          fps: Math.round((1000 / avg) * 10) / 10,
+          frametimeMs: { promedio: Math.round(avg * 100) / 100, p95: Math.round(s[Math.floor(s.length * 0.95)] * 100) / 100 },
+          cuadros: intervals.length,
+          valido: !hidden,
+        });
+        controls.update();
+      }
+    };
+    requestAnimationFrame(step);
+  });
+}

@@ -15,6 +15,7 @@ npm run dev      # http://localhost:3400/?base=brown
 - **Medir**: corre el banco de medición (5 cámaras fijas × 20 cuadros, tiempo de GPU por consulta de temporizador).
 - Tecla `D` o `?detalle=0`: apaga el detalle de cerca (fase 3A) para comparar.
 - Selector **Calidad** (Automática / Alta / Media / Baja) o `?calidad=alta|media|baja` (fase 4).
+- Selector **Material (prueba)** A / B / C, tecla `M` o `?material=a|b|c`. A (actual) es el predeterminado.
 - Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
 - Los terrenos se leen de `../terreno-nitidez/public` (mismo formato; evita duplicar ~8,5 MB). Ver `vite.config.ts`.
 
@@ -159,6 +160,65 @@ Verificado:
 - Emulación de celular (375×812, táctil) → media, 8 m, sin scroll horizontal. La emulación hereda núcleos y memoria de la PC; un celular real de gama media reportaría menos y quedaría en baja.
 
 Errores encontrados y corregidos: la primera heurística usaba `pointer: coarse` y el ancho de la ventana; en el navegador del panel (y en laptops táctiles) clasificaba la PC como celular.
+
+## Prueba de materiales A / B / C
+
+**Premisa corregida:** el pedido suponía texturas reales en KTX2. No existen: todas las texturas del terreno se generan en el navegador (ruido 256², detalle 512²) y no se descarga ninguna imagen. La prueba usa esas mismas texturas, sin agregar ni duplicar recursos. KTX2 no aplica hasta que haya texturas de imagen (fase 3B, pendiente de decisión).
+
+### three-landscape (investigado, no instalado)
+
+| | |
+|---|---|
+| Licencia | MIT |
+| Mantenimiento | último cambio de código 2023-07-29; npm 0.9.2 (2023-03); 13 issues abiertos |
+| Compatibilidad | requiere React 18 + React Three Fiber 8 (acá no hay React) y usa APIs de three.js eliminadas en r162 (`LinearEncoding`); usamos r181 → **no compatible tal cual** |
+| Dependencias | three-custom-shader-material, glslify, memoizee, @mapbox/martini, ts-transformer-keys |
+| Muestreo aperiódico | técnica 3 de I. Quílez: un ruido elige 2 de 8 desplazamientos y mezcla dos `textureGrad` → **2 lecturas por textura** |
+| Triplanar | 3 lecturas (6 si es aperiódico); también ofrece "biplanar" |
+| Otros | mezcla de normales RNM, mapa macro de variación, mapas precalculados para lejos; `hexagon.ts` no se usa en el material |
+
+Se reutilizó solo la función de muestreo aperiódico (~20 líneas, con atribución en `src/shaders.ts`), con un agregado propio: cada patrón virtual también se **gira**.
+
+### Diagnóstico de la repetición (material A)
+
+- Ruido de manchas (256 px) repetido cada **700 m** (~11 veces por lado del recorte) y vetas cada **70 m**, ambos triplanares.
+- Detalle de cerca repetido cada **110 m** (~72 veces por lado) y ondas de nieve con **una sola dirección**: la repetición más visible.
+- Variación nieve/roca solo por pendiente + esos ruidos; la nieve no tiene variación propia de gran escala.
+- 11 lecturas de textura por píxel cerca (3 triplanares × 3 + superficie + luz).
+- Detalle con anisotropía 8 aunque la GPU admite 16 (corregido: ahora el máximo).
+
+### Variantes
+
+| | A · actual | B · básico | C · aperiódico |
+|---|---|---|---|
+| Manchas/vetas | 2 ruidos triplanares (6 lecturas), 700 m y 70 m | 1 lectura cenital, mosaico 1900 m | igual que B |
+| Variación de color | pendiente | + baja frecuencia en nieve y roca | igual que B |
+| Detalle de cerca | triplanar (3 lecturas), 110 m | 1 proyección (eje dominante), 97 m | B + aperiódico con giro (2 lecturas) |
+| Lecturas por píxel (cerca) | 11 | 4 | 5 |
+
+Mismo material compartido para todo el terreno (estilo Interpretación, LOD); misma geometría REMA, cámara, luz, sombra del sol y agua.
+
+### Medido
+
+Brown, nivel 4 m, LOD, calidad alta, lienzo 1482×797 (dpr 1,25), mismas 5 cámaras × 20 cuadros, GPU integrada AMD Radeon.
+
+| | A | B | C |
+|---|---|---|---|
+| GPU por cuadro, mediana | 4,50 ms | **3,28 ms** (−27 %) | **3,53 ms** (−22 %) |
+| GPU por cuadro, p95 | 7,17 ms | 4,65 ms | 4,95 ms |
+| Cámara cercana | 6,79 ms | 4,08 ms | 4,66 ms |
+| FPS reales (órbita de 6 s, pestaña visible) | 59,9 (frametime 16,7 ms, p95 16,8) | no válido (pestaña oculta durante la prueba) | 59,9 (frametime 16,7 ms, p95 16,8) |
+| Triángulos (cámara media) / draw calls | 315 k / 4 | igual | igual |
+| Memoria GPU (geometría + texturas estimadas) | 0,8 + 29,2 MB | igual | igual |
+| Descarga | sin cambios (no hay texturas nuevas) | igual | igual |
+
+Los FPS de A y C están topeados por la pantalla (60 Hz): ambos sobran en esta PC. JS total de la exploración: 147 KB gzip / 118 KB brotli (todas las fases); las variantes solo agregan texto de shader.
+
+Capturas (misma cámara): `capturas/material-cerca-{A,B,C}.jpg`, `capturas/material-cenital-{A,B,C}.jpg`.
+
+### Recomendación
+
+**C**: elimina la dirección única de las ondas (la repetición más evidente), suma variación de baja frecuencia y es **22 % más barata que A**. B es apenas más barata que C (0,25 ms) pero conserva el patrón repetido; queda como alternativa liviana si hiciera falta. A sigue como predeterminado hasta que se confirme el cambio.
 
 ## Pendiente (no medido o fuera de las fases 1 a 4)
 

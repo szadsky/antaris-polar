@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { MESH_STRIDE, TerrainLoader, type GeoMode, type Level, type Style, type Terrain, type TerrainMeta } from "./terrain";
 import { Metrics } from "./metrics";
-import { applyPose, runBench, type BenchCtx } from "./bench";
+import { applyPose, runBench, runFpsTest, type BenchCtx } from "./bench";
+import type { MaterialVariant } from "./shaders";
 import { AdaptiveQuality, TIERS, guessDevice, type Tier } from "./quality";
 import type { Vec3 } from "./worker";
 
@@ -18,6 +19,7 @@ const noteEl = $("style-note");
 const sourceEl = $("source");
 const metricsEl = $("metrics");
 const qualityEl = $<HTMLSelectElement>("quality");
+const materialEl = $<HTMLSelectElement>("material");
 const qualityNoteEl = $("quality-note");
 
 /** Sol de la interpretación: bajo (≈20°) y de costado respecto de la vista inicial. Fijo. */
@@ -184,6 +186,16 @@ async function main() {
   };
   baseBtn.addEventListener("click", () => setStyle("base"));
   styBtn.addEventListener("click", () => setStyle("estilizado"));
+  // Prueba de materiales A/B/C (?material=a|b|c, tecla M). A = actual (por defecto).
+  let variant: MaterialVariant = (["a", "b", "c"] as MaterialVariant[]).find((x) => x === params.get("material")) ?? "a";
+  materialEl.value = variant;
+  const setVariant = (v: MaterialVariant) => {
+    variant = v;
+    materialEl.value = v;
+    terrain?.setVariant(v);
+    requestRender();
+  };
+  materialEl.addEventListener("change", () => setVariant(materialEl.value as MaterialVariant));
   let detail = params.get("detalle") !== "0";
   const setDetail = (on: boolean) => {
     detail = on;
@@ -217,6 +229,7 @@ async function main() {
     if ((e.target as HTMLElement).closest("select")) return;
     if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
     if (e.key.toLowerCase() === "d") setDetail(!detail);
+    if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : "a");
   });
   exaggerationEl.addEventListener("change", async () => {
     exaggeration = Number(exaggerationEl.value);
@@ -252,6 +265,7 @@ async function main() {
     }
     if (pin) scene.remove(pin.group);
     terrain = t;
+    t.setVariant(variant);
     t.setStyle(style);
     t.setDetail(detail && TIERS[quality.tier].detail);
     t.setLodTarget(TIERS[quality.tier].lodPx);
@@ -304,6 +318,7 @@ async function main() {
     const r = await runBench(ctx);
     benchResult = {
       estilo: style,
+      material: variant,
       geometria: geo,
       detalle: detail && TIERS[quality.tier].detail,
       calidad: { nivel: quality.tier, automatica: quality.auto, ultimaMedianaMs: quality.lastMedianMs, fuente: quality.source, dispositivo: device },
@@ -325,7 +340,7 @@ async function main() {
   };
   $("bench").addEventListener("click", () => void bench());
   Object.assign(window, {
-    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, quality, applyTier, get terrain() { return terrain; } },
+    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
     __bench: bench,
     __pose: (i: number) => {
       applyPose(ctx, i);

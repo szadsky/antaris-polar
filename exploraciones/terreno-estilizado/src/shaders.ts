@@ -134,6 +134,30 @@ vec2 triNoise(vec3 p, vec3 n, float f) {
   vec3 w = pow(abs(n), vec3(4.0)); w /= (w.x + w.y + w.z);
   return texture2D(uNoise, p.zy * f).rg * w.x + texture2D(uNoise, p.xz * f).rg * w.y + texture2D(uNoise, p.xy * f).rg * w.z;
 }
+#ifdef MAT_C
+// Muestreo aperiódico: técnica 3 de I. Quílez ("texture repetition"), tal como la usa
+// three-landscape (MIT, nwpointer/three-landscape, util/samplers.js). Agregado nuestro: cada
+// patrón virtual además se gira, para que las ondas de nieve no tengan una sola dirección.
+// Devuelve las normales de detalle ya decodificadas y vueltas al plano del mundo: rg = roca, ba = nieve.
+vec4 aperiodicDetail(sampler2D map, vec2 uv, float k) {
+  float l = k * 8.0;
+  float f = fract(l);
+  float ia = floor(l), ib = ia + 1.0;
+  vec2 offa = sin(vec2(3.0, 7.0) * ia), offb = sin(vec2(3.0, 7.0) * ib);
+  float ra = ia * 2.39996, rb = ib * 2.39996;
+  mat2 Ra = mat2(cos(ra), sin(ra), -sin(ra), cos(ra));
+  mat2 Rb = mat2(cos(rb), sin(rb), -sin(rb), cos(rb));
+  vec2 dx = dFdx(uv), dy = dFdy(uv);
+  vec4 a = textureGrad(map, Ra * uv + offa, Ra * dx, Ra * dy) * 2.0 - 1.0;
+  vec4 b = textureGrad(map, Rb * uv + offb, Rb * dx, Rb * dy) * 2.0 - 1.0;
+  // de vuelta al plano del mundo: inversa de la rotación (transpuesta)
+  mat2 Ta = mat2(Ra[0][0], Ra[1][0], Ra[0][1], Ra[1][1]);
+  mat2 Tb = mat2(Rb[0][0], Rb[1][0], Rb[0][1], Rb[1][1]);
+  a = vec4(Ta * a.xy, Ta * a.zw);
+  b = vec4(Tb * b.xy, Tb * b.zw);
+  return mix(a, b, smoothstep(0.2, 0.8, f));
+}
+#endif
 vec3 seaColor(float shore, float fine, out float foam) {
   // Espuma angosta (~10 m) y cortada por ruido: de cerca no debe leerse como una plataforma.
   foam = smoothstep(0.92, 0.985, shore) * smoothstep(0.35, 0.7, fine);
@@ -157,17 +181,30 @@ float steep = 1.0 - n.y;
 float cav = surf.b;
 float shore = lgt.g;
 gSun = lgt.r;
-// Variación procedural (triplanar): manchas cada ~700 m, vetas cada ~70 m.
+#if defined(MAT_B) || defined(MAT_C)
+// B/C: una sola lectura cenital de baja frecuencia (mosaico de 1900 m):
+// R = manchas suaves (~240 m), G = vetas fbm (~30–120 m).
+vec2 mac = texture2D(uNoise, vWorld.xz * (1.0 / 1900.0)).rg;
+float big = mac.r;
+float fine = mac.g;
+#else
+// A: variación procedural triplanar: manchas cada ~700 m, vetas cada ~70 m.
 float big = triNoise(vWorld, n, 1.0 / 700.0).r;
 #ifdef FAR
 float fine = 0.5; // lejos las vetas no se distinguen: 3 lecturas menos
 #else
 float fine = triNoise(vWorld, n, 1.0 / 70.0).g;
 #endif
+#endif
 float rockT = smoothstep(0.30, 0.34, steep + (big - 0.5) * 0.16 + (fine - 0.5) * 0.05);
 vec3 rock = mix(uRockA, uRockB, smoothstep(0.35, 0.75, fine * 0.6 + big * 0.4));
 rock *= 0.75 + 0.25 * cav;
 vec3 snow = mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav));
+#if defined(MAT_B) || defined(MAT_C)
+// Variación de baja frecuencia: nieve venteada algo más fría/gris en zonas amplias; roca más o menos clara.
+snow *= mix(vec3(1.0), vec3(0.9, 0.94, 0.99), smoothstep(0.45, 0.8, big));
+rock *= mix(0.86, 1.12, big);
+#endif
 // Hielo (interpretación): paredes empinadas junto a la costa y cerca del nivel del mar.
 float lowAlt = 1.0 - smoothstep(25.0, 60.0, vWorld.y - uSeaY);
 float iceT = smoothstep(0.72, 0.9, shore) * smoothstep(0.22, 0.34, steep) * lowAlt * (1.0 - rockT * 0.7);
@@ -182,6 +219,25 @@ vec3 nd = n;
 // Se desvanece entre 500 y 2200 m; casi nulo en hielo; nada en el agua.
 float dAmt = uDetailOn * (1.0 - smoothstep(uDetailFade.x, uDetailFade.y, length(cameraPosition - vWorld))) * (1.0 - isSea);
 if (dAmt > 0.001) {
+#if defined(MAT_B) || defined(MAT_C)
+  // B/C: una sola proyección, la del eje dominante de la normal (sin triplanar completo).
+  vec3 an = abs(n);
+  vec2 puv;
+  int ax;
+  if (an.y >= an.x && an.y >= an.z) { puv = vWorld.xz; ax = 1; }
+  else if (an.x >= an.z) { puv = vWorld.zy; ax = 0; }
+  else { puv = vWorld.xy; ax = 2; }
+  puv *= 1.0 / 97.0; // mosaico de 97 m: no es múltiplo de las otras escalas
+#ifdef MAT_C
+  vec4 dd = aperiodicDetail(uDetail, puv, fine); // 2 lecturas
+#else
+  vec4 dd = texture2D(uDetail, puv) * 2.0 - 1.0; // 1 lectura
+#endif
+  vec2 d2 = mix(dd.zw, dd.xy, rockT);
+  vec3 pert = ax == 1 ? vec3(d2.x, 0.0, d2.y) : ax == 0 ? vec3(0.0, d2.y, d2.x) : vec3(d2.x, d2.y, 0.0);
+  float str = mix(0.2, 1.7, rockT) * (1.0 - iceT * 0.85) * dAmt;
+  nd = normalize(n + pert * str);
+#else
   vec3 w3 = pow(abs(n), vec3(4.0)); w3 /= (w3.x + w3.y + w3.z);
   float f = 1.0 / 110.0; // un mosaico cada ~110 m: grietas y ondas de 2–15 m, legibles a cientos de metros
   vec4 tx = texture2D(uDetail, vWorld.zy * f);
@@ -193,6 +249,7 @@ if (dAmt > 0.001) {
   float str = mix(0.2, 1.7, rockT) * (1.0 - iceT * 0.85) * dAmt;
   vec3 pert = vec3(0.0, dx.y, dx.x) * w3.x + vec3(dy.x, 0.0, dy.y) * w3.y + vec3(dz.x, dz.y, 0.0) * w3.z;
   nd = normalize(n + pert * str);
+#endif
 }
 #endif
 gN = mix(nd, vec3(0.0, 1.0, 0.0), isSea);`;
@@ -214,13 +271,18 @@ export interface StyleVariant extends VertexPath {
   far?: boolean;
   /** El agua la dibuja el plano del mar: el terreno descarta sus píxeles de mar. */
   seaByPlane?: boolean;
+  /** Prueba de materiales: a = actual, b = básico optimizado, c = b + muestreo aperiódico. */
+  variant?: MaterialVariant;
 }
+export type MaterialVariant = "a" | "b" | "c";
 
 export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0 });
   const defines: Record<string, string> = {};
   if (v.far) defines.FAR = "";
   if (v.seaByPlane) defines.SEA_BY_PLANE = "";
+  if (v.variant === "b") defines.MAT_B = "";
+  if (v.variant === "c") defines.MAT_C = "";
   (m as unknown as { defines: Record<string, string> }).defines = defines;
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, u);
