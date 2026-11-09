@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Terreno 3D · Antaris Polar (prototipo)</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="Terreno 3D de caleta Potter. Arrastrá para mover, rueda o pellizco para acercar."></canvas>
+
+    <div id="status" class="status" role="status" aria-live="polite">Cargando terreno…</div>
+    <div id="pin" class="pin" hidden></div>
+
+    <aside class="hud" aria-label="Información del terreno">
+      <a id="back" class="hud__back" href="./bases.html">← Bases argentinas</a>
+      <p id="title" class="hud__title">Terreno REMA</p>
+      <p id="source" class="hud__source"></p>
+      <label class="hud__row">
+        Exageración vertical
+        <select id="exaggeration">
+          <option value="1" selected>1× (real)</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </label>
+      <p class="hud__help">
+        Arrastrar: mover · Clic derecho o dos dedos: girar · Rueda o pellizco: zoom · Flechas: mover
+      </p>
+    </aside>
+
+    <section class="metrics" aria-label="Métricas de rendimiento">
+      <pre id="metrics"></pre>
+      <button id="copy-metrics" type="button">Copiar métricas</button>
+    </section>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

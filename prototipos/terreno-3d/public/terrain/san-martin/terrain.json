@@ -1,0 +1,362 @@
+{
+  "generatedAt": "2026-11-09T02:34:53.294Z",
+  "id": "san-martin",
+  "base": {
+    "id": "san-martin",
+    "nombre": "Base Antártica San Martín",
+    "permanente": true,
+    "lat": -68.1303,
+    "lon": -67.102931,
+    "projected": [
+      -2214860.17,
+      935460.05
+    ],
+    "fuente": "COMNAP Antarctic Facilities, nov 2024"
+  },
+  "geoid": {
+    "egm2008": 9.5077,
+    "egm96": 7.2379
+  },
+  "heightCheck": {
+    "rema_h_elipsoidal_m": 14.84375,
+    "rema_H_aprox_msnm_egm2008": 5.34,
+    "comnap_publicada_m": 5,
+    "comnap_datum": "MSL",
+    "diferencia_m": 0.34,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  },
+  "sourceFile": "san-martin_2m.tif",
+  "crs": "EPSG:3031",
+  "original": {
+    "width": 4000,
+    "height": 4000,
+    "resolutionM": [
+      2,
+      2
+    ],
+    "originProjected": [
+      -2218860,
+      939460
+    ],
+    "nodataPercent": 0
+  },
+  "heights": {
+    "encoding": "uint16: 0 = sin dato; 1..65535 lineal entre minM y maxM",
+    "minM": 7.171875,
+    "maxM": 570.671875,
+    "verticalReference": "sobre elipsoide WGS84, no sobre el nivel del mar",
+    "verticalReferenceDetail": {
+      "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+      "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+      "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008, con N consultado en GeographicLib GeoidEval para este lugar (ver <nombre>_check.json). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+    },
+    "seaLevelM": null
+  },
+  "levels": [
+    {
+      "file": "terrain-512.bin.gz",
+      "encoding": "delta-planar-v1",
+      "compression": "gzip",
+      "maskFile": "terrain-512.mask.gz",
+      "width": 500,
+      "height": 500,
+      "cellSizeM": 16,
+      "bytes": 500000,
+      "transferBytes": 138474
+    },
+    {
+      "file": "terrain-1024.bin.gz",
+      "encoding": "delta-planar-v1",
+      "compression": "gzip",
+      "maskFile": "terrain-1024.mask.gz",
+      "width": 1000,
+      "height": 1000,
+      "cellSizeM": 8,
+      "bytes": 2000000,
+      "transferBytes": 495429
+    }
+  ],
+  "coastline": {
+    "label": "SCAR ADD v7.12 (2025)",
+    "dataset": "SCAR Antarctic Digital Database — High resolution vector polygons of the Antarctic coastline",
+    "layer": "add_coastline_high_res_polygon_v7_12",
+    "serviceUrl": "https://services7.arcgis.com/tPxy1hrFDhJfZ0Mf/arcgis/rest/services/High_resolution_vector_polygons_of_the_Antarctic_coastline/FeatureServer/1",
+    "citation": "SCAR Antarctic Digital Database, 2025, https://doi.org/qc9x",
+    "licence": "CC BY 4.0 según fichas del ADD de versiones previas; confirmar para v7.12",
+    "file": "san-martin.json",
+    "surfaces": [
+      "land"
+    ],
+    "maskEncoding": "uint8 por vértice: 1 = dentro de un polígono ADD (tierra/hielo), 0 = mar",
+    "comparisonWithRema": {
+      "landFraction": 0.447244,
+      "sea": {
+        "n": 2211024,
+        "p5": 7.1796875,
+        "p50": 7.21875,
+        "p95": 7.2578125
+      },
+      "land": {
+        "n": 1788976,
+        "p5": 53.6328125,
+        "p50": 167.8125,
+        "p95": 353.46875
+      },
+      "seaAboveSeaMedianPlus5": 0.03273731990245244,
+      "landWithin1mOfSeaMedian": 0.004112967418232553,
+      "note": "Muestra 1 de cada 4 píxeles. 'Mar' con alturas altas sugiere hielo/tierra en REMA donde el ADD marca mar (p. ej., un frente glaciar en otra posición)."
+    }
+  },
+  "provenance": {
+    "dataset": "Reference Elevation Model of Antarctica (REMA) — Mosaics",
+    "version": "2.0",
+    "product": "REMA v2.0 DEM mosaic, 2 m",
+    "producer": "Polar Geospatial Center (PGC), University of Minnesota / Byrd Polar and Climate Research Center",
+    "observation_type": "Observación: modelo digital de superficie (DSM) fotogramétrico (SETSM) a partir de imágenes estéreo Maxar/Vantor WorldView/GeoEye; compuesto multitemporal registrado a altimetría satelital (CryoSat-2, ICESat).",
+    "retrieval_date": "2026-11-08",
+    "run_timestamp_utc": "2026-11-09T02:21:40.059Z",
+    "access": {
+      "method": "HTTP range requests (Cloud Optimized GeoTIFF) desde el bucket público AWS Open Data, sin credenciales",
+      "stac_root": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema.json",
+      "aws_registry": "https://registry.opendata.aws/pgc-rema/",
+      "bytes_fetched_approx": 11403277,
+      "http_requests": 13,
+      "tiles_used": [
+        {
+          "item_id": "40_08_1_2_2m_v2.0",
+          "tile": "40_08_1_2",
+          "stac_item": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/40_08/40_08_1_2_2m_v2.0.json",
+          "dem_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/40_08/40_08_1_2_2m_v2.0_dem.tif",
+          "count_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/40_08/40_08_1_2_2m_v2.0_count.tif",
+          "window_px": [
+            15620,
+            5320,
+            19620,
+            9320
+          ],
+          "window_valid_px": 16000000,
+          "bytes_fetched_approx": 11337740,
+          "item_proj_bbox": [
+            -2250100,
+            899900,
+            -2199900,
+            950100
+          ],
+          "item_data_perc": 0.274726,
+          "item_start_datetime": "2011-03-04T00:00:00Z",
+          "item_end_datetime": "2020-03-21T00:00:00Z",
+          "item_num_components": 67,
+          "item_published": "2022-10-19T00:00:00Z",
+          "item_created": "2022-08-05T00:00:00Z",
+          "cog_check": {
+            "epsg": 3031,
+            "resolution": [
+              2,
+              -2
+            ],
+            "origin": [
+              -2250100,
+              950100
+            ],
+            "nodata": -9999,
+            "size": [
+              25100,
+              25100
+            ],
+            "tiled": true,
+            "tileSize": [
+              512,
+              512
+            ],
+            "overviews": 6,
+            "compression": 5
+          }
+        }
+      ],
+      "tiles_missing_in_catalog": [],
+      "overlap_between_tiles": {
+        "pixels_compared": 0,
+        "max_abs_diff_m": 0,
+        "mean_abs_diff_m": null,
+        "rule": "se conserva el primer valor válido en el orden de tiles_used"
+      }
+    },
+    "output": {
+      "file": "data/rema/san-martin_2m.tif",
+      "bytes": 6530209,
+      "sha256": "ba50280cc42d3885dfe7db57bf4e53bcc93f08edb378d774e947ecf8ed5628d8",
+      "format": "GeoTIFF (TIFF clásico), float32, 1 banda, DEFLATE + predictor 3, tiras de 16 filas",
+      "read_back_check": {
+        "pixels_mismatch": 0,
+        "epsg": 3031,
+        "origin": [
+          -2218860,
+          939460,
+          0
+        ],
+        "resolution": [
+          2,
+          -2,
+          0
+        ],
+        "nodata": -9999,
+        "size": [
+          4000,
+          4000
+        ]
+      },
+      "previews_note": "Reducidas x4 (1000x1000 px, 8 m/px). Solo inspección visual, no usar como dato.",
+      "previews": [
+        "data/rema/san-martin_2m_preview16.png",
+        "data/rema/san-martin_2m_hillshade.png"
+      ]
+    },
+    "resolution_m": 2,
+    "crs": {
+      "epsg": 3031,
+      "name": "WGS 84 / Antarctic Polar Stereographic",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    },
+    "geotransform_gdal": [
+      -2218860,
+      2,
+      0,
+      939460,
+      0,
+      -2
+    ],
+    "pixel_is": "area",
+    "width": 4000,
+    "height": 4000,
+    "bbox_requested_epsg3031": [
+      -2218860,
+      931460,
+      -2210860,
+      939460
+    ],
+    "bbox_epsg3031": [
+      -2218860,
+      931460,
+      -2210860,
+      939460
+    ],
+    "bbox_wgs84": {
+      "west": -67.227718,
+      "south": -68.176865,
+      "east": -66.977921,
+      "north": -68.083729,
+      "corners": {
+        "upper_left": [
+          -67.052317,
+          -68.083729
+        ],
+        "upper_right": [
+          -66.977921,
+          -68.149163
+        ],
+        "lower_right": [
+          -67.153765,
+          -68.176865
+        ],
+        "lower_left": [
+          -67.227718,
+          -68.111339
+        ]
+      }
+    },
+    "nodata_value": -9999,
+    "nodata_pixels": 0,
+    "nodata_percent": 0,
+    "valid_pixels": 16000000,
+    "elevation_stats_m": {
+      "min": 7.171875,
+      "max": 570.671875,
+      "mean": 83.91631014892579,
+      "note": "Incluye la superficie del mar aplanada por PGC (~22 m elipsoidales); ver measured_vs_filled.land_ice_stats_m para tierra/hielo."
+    },
+    "measured_vs_filled": {
+      "explanation": "Según PGC, REMA v2 usó la costa del Antarctic Digital Database para enmascarar datos de mala calidad sobre el océano y \"add the sea surface height\". Por eso el recorte no tiene nodata: el mar tiene un valor de relleno casi constante (~22 m elipsoidales). Comprobado en este recorte: count = 0 solo marca bloques sin ninguna tira (mar abierto); dentro de la caleta el agua también está aplanada aunque count > 0. Para separar mar de tierra se usa además la heurística sea_surface_flat_heuristic.",
+      "source": "https://www.pgc.umn.edu/guides/stereo-derived-elevation-models/pgc-dem-products-arcticdem-rema-and-earthdem/",
+      "pixels_count_gt0": 11915769,
+      "percent_count_gt0": 74.474,
+      "land_ice_stats_m": {
+        "pixels": 7494263,
+        "percent": 46.839,
+        "min": 7.171875,
+        "max": 570.671875,
+        "mean": 170.96948861499123,
+        "rule": "count > 0 y no marcado por sea_surface_flat_heuristic"
+      },
+      "filled_pixels_count0": 4084231,
+      "filled_percent": 25.526,
+      "filled_value_range_m": [
+        7.171875,
+        7.2734375
+      ],
+      "count_histogram": {
+        "0": 4084231,
+        "1": 2,
+        "2": 500497,
+        "3": 258267,
+        "4": 530542,
+        "5": 253989,
+        "6": 516729,
+        "7": 615800,
+        "8": 376520,
+        "9": 375499,
+        "10": 390879,
+        "11": 713709,
+        "12": 500901,
+        "13": 2271732,
+        "14": 2535886,
+        "15": 906566,
+        "16": 501565,
+        "17": 368919,
+        "18": 55168,
+        "19": 96425,
+        "20": 146174
+      },
+      "count_raster": "data/rema/san-martin_2m_count.tif",
+      "sea_surface_flat_heuristic": {
+        "rule": "valor en [5.24, 9.24] m elipsoidales y rango de la vecindad 3x3 < 0.05 m",
+        "pixels": 8500200,
+        "percent": 53.126,
+        "of_which_count0": 4078694,
+        "caveat": "Estimación; no es una máscara oficial. La franja se centra en la ondulación del geoide local (EGM96), que es donde PGC dejó el relleno del mar en caleta Potter; no está documentado que sea igual en todas partes."
+      }
+    },
+    "units": "metros",
+    "value_quantization": {
+      "multiples_of_1_128_m_percent": 100,
+      "note": "Los valores de origen son múltiplos de 1/128 m (~0.8 cm), propio de los COG de PGC; no lo introduce este script."
+    },
+    "vertical_reference": {
+      "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+      "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+      "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008, con N consultado en GeographicLib GeoidEval para este lugar (ver <nombre>_check.json). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+    },
+    "temporal_note": "El mosaico combina tiras de distintas fechas (ver item_start_datetime/item_end_datetime por tesela); el recorte no representa un instante único.",
+    "reference_points_sampled": [
+      {
+        "key": "san-martin",
+        "name": "Base Antártica San Martín",
+        "lon": -67.102931,
+        "lat": -68.1303,
+        "source": "COMNAP Antarctic Facilities nov 2024: elevación publicada 5 m (MSL)",
+        "x_3031": -2214860.17,
+        "y_3031": 935460.05,
+        "inside_crop": true,
+        "rema_ellipsoidal_m": 14.84375
+      }
+    ],
+    "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) según el catálogo STAC de PGC y el AWS Open Data Registry",
+    "citation": {
+      "dataset": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+      "acknowledgement": "DEMs provided by the Byrd Polar and Climate Research Center and the Polar Geospatial Center under NSF-OPP awards 1043681, 1542736, 1543501, 1559691, 1810976, and 2129685.",
+      "aws": "Reference Elevation Model of Antarctica (REMA) was accessed on 2026-11-08 from https://registry.opendata.aws/pgc-rema.",
+      "policy": "https://www.pgc.umn.edu/guides/user-services/acknowledgement-policy/"
+    },
+    "place": "Base Antártica San Martín (8×8 km centrados en la base)",
+    "processing": "Recorte por ventana en la grilla nativa (sin remuestreo, sin relleno de huecos, sin suavizado). Script: pipeline/rema/fetch-potter-cove.mjs"
+  }
+}

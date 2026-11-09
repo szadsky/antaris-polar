@@ -1,0 +1,174 @@
+/* ─── Escena (siempre oscura) ───────────────────────────── */
+.scene {
+  background:
+    radial-gradient(120% 60% at 50% 0%, #12324a 0%, transparent 70%),
+    var(--scene-bg);
+  color: var(--scene-ink);
+  padding-bottom: clamp(48px, 8vw, 96px);
+}
+
+.scene :focus-visible {
+  outline-color: #7cc4e6;
+}
+
+.hero {
+  display: grid;
+  gap: 20px;
+  justify-items: start;
+  padding-top: clamp(56px, 10vw, 128px);
+  padding-bottom: clamp(40px, 6vw, 72px);
+}
+
+.eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--scene-ink-soft);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(3rem, 9vw, 7.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+}
+
+.title em {
+  color: #7cc4e6;
+}
+
+.lede {
+  max-width: 52ch;
+  font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
+  color: var(--scene-ink-soft);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.actions :global(.button--primary) {
+  background: #7cc4e6;
+  color: #06121a;
+}
+
+.actions :global(.button--ghost) {
+  color: var(--scene-ink);
+}
+
+/* ─── Exploración: viewport 3D + lista accesible ─────────── */
+.explore {
+  display: grid;
+  gap: 24px;
+  scroll-margin-top: 76px;
+}
+
+@media (min-width: 960px) {
+  .explore {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.viewport {
+  display: grid;
+  border: 1px solid var(--scene-line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* Fondo neutro: NO representa relieve real ni sintético */
+.viewportInner {
+  aspect-ratio: 16 / 10;
+  background-image:
+    linear-gradient(var(--scene-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--scene-line) 1px, transparent 1px),
+    linear-gradient(180deg, #0e2433 0%, #08131b 100%);
+  background-size: 48px 48px, 48px 48px, auto;
+  opacity: 0.9;
+}
+
+.viewportNote {
+  padding: 16px 20px;
+  font-size: 0.9375rem;
+  color: var(--scene-ink-soft);
+  border-top: 1px solid var(--scene-line);
+}
+
+.viewportNote strong {
+  color: var(--scene-ink);
+}
+
+.points {
+  display: grid;
+  gap: 16px;
+}
+
+.pointsTitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--scene-ink-soft);
+}
+
+.pointsList {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+/* ─── Cómo funciona ──────────────────────────────────────── */
+.how {
+  padding-block: clamp(56px, 8vw, 104px);
+  display: grid;
+  gap: 32px;
+}
+
+.howTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.steps {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 32px;
+}
+
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.steps li {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.steps h3 {
+  font-size: 1.25rem;
+}
+
+.steps p {
+  color: var(--ink-soft);
+}
+
+.stepNum {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}

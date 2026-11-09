@@ -1,0 +1,36 @@
+{
+  "label": "SCAR ADD v7.12 (2025)",
+  "layer": "add_coastline_high_res_polygon_v7_12",
+  "serviceUrl": "https://services7.arcgis.com/tPxy1hrFDhJfZ0Mf/arcgis/rest/services/High_resolution_vector_polygons_of_the_Antarctic_coastline/FeatureServer/1",
+  "query": {
+    "envelope": {
+      "xmin": -2470102,
+      "ymin": 1258818,
+      "xmax": -2461102,
+      "ymax": 1267818,
+      "spatialReference": {
+        "wkid": 3031
+      }
+    },
+    "outSR": 3031
+  },
+  "retrievedAt": "2026-11-09",
+  "citation": "SCAR Antarctic Digital Database, 2025, https://doi.org/qc9x",
+  "licence": "CC BY 4.0 (inferida de fichas del ADD de versiones previas; confirmar para v7.12)",
+  "features": 8,
+  "surfaces": [
+    "land"
+  ],
+  "clipped": {
+    "to": [
+      -2470102,
+      1258818,
+      -2461102,
+      1267818
+    ],
+    "method": "Sutherland–Hodgman por anillo (pipeline/rema/lib/clip-coast.mjs)",
+    "bytesBefore": 83200475,
+    "bytesAfter": 173057,
+    "note": "El servicio devuelve polígonos completos (el continente entero si se toca); solo se conserva el recuadro."
+  }
+}

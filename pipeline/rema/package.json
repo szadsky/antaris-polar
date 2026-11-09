@@ -1,0 +1,20 @@
+{
+  "name": "antaris-pipeline-rema",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Recorte reproducible de REMA v2 (PGC) para caleta Potter, isla 25 de Mayo",
+  "type": "module",
+  "scripts": {
+    "fetch": "node fetch-potter-cove.mjs",
+    "fetch:10m": "node fetch-potter-cove.mjs --res 10",
+    "check": "node sanity-check.mjs --res 2",
+    "check:10m": "node sanity-check.mjs --res 10"
+  },
+  "dependencies": {
+    "geotiff": "^2.1.3",
+    "proj4": "^2.22.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

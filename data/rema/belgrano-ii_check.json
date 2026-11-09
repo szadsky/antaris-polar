@@ -1,0 +1,45 @@
+{
+  "fecha": "2026-11-09T02:19:29.241Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "belgrano-ii",
+  "nombre": "Base Antártica Belgrano II",
+  "bbox_epsg3031": [
+    -755372,
+    1084046,
+    -747372,
+    1092046
+  ],
+  "geoid": {
+    "egm2008": -11.9004,
+    "egm96": -10.9523
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": -11.2109375,
+    "max": 564.71875,
+    "tiles": [
+      "41_23_2_1_2m_v2.0",
+      "41_23_2_2_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2011-10-02",
+        "2020-02-21"
+      ],
+      [
+        "2010-10-27",
+        "2020-02-19"
+      ]
+    ],
+    "sea_flat_percent": 0.018
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 240.0703125,
+    "rema_H_aprox_msnm_egm2008": 251.97,
+    "comnap_publicada_m": 256.5,
+    "comnap_datum": "MSL",
+    "diferencia_m": -4.53,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

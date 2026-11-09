@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:25:07.479Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "matienzo",
+  "nombre": "Base Antártica Matienzo",
+  "bbox_epsg3031": [
+    -2397018,
+    1373662,
+    -2389018,
+    1381662
+  ],
+  "geoid": {
+    "egm2008": 18.4664,
+    "egm96": 18.1266
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 18.0078125,
+    "max": 164.3984375,
+    "tiles": [
+      "44_07_2_1_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2011-02-22",
+        "2020-09-16"
+      ]
+    ],
+    "sea_flat_percent": 75.867
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 40.765625,
+    "rema_H_aprox_msnm_egm2008": 22.3,
+    "comnap_publicada_m": 32,
+    "comnap_datum": "MSL",
+    "diferencia_m": -9.7,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

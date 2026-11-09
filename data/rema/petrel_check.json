@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:21:08.403Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "petrel",
+  "nombre": "Base Antártica Petrel",
+  "bbox_epsg3031": [
+    -2441452,
+    1625824,
+    -2433452,
+    1633824
+  ],
+  "geoid": {
+    "egm2008": 22.3589,
+    "egm96": 23.1004
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 22.9609375,
+    "max": 242.875,
+    "tiles": [
+      "47_06_1_2_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2010-11-15",
+        "2020-09-20"
+      ]
+    ],
+    "sea_flat_percent": 67.894
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 37.1875,
+    "rema_H_aprox_msnm_egm2008": 14.83,
+    "comnap_publicada_m": 18,
+    "comnap_datum": "MSL",
+    "diferencia_m": -3.17,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

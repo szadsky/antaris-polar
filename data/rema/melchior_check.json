@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:25:37.419Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "melchior",
+  "nombre": "Base Antártica Melchior",
+  "bbox_epsg3031": [
+    -2529760,
+    1284254,
+    -2521760,
+    1292254
+  ],
+  "geoid": {
+    "egm2008": 18.7384,
+    "egm96": 17.2423
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 17.1015625,
+    "max": 212.3359375,
+    "tiles": [
+      "43_05_2_2_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2010-01-06",
+        "2020-04-22"
+      ]
+    ],
+    "sea_flat_percent": 80.807
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 26.1640625,
+    "rema_H_aprox_msnm_egm2008": 7.43,
+    "comnap_publicada_m": 4,
+    "comnap_datum": "MSL",
+    "diferencia_m": 3.43,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

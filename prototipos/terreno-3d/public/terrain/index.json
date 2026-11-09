@@ -1,0 +1,200 @@
+{
+  "generatedAt": "2026-11-09T02:35:11.626Z",
+  "terrains": [
+    {
+      "id": "belgrano-ii",
+      "nodataPercent": 0,
+      "seaPercent": 0,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "carlini",
+      "nodataPercent": 0,
+      "seaPercent": 26.6,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "esperanza",
+      "nodataPercent": 0,
+      "seaPercent": 42.8,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "marambio",
+      "nodataPercent": 0,
+      "seaPercent": 64.8,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "petrel",
+      "nodataPercent": 0,
+      "seaPercent": 66.2,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "san-martin",
+      "nodataPercent": 0,
+      "seaPercent": 55.3,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "orcadas",
+      "nodataPercent": 0,
+      "seaPercent": 63.2,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "brown",
+      "nodataPercent": 0,
+      "seaPercent": 55.1,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "camara",
+      "nodataPercent": 0,
+      "seaPercent": 81.8,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "decepcion",
+      "nodataPercent": 0,
+      "seaPercent": 61.7,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "matienzo",
+      "nodataPercent": 0,
+      "seaPercent": 78.2,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "melchior",
+      "nodataPercent": 0,
+      "seaPercent": 82.2,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    },
+    {
+      "id": "primavera",
+      "nodataPercent": 0,
+      "seaPercent": 77.3,
+      "levels": [
+        {
+          "size": 500,
+          "cellSizeM": 16
+        },
+        {
+          "size": 1000,
+          "cellSizeM": 8
+        }
+      ]
+    }
+  ]
+}

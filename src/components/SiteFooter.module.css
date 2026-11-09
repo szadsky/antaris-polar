@@ -1,0 +1,11 @@
+.footer {
+  border-top: 1px solid var(--line);
+  padding-block: 32px;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.inner {
+  display: grid;
+  gap: 8px;
+}

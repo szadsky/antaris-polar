@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:21:40.124Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "san-martin",
+  "nombre": "Base Antártica San Martín",
+  "bbox_epsg3031": [
+    -2218860,
+    931460,
+    -2210860,
+    939460
+  ],
+  "geoid": {
+    "egm2008": 9.5077,
+    "egm96": 7.2379
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 7.171875,
+    "max": 570.671875,
+    "tiles": [
+      "40_08_1_2_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2011-03-04",
+        "2020-03-21"
+      ]
+    ],
+    "sea_flat_percent": 53.126
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 14.84375,
+    "rema_H_aprox_msnm_egm2008": 5.34,
+    "comnap_publicada_m": 5,
+    "comnap_datum": "MSL",
+    "diferencia_m": 0.34,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

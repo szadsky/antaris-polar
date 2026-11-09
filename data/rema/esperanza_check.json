@@ -1,0 +1,45 @@
+{
+  "fecha": "2026-11-09T02:19:54.898Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "esperanza",
+  "nombre": "Base Antártica Esperanza",
+  "bbox_epsg3031": [
+    -2470862,
+    1598118,
+    -2462862,
+    1606118
+  ],
+  "geoid": {
+    "egm2008": 22.8477,
+    "egm96": 23.1827
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 23.1171875,
+    "max": 586.9453125,
+    "tiles": [
+      "46_06_2_1_2m_v2.0",
+      "47_06_1_1_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2010-09-04",
+        "2020-09-20"
+      ],
+      [
+        "2010-11-07",
+        "2020-04-06"
+      ]
+    ],
+    "sea_flat_percent": 42.241
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 34.75,
+    "rema_H_aprox_msnm_egm2008": 11.9,
+    "comnap_publicada_m": 25,
+    "comnap_datum": "MSL",
+    "diferencia_m": -13.1,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

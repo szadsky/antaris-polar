@@ -1,0 +1,18 @@
+{
+  "fecha": "2026-11-09T02:19:53.468Z",
+  "geoid_source": "GeographicLib GeoidEval online (consultado 2026-11-08 en la coordenada COMNAP de Carlini)",
+  "id": "carlini",
+  "nombre": "Base Antártica Carlini",
+  "geoid": {
+    "egm2008": 21.7964,
+    "egm96": 21.9998
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 26.2109375,
+    "rema_H_aprox_msnm_egm2008": 4.41,
+    "comnap_publicada_m": 10,
+    "comnap_datum": "MSL",
+    "diferencia_m": -5.59,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

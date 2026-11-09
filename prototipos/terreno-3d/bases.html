@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es-AR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Bases antárticas argentinas · Antaris Polar (prototipo)</title>
+  </head>
+  <body>
+    <div class="layout">
+      <section class="map" aria-labelledby="map-title">
+        <h1 id="map-title" class="visually-hidden">Mapa de las bases antárticas argentinas</h1>
+        <svg id="map" role="img" aria-label="Mapa de la Antártida con las bases argentinas. Arrastrá para mover y usá la rueda o el pellizco para acercar."></svg>
+        <div id="markers" class="markers"></div>
+        <div class="map__controls" role="group" aria-label="Controles del mapa">
+          <button type="button" id="zoom-in" aria-label="Acercar">+</button>
+          <button type="button" id="zoom-out" aria-label="Alejar">−</button>
+          <button type="button" id="view-all">Toda la Antártida</button>
+          <button type="button" id="view-peninsula">Península</button>
+        </div>
+        <div class="map__scale" aria-hidden="true"><span id="scale-bar"></span><span id="scale-label"></span></div>
+        <p class="map__legend" aria-hidden="true">
+          <span class="dot dot--perm"></span>Permanente
+          <span class="dot dot--temp"></span>Temporaria
+          <span class="swatch swatch--shelf"></span>Barrera de hielo
+        </p>
+      </section>
+
+      <aside class="panel" aria-label="Bases argentinas">
+        <header class="panel__head">
+          <p class="eyebrow">Antaris Polar · prototipo</p>
+          <h2 class="panel__title">Bases antárticas argentinas</h2>
+          <p id="summary" class="panel__lede"></p>
+        </header>
+
+        <div id="detail" class="detail" aria-live="polite" hidden></div>
+
+        <nav aria-label="Lista de bases">
+          <h3 class="group-title" id="perm-title"></h3>
+          <ul id="list-perm" class="list" aria-labelledby="perm-title"></ul>
+          <h3 class="group-title" id="temp-title"></h3>
+          <ul id="list-temp" class="list" aria-labelledby="temp-title"></ul>
+        </nav>
+
+        <footer id="sources" class="sources"></footer>
+      </aside>
+    </div>
+    <script type="module" src="/src/bases/main.ts"></script>
+  </body>
+</html>

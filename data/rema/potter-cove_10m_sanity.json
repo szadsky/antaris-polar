@@ -1,0 +1,112 @@
+{
+  "file": "data/rema/potter-cove_10m.tif",
+  "date": "2026-11-08",
+  "geoid_source": "GeographicLib GeoidEval online (https://geographiclib.sourceforge.io/cgi-bin/GeoidEval), consultado 2026-11-08",
+  "checks": [
+    {
+      "id": "sea_surface_potter_cove",
+      "point": "Potter Cove (SCAR CGA name_id 110689)",
+      "rema_h_ellipsoid_m": 21.9765625,
+      "neighborhood_200m": {
+        "min": 21.9765625,
+        "median": 21.9765625,
+        "max": 21.984375
+      },
+      "egm2008_N_m": 21.7887,
+      "egm96_N_m": 21.9887,
+      "rema_minus_egm2008_m": 0.19,
+      "rema_minus_egm96_m": -0.01,
+      "verdict": "Coherente con superficie del mar (h ≈ N). PERO es un valor de relleno de PGC (máscara de costa + \"sea surface height\"), no una medición del agua: no sirve como verificación independiente del DEM. El modelo de superficie usado no está documentado en la guía consultada; empíricamente coincide mejor con EGM96 que con EGM2008."
+    },
+    {
+      "id": "fill_vs_geoid_corner_lr",
+      "rema_h_ellipsoid_m": 22.0078125,
+      "egm2008_N_m": 21.9215,
+      "egm96_N_m": 22.0112,
+      "rema_minus_egm2008_m": 0.09,
+      "rema_minus_egm96_m": 0,
+      "note": "Si h ≈ 22 m y la zona es plana, es mar (relleno); si no, es tierra/hielo y la comparación no aplica."
+    },
+    {
+      "id": "fill_vs_geoid_corner_ur",
+      "rema_h_ellipsoid_m": 92.84266662597656,
+      "egm2008_N_m": 21.7805,
+      "egm96_N_m": 22.0367,
+      "rema_minus_egm2008_m": 71.06,
+      "rema_minus_egm96_m": 70.81,
+      "note": "Si h ≈ 22 m y la zona es plana, es mar (relleno); si no, es tierra/hielo y la comparación no aplica."
+    },
+    {
+      "id": "fill_vs_geoid_corner_ll",
+      "rema_h_ellipsoid_m": 21.921875,
+      "egm2008_N_m": 21.765,
+      "egm96_N_m": 21.9232,
+      "rema_minus_egm2008_m": 0.16,
+      "rema_minus_egm96_m": 0,
+      "note": "Si h ≈ 22 m y la zona es plana, es mar (relleno); si no, es tierra/hielo y la comparación no aplica."
+    },
+    {
+      "id": "fill_vs_geoid_corner_ul",
+      "rema_h_ellipsoid_m": 90.16602325439453,
+      "egm2008_N_m": 21.5619,
+      "egm96_N_m": 21.9445,
+      "rema_minus_egm2008_m": 68.6,
+      "rema_minus_egm96_m": 68.22,
+      "note": "Si h ≈ 22 m y la zona es plana, es mar (relleno); si no, es tierra/hielo y la comparación no aplica."
+    },
+    {
+      "id": "three_brothers_hill",
+      "published": [
+        {
+          "value_m": 195,
+          "source": "SCAR CGA name_id 111576 (GBR): \"rising to 195m\""
+        },
+        {
+          "value_m": 210,
+          "source": "SCAR CGA name_id 132669 (USA): altitude 210 m"
+        },
+        {
+          "value_m": 213,
+          "source": "SCAR CGA name_id 106381 (CHL): \"Cerro conspicuo de 213 metros de altura\""
+        }
+      ],
+      "published_vertical_datum": "No especificado en el gazetteer (se asume nivel del mar / cartográfico).",
+      "search": "máximo de REMA en un radio de 500 m del punto GBR (las coordenadas del gazetteer son aproximadas)",
+      "rema_max_h_ellipsoid_m": 218.3905792236328,
+      "rema_max_location": {
+        "x_3031": -2625535,
+        "y_3031": 1598235,
+        "lon": -58.669981,
+        "lat": -62.24438,
+        "offset_from_point_m": 280
+      },
+      "rema_max_H_egm2008_m": 196.57,
+      "diff_vs_published_m": {
+        "195": 1.57,
+        "210": -13.43,
+        "213": -16.43
+      }
+    },
+    {
+      "id": "carlini_station",
+      "published": {
+        "value_m": 10,
+        "source": "SCAR CGA name_id 136127 (USA): altitude 10 m"
+      },
+      "rema_h_ellipsoid_m": 37.475521087646484,
+      "rema_H_egm2008_m": 15.68,
+      "neighborhood_100m_H_egm2008_m": {
+        "min": 0.2,
+        "median": 13.07,
+        "max": 17.35
+      },
+      "note": "REMA es un modelo de superficie (DSM): incluye edificios. El punto del gazetteer es aproximado y la base ocupa varias hectáreas sobre la costa."
+    },
+    {
+      "id": "fourcade_point",
+      "rema_h_ellipsoid_m": 231.6681671142578,
+      "rema_H_egm2008_m": 209.97,
+      "note": "Sin valor publicado de referencia; el punto del gazetteer es un nombre de glaciar, no una cota."
+    }
+  ]
+}

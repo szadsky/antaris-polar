@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:23:11.467Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "brown",
+  "nombre": "Base Antártica Brown",
+  "bbox_epsg3031": [
+    -2469602,
+    1259318,
+    -2461602,
+    1267318
+  ],
+  "geoid": {
+    "egm2008": 18.7412,
+    "egm96": 16.5847
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 16.4609375,
+    "max": 1099.5546875,
+    "tiles": [
+      "43_06_2_1_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2009-11-04",
+        "2020-04-22"
+      ]
+    ],
+    "sea_flat_percent": 50.975
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 24.484375,
+    "rema_H_aprox_msnm_egm2008": 5.74,
+    "comnap_publicada_m": 22,
+    "comnap_datum": "MSL",
+    "diferencia_m": -16.26,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

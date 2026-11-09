@@ -1,0 +1,392 @@
+{
+  "dataset": "Reference Elevation Model of Antarctica (REMA) — Mosaics",
+  "version": "2.0",
+  "product": "REMA v2.0 DEM mosaic, 2 m",
+  "producer": "Polar Geospatial Center (PGC), University of Minnesota / Byrd Polar and Climate Research Center",
+  "observation_type": "Observación: modelo digital de superficie (DSM) fotogramétrico (SETSM) a partir de imágenes estéreo Maxar/Vantor WorldView/GeoEye; compuesto multitemporal registrado a altimetría satelital (CryoSat-2, ICESat).",
+  "retrieval_date": "2026-11-08",
+  "run_timestamp_utc": "2026-11-09T02:01:28.919Z",
+  "access": {
+    "method": "HTTP range requests (Cloud Optimized GeoTIFF) desde el bucket público AWS Open Data, sin credenciales",
+    "stac_root": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema.json",
+    "aws_registry": "https://registry.opendata.aws/pgc-rema/",
+    "bytes_fetched_approx": 16318482,
+    "http_requests": 18,
+    "tiles_used": [
+      {
+        "item_id": "46_04_2_2_2m_v2.0",
+        "tile": "46_04_2_2",
+        "stac_item": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/46_04/46_04_2_2_2m_v2.0.json",
+        "dem_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/46_04/46_04_2_2_2m_v2.0_dem.tif",
+        "count_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/46_04/46_04_2_2_2m_v2.0_count.tif",
+        "window_px": [
+          9550,
+          0,
+          13550,
+          2300
+        ],
+        "window_valid_px": 9200000,
+        "bytes_fetched_approx": 7208969,
+        "item_proj_bbox": [
+          -2650100,
+          1549900,
+          -2599900,
+          1600100
+        ],
+        "item_data_perc": 0.237085,
+        "item_start_datetime": "2010-09-03T00:00:00Z",
+        "item_end_datetime": "2020-04-27T00:00:00Z",
+        "item_num_components": 110,
+        "item_published": "2022-10-19T00:00:00Z",
+        "item_created": "2022-08-05T00:00:00Z",
+        "cog_check": {
+          "epsg": 3031,
+          "resolution": [
+            2,
+            -2
+          ],
+          "origin": [
+            -2650100,
+            1600100
+          ],
+          "nodata": -9999,
+          "size": [
+            25100,
+            25100
+          ],
+          "tiled": true,
+          "tileSize": [
+            512,
+            512
+          ],
+          "overviews": 6,
+          "compression": 5
+        }
+      },
+      {
+        "item_id": "47_04_1_2_2m_v2.0",
+        "tile": "47_04_1_2",
+        "stac_item": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/47_04/47_04_1_2_2m_v2.0.json",
+        "dem_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/47_04/47_04_1_2_2m_v2.0_dem.tif",
+        "count_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/47_04/47_04_1_2_2m_v2.0_count.tif",
+        "window_px": [
+          9550,
+          23300,
+          13550,
+          25100
+        ],
+        "window_valid_px": 7200000,
+        "bytes_fetched_approx": 8978439,
+        "item_proj_bbox": [
+          -2650100,
+          1599900,
+          -2599900,
+          1650100
+        ],
+        "item_data_perc": 0.461519,
+        "item_start_datetime": "2011-10-04T00:00:00Z",
+        "item_end_datetime": "2020-09-20T00:00:00Z",
+        "item_num_components": 126,
+        "item_published": "2022-10-19T00:00:00Z",
+        "item_created": "2022-08-05T00:00:00Z",
+        "cog_check": {
+          "epsg": 3031,
+          "resolution": [
+            2,
+            -2
+          ],
+          "origin": [
+            -2650100,
+            1650100
+          ],
+          "nodata": -9999,
+          "size": [
+            25100,
+            25100
+          ],
+          "tiled": true,
+          "tileSize": [
+            512,
+            512
+          ],
+          "overviews": 6,
+          "compression": 5
+        }
+      }
+    ],
+    "tiles_missing_in_catalog": [],
+    "overlap_between_tiles": {
+      "pixels_compared": 400000,
+      "max_abs_diff_m": 5.2578125,
+      "mean_abs_diff_m": 0.0014450390625,
+      "rule": "se conserva el primer valor válido en el orden de tiles_used"
+    }
+  },
+  "output": {
+    "file": "data/rema/potter-cove_2m.tif",
+    "bytes": 10991051,
+    "sha256": "d2021a07d54fc6c0f3782bca746392c2ee253078ede156526dfed76d69a8e1f3",
+    "format": "GeoTIFF (TIFF clásico), float32, 1 banda, DEFLATE + predictor 3, tiras de 16 filas",
+    "read_back_check": {
+      "pixels_mismatch": 0,
+      "epsg": 3031,
+      "origin": [
+        -2631000,
+        1603500,
+        0
+      ],
+      "resolution": [
+        2,
+        -2,
+        0
+      ],
+      "nodata": -9999,
+      "size": [
+        4000,
+        4000
+      ]
+    },
+    "previews_note": "Reducidas x4 (1000x1000 px, 8 m/px). Solo inspección visual, no usar como dato.",
+    "previews": [
+      "data/rema/potter-cove_2m_preview16.png",
+      "data/rema/potter-cove_2m_hillshade.png"
+    ]
+  },
+  "resolution_m": 2,
+  "crs": {
+    "epsg": 3031,
+    "name": "WGS 84 / Antarctic Polar Stereographic",
+    "proj4": "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+  },
+  "geotransform_gdal": [
+    -2631000,
+    2,
+    0,
+    1603500,
+    0,
+    -2
+  ],
+  "pixel_is": "area",
+  "width": 4000,
+  "height": 4000,
+  "bbox_requested_epsg3031": [
+    -2631000,
+    1595500,
+    -2623000,
+    1603500
+  ],
+  "bbox_epsg3031": [
+    -2631000,
+    1595500,
+    -2623000,
+    1603500
+  ],
+  "bbox_wgs84": {
+    "west": -58.766397,
+    "south": -62.275569,
+    "east": -58.5616,
+    "north": -62.180002,
+    "corners": {
+      "upper_left": [
+        -58.639193,
+        -62.180002
+      ],
+      "upper_right": [
+        -58.5616,
+        -62.239357
+      ],
+      "lower_right": [
+        -58.688981,
+        -62.275569
+      ],
+      "lower_left": [
+        -58.766397,
+        -62.216124
+      ]
+    }
+  },
+  "nodata_value": -9999,
+  "nodata_pixels": 0,
+  "nodata_percent": 0,
+  "valid_pixels": 16000000,
+  "elevation_stats_m": {
+    "min": 21.921875,
+    "max": 397.7109375,
+    "mean": 153.02561337255858,
+    "note": "Incluye la superficie del mar aplanada por PGC (~22 m elipsoidales); ver measured_vs_filled.land_ice_stats_m para tierra/hielo."
+  },
+  "measured_vs_filled": {
+    "explanation": "Según PGC, REMA v2 usó la costa del Antarctic Digital Database para enmascarar datos de mala calidad sobre el océano y \"add the sea surface height\". Por eso el recorte no tiene nodata: el mar tiene un valor de relleno casi constante (~22 m elipsoidales). Comprobado en este recorte: count = 0 solo marca bloques sin ninguna tira (mar abierto); dentro de la caleta el agua también está aplanada aunque count > 0. Para separar mar de tierra se usa además la heurística sea_surface_flat_heuristic.",
+    "source": "https://www.pgc.umn.edu/guides/stereo-derived-elevation-models/pgc-dem-products-arcticdem-rema-and-earthdem/",
+    "pixels_count_gt0": 14628253,
+    "percent_count_gt0": 91.427,
+    "land_ice_stats_m": {
+      "pixels": 11566085,
+      "percent": 72.288,
+      "min": 21.921875,
+      "max": 397.7109375,
+      "mean": 203.2590358538023,
+      "rule": "count > 0 y no marcado por sea_surface_flat_heuristic"
+    },
+    "filled_pixels_count0": 1371747,
+    "filled_percent": 8.573,
+    "filled_value_range_m": [
+      21.9765625,
+      22.0078125
+    ],
+    "count_histogram": {
+      "0": 1371747,
+      "2": 1269,
+      "3": 83982,
+      "4": 415536,
+      "5": 909,
+      "6": 1788,
+      "7": 2606,
+      "8": 420015,
+      "9": 196957,
+      "10": 436236,
+      "11": 956950,
+      "12": 1587368,
+      "13": 1109464,
+      "14": 873092,
+      "15": 810442,
+      "16": 594710,
+      "17": 408333,
+      "18": 1248172,
+      "19": 890955,
+      "20": 551005,
+      "21": 927855,
+      "22": 669746,
+      "23": 289615,
+      "24": 1059209,
+      "25": 236455,
+      "26": 227878,
+      "27": 25,
+      "28": 13583,
+      "29": 269376,
+      "30": 117173,
+      "31": 85049,
+      "32": 16248,
+      "39": 73260,
+      "40": 45424,
+      "41": 7568
+    },
+    "count_raster": "data/rema/potter-cove_2m_count.tif",
+    "sea_surface_flat_heuristic": {
+      "rule": "valor en [20, 24] m elipsoidales y rango de la vecindad 3x3 < 0.05 m",
+      "pixels": 4431168,
+      "percent": 27.695,
+      "of_which_count0": 1369000,
+      "caveat": "Estimación; no es una máscara oficial. La costa usada por PGC (ADD) puede no reflejar la posición actual del frente del glaciar Fourcade."
+    }
+  },
+  "units": "metros",
+  "value_quantization": {
+    "multiples_of_1_128_m_percent": 100,
+    "note": "Los valores de origen son múltiplos de 1/128 m (~0.8 cm), propio de los COG de PGC; no lo introduce este script."
+  },
+  "vertical_reference": {
+    "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+    "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+    "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008. En caleta Potter N_EGM2008 ≈ 21.8 m (GeographicLib GeoidEval, ver sanity-check). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+  },
+  "temporal_note": "El mosaico combina tiras de distintas fechas (ver item_start_datetime/item_end_datetime por tesela). El frente del glaciar Fourcade ha retrocedido; el recorte no representa un instante único.",
+  "reference_points_sampled": [
+    {
+      "key": "carlini",
+      "name": "Base Carlini (ex Jubany)",
+      "lon": -58.664444,
+      "lat": -62.237778,
+      "source": "SCAR CGA name_id 136127 (USA), altitud publicada 10 m",
+      "x_3031": -2626029.17,
+      "y_3031": 1598883.67,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 37.0078125
+    },
+    {
+      "key": "potter_cove",
+      "name": "Potter Cove / caleta Potter (punto GBR)",
+      "lon": -58.6845,
+      "lat": -62.233806,
+      "source": "SCAR CGA name_id 110689 (GBR)",
+      "x_3031": -2626979.03,
+      "y_3031": 1598201.83,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 21.9765625
+    },
+    {
+      "key": "potter_cove_arg",
+      "name": "Potter, caleta (punto ARG)",
+      "lon": -58.683333,
+      "lat": -62.233333,
+      "source": "SCAR CGA name_id 101894 (ARG)",
+      "x_3031": -2626992.96,
+      "y_3031": 1598283.61,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 21.9765625
+    },
+    {
+      "key": "fourcade",
+      "name": "Glaciar Fourcade (punto GBR)",
+      "lon": -58.665972,
+      "lat": -62.216,
+      "source": "SCAR CGA name_id 135244 (GBR)",
+      "x_3031": -2628211.66,
+      "y_3031": 1600116.43,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 231.3203125
+    },
+    {
+      "key": "three_brothers_gbr",
+      "name": "Three Brothers Hill / cerro Tres Hermanos (punto GBR)",
+      "lon": -58.674444,
+      "lat": -62.243111,
+      "source": "SCAR CGA name_id 111576 (GBR): \"rising to 195m\"",
+      "x_3031": -2625784.16,
+      "y_3031": 1598106.39,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 144.1796875
+    },
+    {
+      "key": "three_brothers_usa",
+      "name": "Three Brothers Hill (punto USA)",
+      "lon": -58.683333,
+      "lat": -62.25,
+      "source": "SCAR CGA name_id 132669 (USA): altitud 210 m",
+      "x_3031": -2625355.1,
+      "y_3031": 1597287.13,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 22
+    },
+    {
+      "key": "mirounga_point",
+      "name": "Mirounga Point (punta entrada E de la caleta)",
+      "lon": -58.677972,
+      "lat": -62.236972,
+      "source": "SCAR CGA name_id 110172 (GBR)",
+      "x_3031": -2626485.81,
+      "y_3031": 1598311.8,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 21.9921875
+    },
+    {
+      "key": "barton_pen",
+      "name": "Península Barton (punto GBR)",
+      "lon": -58.741278,
+      "lat": -62.226611,
+      "source": "SCAR CGA name_id 107687 (GBR)",
+      "x_3031": -2629269.02,
+      "y_3031": 1596027.28,
+      "inside_crop": true,
+      "rema_ellipsoidal_m": 192.9921875
+    }
+  ],
+  "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) según el catálogo STAC de PGC y el AWS Open Data Registry",
+  "citation": {
+    "dataset": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+    "acknowledgement": "DEMs provided by the Byrd Polar and Climate Research Center and the Polar Geospatial Center under NSF-OPP awards 1043681, 1542736, 1543501, 1559691, 1810976, and 2129685.",
+    "aws": "Reference Elevation Model of Antarctica (REMA) was accessed on 2026-11-08 from https://registry.opendata.aws/pgc-rema.",
+    "policy": "https://www.pgc.umn.edu/guides/user-services/acknowledgement-policy/"
+  },
+  "processing": "Recorte por ventana en la grilla nativa (sin remuestreo, sin relleno de huecos, sin suavizado). Script: pipeline/rema/fetch-potter-cove.mjs"
+}

@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:20:37.930Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "marambio",
+  "nombre": "Base Antártica Marambio",
+  "bbox_epsg3031": [
+    -2379694,
+    1561100,
+    -2371694,
+    1569100
+  ],
+  "geoid": {
+    "egm2008": 20.2367,
+    "egm96": 20.6751
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 20.5390625,
+    "max": 228.1640625,
+    "tiles": [
+      "46_07_2_1_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2011-02-05",
+        "2020-09-16"
+      ]
+    ],
+    "sea_flat_percent": 66.76
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 213.3671875,
+    "rema_H_aprox_msnm_egm2008": 193.13,
+    "comnap_publicada_m": 209.5,
+    "comnap_datum": "MSL",
+    "diferencia_m": -16.37,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

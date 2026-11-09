@@ -1,0 +1,383 @@
+{
+  "generatedAt": "2026-11-09T02:34:56.139Z",
+  "id": "orcadas",
+  "base": {
+    "id": "orcadas",
+    "nombre": "Base Orcadas",
+    "permanente": true,
+    "lat": -60.737592,
+    "lon": -44.737387,
+    "projected": [
+      -2285851.9,
+      2306902.76
+    ],
+    "fuente": "COMNAP Antarctic Facilities, nov 2024"
+  },
+  "geoid": {
+    "egm2008": 25.3327,
+    "egm96": 25.0509
+  },
+  "heightCheck": {
+    "rema_h_elipsoidal_m": 30.34375,
+    "rema_H_aprox_msnm_egm2008": 5.01,
+    "comnap_publicada_m": 8,
+    "comnap_datum": "MSL",
+    "diferencia_m": -2.99,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  },
+  "sourceFile": "orcadas_2m.tif",
+  "crs": "EPSG:3031",
+  "original": {
+    "width": 4000,
+    "height": 4000,
+    "resolutionM": [
+      2,
+      2
+    ],
+    "originProjected": [
+      -2289852,
+      2310902
+    ],
+    "nodataPercent": 0
+  },
+  "heights": {
+    "encoding": "uint16: 0 = sin dato; 1..65535 lineal entre minM y maxM",
+    "minM": 24.4921875,
+    "maxM": 535.625,
+    "verticalReference": "sobre elipsoide WGS84, no sobre el nivel del mar",
+    "verticalReferenceDetail": {
+      "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+      "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+      "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008, con N consultado en GeographicLib GeoidEval para este lugar (ver <nombre>_check.json). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+    },
+    "seaLevelM": null
+  },
+  "levels": [
+    {
+      "file": "terrain-512.bin.gz",
+      "encoding": "delta-planar-v1",
+      "compression": "gzip",
+      "maskFile": "terrain-512.mask.gz",
+      "width": 500,
+      "height": 500,
+      "cellSizeM": 16,
+      "bytes": 500000,
+      "transferBytes": 148001
+    },
+    {
+      "file": "terrain-1024.bin.gz",
+      "encoding": "delta-planar-v1",
+      "compression": "gzip",
+      "maskFile": "terrain-1024.mask.gz",
+      "width": 1000,
+      "height": 1000,
+      "cellSizeM": 8,
+      "bytes": 2000000,
+      "transferBytes": 507059
+    }
+  ],
+  "coastline": {
+    "label": "SCAR ADD v7.12 (2025)",
+    "dataset": "SCAR Antarctic Digital Database — High resolution vector polygons of the Antarctic coastline",
+    "layer": "add_coastline_high_res_polygon_v7_12",
+    "serviceUrl": "https://services7.arcgis.com/tPxy1hrFDhJfZ0Mf/arcgis/rest/services/High_resolution_vector_polygons_of_the_Antarctic_coastline/FeatureServer/1",
+    "citation": "SCAR Antarctic Digital Database, 2025, https://doi.org/qc9x",
+    "licence": "CC BY 4.0 según fichas del ADD de versiones previas; confirmar para v7.12",
+    "file": "orcadas.json",
+    "surfaces": [
+      "land"
+    ],
+    "maskEncoding": "uint8 por vértice: 1 = dentro de un polígono ADD (tierra/hielo), 0 = mar",
+    "comparisonWithRema": {
+      "landFraction": 0.36791625,
+      "sea": {
+        "n": 2528335,
+        "p5": 24.640625,
+        "p50": 25.0703125,
+        "p95": 25.40625
+      },
+      "land": {
+        "n": 1471665,
+        "p5": 28.140625,
+        "p50": 130.28125,
+        "p95": 322.0390625
+      },
+      "seaAboveSeaMedianPlus5": 0.014184433629246124,
+      "landWithin1mOfSeaMedian": 0.03600343828248956,
+      "note": "Muestra 1 de cada 4 píxeles. 'Mar' con alturas altas sugiere hielo/tierra en REMA donde el ADD marca mar (p. ej., un frente glaciar en otra posición)."
+    }
+  },
+  "provenance": {
+    "dataset": "Reference Elevation Model of Antarctica (REMA) — Mosaics",
+    "version": "2.0",
+    "product": "REMA v2.0 DEM mosaic, 2 m",
+    "producer": "Polar Geospatial Center (PGC), University of Minnesota / Byrd Polar and Climate Research Center",
+    "observation_type": "Observación: modelo digital de superficie (DSM) fotogramétrico (SETSM) a partir de imágenes estéreo Maxar/Vantor WorldView/GeoEye; compuesto multitemporal registrado a altimetría satelital (CryoSat-2, ICESat).",
+    "retrieval_date": "2026-11-08",
+    "run_timestamp_utc": "2026-11-09T02:22:35.242Z",
+    "access": {
+      "method": "HTTP range requests (Cloud Optimized GeoTIFF) desde el bucket público AWS Open Data, sin credenciales",
+      "stac_root": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema.json",
+      "aws_registry": "https://registry.opendata.aws/pgc-rema/",
+      "bytes_fetched_approx": 11010060,
+      "http_requests": 12,
+      "tiles_used": [
+        {
+          "item_id": "54_08_1_1_2m_v2.0",
+          "tile": "54_08_1_1",
+          "stac_item": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/54_08/54_08_1_1_2m_v2.0.json",
+          "dem_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/54_08/54_08_1_1_2m_v2.0_dem.tif",
+          "count_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/54_08/54_08_1_1_2m_v2.0_count.tif",
+          "window_px": [
+            5124,
+            19599,
+            9124,
+            23599
+          ],
+          "window_valid_px": 16000000,
+          "bytes_fetched_approx": 10944523,
+          "item_proj_bbox": [
+            -2300100,
+            2299900,
+            -2249900,
+            2350100
+          ],
+          "item_data_perc": 0.089551,
+          "item_start_datetime": "2009-09-21T00:00:00Z",
+          "item_end_datetime": "2020-09-15T00:00:00Z",
+          "item_num_components": 121,
+          "item_published": "2022-10-19T00:00:00Z",
+          "item_created": "2022-08-05T00:00:00Z",
+          "cog_check": {
+            "epsg": 3031,
+            "resolution": [
+              2,
+              -2
+            ],
+            "origin": [
+              -2300100,
+              2350100
+            ],
+            "nodata": -9999,
+            "size": [
+              25100,
+              25100
+            ],
+            "tiled": true,
+            "tileSize": [
+              512,
+              512
+            ],
+            "overviews": 6,
+            "compression": 5
+          }
+        }
+      ],
+      "tiles_missing_in_catalog": [],
+      "overlap_between_tiles": {
+        "pixels_compared": 0,
+        "max_abs_diff_m": 0,
+        "mean_abs_diff_m": null,
+        "rule": "se conserva el primer valor válido en el orden de tiles_used"
+      }
+    },
+    "output": {
+      "file": "data/rema/orcadas_2m.tif",
+      "bytes": 7555377,
+      "sha256": "10be4362dd7e81c94ddcc859c75e0eff98df7feb9461b60fafc504488deb3590",
+      "format": "GeoTIFF (TIFF clásico), float32, 1 banda, DEFLATE + predictor 3, tiras de 16 filas",
+      "read_back_check": {
+        "pixels_mismatch": 0,
+        "epsg": 3031,
+        "origin": [
+          -2289852,
+          2310902,
+          0
+        ],
+        "resolution": [
+          2,
+          -2,
+          0
+        ],
+        "nodata": -9999,
+        "size": [
+          4000,
+          4000
+        ]
+      },
+      "previews_note": "Reducidas x4 (1000x1000 px, 8 m/px). Solo inspección visual, no usar como dato.",
+      "previews": [
+        "data/rema/orcadas_2m_preview16.png",
+        "data/rema/orcadas_2m_hillshade.png"
+      ]
+    },
+    "resolution_m": 2,
+    "crs": {
+      "epsg": 3031,
+      "name": "WGS 84 / Antarctic Polar Stereographic",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    },
+    "geotransform_gdal": [
+      -2289852,
+      2,
+      0,
+      2310902,
+      0,
+      -2
+    ],
+    "pixel_is": "area",
+    "width": 4000,
+    "height": 4000,
+    "bbox_requested_epsg3031": [
+      -2289852,
+      2302902,
+      -2281852,
+      2310902
+    ],
+    "bbox_epsg3031": [
+      -2289852,
+      2302902,
+      -2281852,
+      2310902
+    ],
+    "bbox_wgs84": {
+      "west": -44.837198,
+      "south": -60.786463,
+      "east": -44.637599,
+      "north": -60.68874,
+      "corners": {
+        "upper_left": [
+          -44.737854,
+          -60.68874
+        ],
+        "upper_right": [
+          -44.637599,
+          -60.73733
+        ],
+        "lower_right": [
+          -44.736939,
+          -60.786463
+        ],
+        "lower_left": [
+          -44.837198,
+          -60.737777
+        ]
+      }
+    },
+    "nodata_value": -9999,
+    "nodata_pixels": 0,
+    "nodata_percent": 0,
+    "valid_pixels": 16000000,
+    "elevation_stats_m": {
+      "min": 24.4921875,
+      "max": 535.625,
+      "mean": 69.56992587060547,
+      "note": "Incluye la superficie del mar aplanada por PGC (~22 m elipsoidales); ver measured_vs_filled.land_ice_stats_m para tierra/hielo."
+    },
+    "measured_vs_filled": {
+      "explanation": "Según PGC, REMA v2 usó la costa del Antarctic Digital Database para enmascarar datos de mala calidad sobre el océano y \"add the sea surface height\". Por eso el recorte no tiene nodata: el mar tiene un valor de relleno casi constante (~22 m elipsoidales). Comprobado en este recorte: count = 0 solo marca bloques sin ninguna tira (mar abierto); dentro de la caleta el agua también está aplanada aunque count > 0. Para separar mar de tierra se usa además la heurística sea_surface_flat_heuristic.",
+      "source": "https://www.pgc.umn.edu/guides/stereo-derived-elevation-models/pgc-dem-products-arcticdem-rema-and-earthdem/",
+      "pixels_count_gt0": 12406491,
+      "percent_count_gt0": 77.541,
+      "land_ice_stats_m": {
+        "pixels": 5964414,
+        "percent": 37.278,
+        "min": 24.7578125,
+        "max": 535.625,
+        "mean": 144.52561749203275,
+        "rule": "count > 0 y no marcado por sea_surface_flat_heuristic"
+      },
+      "filled_pixels_count0": 3593509,
+      "filled_percent": 22.459,
+      "filled_value_range_m": [
+        24.4921875,
+        25.4765625
+      ],
+      "count_histogram": {
+        "0": 3593509,
+        "1": 349309,
+        "2": 2737487,
+        "3": 278256,
+        "4": 905111,
+        "5": 500468,
+        "6": 34087,
+        "7": 257775,
+        "8": 1036384,
+        "9": 117025,
+        "10": 91823,
+        "11": 7084,
+        "12": 15780,
+        "13": 94228,
+        "14": 218999,
+        "15": 206499,
+        "16": 666163,
+        "17": 175450,
+        "18": 242857,
+        "19": 414508,
+        "20": 700478,
+        "21": 325870,
+        "22": 464251,
+        "23": 215177,
+        "24": 99398,
+        "25": 228307,
+        "26": 116250,
+        "27": 380502,
+        "28": 354384,
+        "29": 117232,
+        "30": 285709,
+        "31": 231616,
+        "32": 22133,
+        "33": 245783,
+        "34": 19608,
+        "63": 28,
+        "64": 26914,
+        "65": 25317,
+        "66": 74921,
+        "67": 72130,
+        "68": 27286,
+        "69": 23904
+      },
+      "count_raster": "data/rema/orcadas_2m_count.tif",
+      "sea_surface_flat_heuristic": {
+        "rule": "valor en [23.05, 27.05] m elipsoidales y rango de la vecindad 3x3 < 0.05 m",
+        "pixels": 10029092,
+        "percent": 62.682,
+        "of_which_count0": 3587015,
+        "caveat": "Estimación; no es una máscara oficial. La franja se centra en la ondulación del geoide local (EGM96), que es donde PGC dejó el relleno del mar en caleta Potter; no está documentado que sea igual en todas partes."
+      }
+    },
+    "units": "metros",
+    "value_quantization": {
+      "multiples_of_1_128_m_percent": 100,
+      "note": "Los valores de origen son múltiplos de 1/128 m (~0.8 cm), propio de los COG de PGC; no lo introduce este script."
+    },
+    "vertical_reference": {
+      "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+      "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+      "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008, con N consultado en GeographicLib GeoidEval para este lugar (ver <nombre>_check.json). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+    },
+    "temporal_note": "El mosaico combina tiras de distintas fechas (ver item_start_datetime/item_end_datetime por tesela); el recorte no representa un instante único.",
+    "reference_points_sampled": [
+      {
+        "key": "orcadas",
+        "name": "Base Orcadas",
+        "lon": -44.737387,
+        "lat": -60.737592,
+        "source": "COMNAP Antarctic Facilities nov 2024: elevación publicada 8 m (MSL)",
+        "x_3031": -2285851.9,
+        "y_3031": 2306902.76,
+        "inside_crop": true,
+        "rema_ellipsoidal_m": 30.34375
+      }
+    ],
+    "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) según el catálogo STAC de PGC y el AWS Open Data Registry",
+    "citation": {
+      "dataset": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+      "acknowledgement": "DEMs provided by the Byrd Polar and Climate Research Center and the Polar Geospatial Center under NSF-OPP awards 1043681, 1542736, 1543501, 1559691, 1810976, and 2129685.",
+      "aws": "Reference Elevation Model of Antarctica (REMA) was accessed on 2026-11-08 from https://registry.opendata.aws/pgc-rema.",
+      "policy": "https://www.pgc.umn.edu/guides/user-services/acknowledgement-policy/"
+    },
+    "place": "Base Orcadas (8×8 km centrados en la base)",
+    "processing": "Recorte por ventana en la grilla nativa (sin remuestreo, sin relleno de huecos, sin suavizado). Script: pipeline/rema/fetch-potter-cove.mjs"
+  }
+}

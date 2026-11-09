@@ -1,0 +1,56 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local editor/agent settings (rutas y configuración propias de cada máquina)
+.claude/settings.local.json
+.claude/launch.json
+
+# ─── Datos crudos regenerables (no se versionan) ───
+# GeoTIFF REMA 2 m y vistas previas: ~100 MB. Se regeneran con
+#   cd pipeline/rema && npm install && node fetch-potter-cove.mjs && node fetch-bases.mjs
+# y se verifican con el sha256 que guarda cada data/rema/<base>_2m.json.
+/data/rema/*.tif
+/data/rema/*.png
+
+# dependencias y builds de los subproyectos
+node_modules/
+dist/

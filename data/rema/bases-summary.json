@@ -1,0 +1,557 @@
+{
+  "fecha": "2026-11-09T02:26:28.217Z",
+  "bases": [
+    {
+      "id": "belgrano-ii",
+      "nombre": "Base Antártica Belgrano II",
+      "bbox_epsg3031": [
+        -755372,
+        1084046,
+        -747372,
+        1092046
+      ],
+      "geoid": {
+        "egm2008": -11.9004,
+        "egm96": -10.9523
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": -11.2109375,
+        "max": 564.71875,
+        "tiles": [
+          "41_23_2_1_2m_v2.0",
+          "41_23_2_2_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2011-10-02",
+            "2020-02-21"
+          ],
+          [
+            "2010-10-27",
+            "2020-02-19"
+          ]
+        ],
+        "sea_flat_percent": 0.018
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 240.0703125,
+        "rema_H_aprox_msnm_egm2008": 251.97,
+        "comnap_publicada_m": 256.5,
+        "comnap_datum": "MSL",
+        "diferencia_m": -4.53,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 2,
+        "superficies": [
+          "land",
+          "ice tongue"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "esperanza",
+      "nombre": "Base Antártica Esperanza",
+      "bbox_epsg3031": [
+        -2470862,
+        1598118,
+        -2462862,
+        1606118
+      ],
+      "geoid": {
+        "egm2008": 22.8477,
+        "egm96": 23.1827
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 23.1171875,
+        "max": 586.9453125,
+        "tiles": [
+          "46_06_2_1_2m_v2.0",
+          "47_06_1_1_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2010-09-04",
+            "2020-09-20"
+          ],
+          [
+            "2010-11-07",
+            "2020-04-06"
+          ]
+        ],
+        "sea_flat_percent": 42.241
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 34.75,
+        "rema_H_aprox_msnm_egm2008": 11.9,
+        "comnap_publicada_m": 25,
+        "comnap_datum": "MSL",
+        "diferencia_m": -13.1,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 9,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "marambio",
+      "nombre": "Base Antártica Marambio",
+      "bbox_epsg3031": [
+        -2379694,
+        1561100,
+        -2371694,
+        1569100
+      ],
+      "geoid": {
+        "egm2008": 20.2367,
+        "egm96": 20.6751
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 20.5390625,
+        "max": 228.1640625,
+        "tiles": [
+          "46_07_2_1_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2011-02-05",
+            "2020-09-16"
+          ]
+        ],
+        "sea_flat_percent": 66.76
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 213.3671875,
+        "rema_H_aprox_msnm_egm2008": 193.13,
+        "comnap_publicada_m": 209.5,
+        "comnap_datum": "MSL",
+        "diferencia_m": -16.37,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 1,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "petrel",
+      "nombre": "Base Antártica Petrel",
+      "bbox_epsg3031": [
+        -2441452,
+        1625824,
+        -2433452,
+        1633824
+      ],
+      "geoid": {
+        "egm2008": 22.3589,
+        "egm96": 23.1004
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 22.9609375,
+        "max": 242.875,
+        "tiles": [
+          "47_06_1_2_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2010-11-15",
+            "2020-09-20"
+          ]
+        ],
+        "sea_flat_percent": 67.894
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 37.1875,
+        "rema_H_aprox_msnm_egm2008": 14.83,
+        "comnap_publicada_m": 18,
+        "comnap_datum": "MSL",
+        "diferencia_m": -3.17,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 1,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "san-martin",
+      "nombre": "Base Antártica San Martín",
+      "bbox_epsg3031": [
+        -2218860,
+        931460,
+        -2210860,
+        939460
+      ],
+      "geoid": {
+        "egm2008": 9.5077,
+        "egm96": 7.2379
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 7.171875,
+        "max": 570.671875,
+        "tiles": [
+          "40_08_1_2_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2011-03-04",
+            "2020-03-21"
+          ]
+        ],
+        "sea_flat_percent": 53.126
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 14.84375,
+        "rema_H_aprox_msnm_egm2008": 5.34,
+        "comnap_publicada_m": 5,
+        "comnap_datum": "MSL",
+        "diferencia_m": 0.34,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 12,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "orcadas",
+      "nombre": "Base Orcadas",
+      "bbox_epsg3031": [
+        -2289852,
+        2302902,
+        -2281852,
+        2310902
+      ],
+      "geoid": {
+        "egm2008": 25.3327,
+        "egm96": 25.0509
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 24.4921875,
+        "max": 535.625,
+        "tiles": [
+          "54_08_1_1_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2009-09-21",
+            "2020-09-15"
+          ]
+        ],
+        "sea_flat_percent": 62.682
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 30.34375,
+        "rema_H_aprox_msnm_egm2008": 5.01,
+        "comnap_publicada_m": 8,
+        "comnap_datum": "MSL",
+        "diferencia_m": -2.99,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 44,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "brown",
+      "nombre": "Base Antártica Brown",
+      "bbox_epsg3031": [
+        -2469602,
+        1259318,
+        -2461602,
+        1267318
+      ],
+      "geoid": {
+        "egm2008": 18.7412,
+        "egm96": 16.5847
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 16.4609375,
+        "max": 1099.5546875,
+        "tiles": [
+          "43_06_2_1_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2009-11-04",
+            "2020-04-22"
+          ]
+        ],
+        "sea_flat_percent": 50.975
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 24.484375,
+        "rema_H_aprox_msnm_egm2008": 5.74,
+        "comnap_publicada_m": 22,
+        "comnap_datum": "MSL",
+        "diferencia_m": -16.26,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 8,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "camara",
+      "nombre": "Base Antártica Cámara",
+      "bbox_epsg3031": [
+        -2628998,
+        1516474,
+        -2620998,
+        1524474
+      ],
+      "geoid": {
+        "egm2008": 20.9134,
+        "egm96": 20.9856
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 20.8203125,
+        "max": 877.421875,
+        "tiles": [
+          "46_04_1_2_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2010-09-03",
+            "2020-05-08"
+          ]
+        ],
+        "sea_flat_percent": 81.81
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 38.796875,
+        "rema_H_aprox_msnm_egm2008": 17.88,
+        "comnap_publicada_m": 22,
+        "comnap_datum": "MSL",
+        "diferencia_m": -4.12,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 30,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "decepcion",
+      "nombre": "Base Antártica Decepción",
+      "bbox_epsg3031": [
+        -2611164,
+        1459030,
+        -2603164,
+        1467030
+      ],
+      "geoid": {
+        "egm2008": 20.1788,
+        "egm96": 19.9387
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 19.75,
+        "max": 472.296875,
+        "tiles": [
+          "45_04_2_2_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2010-11-15",
+            "2020-09-05"
+          ]
+        ],
+        "sea_flat_percent": 61.783
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 29.4609375,
+        "rema_H_aprox_msnm_egm2008": 9.28,
+        "comnap_publicada_m": 7,
+        "comnap_datum": "MSL",
+        "diferencia_m": 2.28,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 6,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "matienzo",
+      "nombre": "Base Antártica Matienzo",
+      "bbox_epsg3031": [
+        -2397018,
+        1373662,
+        -2389018,
+        1381662
+      ],
+      "geoid": {
+        "egm2008": 18.4664,
+        "egm96": 18.1266
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 18.0078125,
+        "max": 164.3984375,
+        "tiles": [
+          "44_07_2_1_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2011-02-22",
+            "2020-09-16"
+          ]
+        ],
+        "sea_flat_percent": 75.867
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 40.765625,
+        "rema_H_aprox_msnm_egm2008": 22.3,
+        "comnap_publicada_m": 32,
+        "comnap_datum": "MSL",
+        "diferencia_m": -9.7,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 3,
+        "superficies": [
+          "land",
+          "ice shelf"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "melchior",
+      "nombre": "Base Antártica Melchior",
+      "bbox_epsg3031": [
+        -2529760,
+        1284254,
+        -2521760,
+        1292254
+      ],
+      "geoid": {
+        "egm2008": 18.7384,
+        "egm96": 17.2423
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 17.1015625,
+        "max": 212.3359375,
+        "tiles": [
+          "43_05_2_2_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2010-01-06",
+            "2020-04-22"
+          ]
+        ],
+        "sea_flat_percent": 80.807
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 26.1640625,
+        "rema_H_aprox_msnm_egm2008": 7.43,
+        "comnap_publicada_m": 4,
+        "comnap_datum": "MSL",
+        "diferencia_m": 3.43,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 58,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    },
+    {
+      "id": "primavera",
+      "nombre": "Base Antártica Primavera",
+      "bbox_epsg3031": [
+        -2499676,
+        1381982,
+        -2491676,
+        1389982
+      ],
+      "geoid": {
+        "egm2008": 20.8244,
+        "egm96": 19.2891
+      },
+      "rema": {
+        "nodata_percent": 0,
+        "min": 19.15625,
+        "max": 566.7421875,
+        "tiles": [
+          "44_06_2_1_2m_v2.0"
+        ],
+        "tiles_missing": [],
+        "fechas": [
+          [
+            "2011-03-12",
+            "2020-09-05"
+          ]
+        ],
+        "sea_flat_percent": 75.175
+      },
+      "altura_en_base": {
+        "rema_h_elipsoidal_m": 44.4765625,
+        "rema_H_aprox_msnm_egm2008": 23.65,
+        "comnap_publicada_m": 50,
+        "comnap_datum": "MSL",
+        "diferencia_m": -26.35,
+        "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+      },
+      "costa": {
+        "poligonos": 22,
+        "superficies": [
+          "land"
+        ]
+      },
+      "ok": true
+    }
+  ]
+}

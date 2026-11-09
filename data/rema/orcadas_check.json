@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:22:35.308Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "orcadas",
+  "nombre": "Base Orcadas",
+  "bbox_epsg3031": [
+    -2289852,
+    2302902,
+    -2281852,
+    2310902
+  ],
+  "geoid": {
+    "egm2008": 25.3327,
+    "egm96": 25.0509
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 24.4921875,
+    "max": 535.625,
+    "tiles": [
+      "54_08_1_1_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2009-09-21",
+        "2020-09-15"
+      ]
+    ],
+    "sea_flat_percent": 62.682
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 30.34375,
+    "rema_H_aprox_msnm_egm2008": 5.01,
+    "comnap_publicada_m": 8,
+    "comnap_datum": "MSL",
+    "diferencia_m": -2.99,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

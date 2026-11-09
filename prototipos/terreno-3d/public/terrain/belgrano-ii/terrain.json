@@ -1,0 +1,399 @@
+{
+  "generatedAt": "2026-11-09T02:34:38.772Z",
+  "id": "belgrano-ii",
+  "base": {
+    "id": "belgrano-ii",
+    "nombre": "Base Antártica Belgrano II",
+    "permanente": true,
+    "lat": -77.873889,
+    "lon": -34.627778,
+    "projected": [
+      -751371.91,
+      1088046.65
+    ],
+    "fuente": "COMNAP Antarctic Facilities, nov 2024"
+  },
+  "geoid": {
+    "egm2008": -11.9004,
+    "egm96": -10.9523
+  },
+  "heightCheck": {
+    "rema_h_elipsoidal_m": 240.0703125,
+    "rema_H_aprox_msnm_egm2008": 251.97,
+    "comnap_publicada_m": 256.5,
+    "comnap_datum": "MSL",
+    "diferencia_m": -4.53,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  },
+  "sourceFile": "belgrano-ii_2m.tif",
+  "crs": "EPSG:3031",
+  "original": {
+    "width": 4000,
+    "height": 4000,
+    "resolutionM": [
+      2,
+      2
+    ],
+    "originProjected": [
+      -755372,
+      1092046
+    ],
+    "nodataPercent": 0
+  },
+  "heights": {
+    "encoding": "uint16: 0 = sin dato; 1..65535 lineal entre minM y maxM",
+    "minM": -11.2109375,
+    "maxM": 564.71875,
+    "verticalReference": "sobre elipsoide WGS84, no sobre el nivel del mar",
+    "verticalReferenceDetail": {
+      "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+      "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+      "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008, con N consultado en GeographicLib GeoidEval para este lugar (ver <nombre>_check.json). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+    },
+    "seaLevelM": null
+  },
+  "levels": [
+    {
+      "file": "terrain-512.bin.gz",
+      "encoding": "delta-planar-v1",
+      "compression": "gzip",
+      "maskFile": "terrain-512.mask.gz",
+      "width": 500,
+      "height": 500,
+      "cellSizeM": 16,
+      "bytes": 500000,
+      "transferBytes": 249457
+    },
+    {
+      "file": "terrain-1024.bin.gz",
+      "encoding": "delta-planar-v1",
+      "compression": "gzip",
+      "maskFile": "terrain-1024.mask.gz",
+      "width": 1000,
+      "height": 1000,
+      "cellSizeM": 8,
+      "bytes": 2000000,
+      "transferBytes": 886039
+    }
+  ],
+  "coastline": {
+    "label": "SCAR ADD v7.12 (2025)",
+    "dataset": "SCAR Antarctic Digital Database — High resolution vector polygons of the Antarctic coastline",
+    "layer": "add_coastline_high_res_polygon_v7_12",
+    "serviceUrl": "https://services7.arcgis.com/tPxy1hrFDhJfZ0Mf/arcgis/rest/services/High_resolution_vector_polygons_of_the_Antarctic_coastline/FeatureServer/1",
+    "citation": "SCAR Antarctic Digital Database, 2025, https://doi.org/qc9x",
+    "licence": "CC BY 4.0 según fichas del ADD de versiones previas; confirmar para v7.12",
+    "file": "belgrano-ii.json",
+    "surfaces": [
+      "land",
+      "ice tongue"
+    ],
+    "maskEncoding": "uint8 por vértice: 1 = dentro de un polígono ADD (tierra/hielo), 0 = mar",
+    "comparisonWithRema": {
+      "landFraction": 1,
+      "sea": null,
+      "land": {
+        "n": 4000000,
+        "p5": 27.390625,
+        "p50": 176.0703125,
+        "p95": 514.6640625
+      },
+      "seaAboveSeaMedianPlus5": 0,
+      "landWithin1mOfSeaMedian": 0,
+      "note": "Muestra 1 de cada 4 píxeles. 'Mar' con alturas altas sugiere hielo/tierra en REMA donde el ADD marca mar (p. ej., un frente glaciar en otra posición)."
+    }
+  },
+  "provenance": {
+    "dataset": "Reference Elevation Model of Antarctica (REMA) — Mosaics",
+    "version": "2.0",
+    "product": "REMA v2.0 DEM mosaic, 2 m",
+    "producer": "Polar Geospatial Center (PGC), University of Minnesota / Byrd Polar and Climate Research Center",
+    "observation_type": "Observación: modelo digital de superficie (DSM) fotogramétrico (SETSM) a partir de imágenes estéreo Maxar/Vantor WorldView/GeoEye; compuesto multitemporal registrado a altimetría satelital (CryoSat-2, ICESat).",
+    "retrieval_date": "2026-11-08",
+    "run_timestamp_utc": "2026-11-09T02:19:29.190Z",
+    "access": {
+      "method": "HTTP range requests (Cloud Optimized GeoTIFF) desde el bucket público AWS Open Data, sin credenciales",
+      "stac_root": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema.json",
+      "aws_registry": "https://registry.opendata.aws/pgc-rema/",
+      "bytes_fetched_approx": 16973853,
+      "http_requests": 29,
+      "tiles_used": [
+        {
+          "item_id": "41_23_2_1_2m_v2.0",
+          "tile": "41_23_2_1",
+          "stac_item": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/41_23/41_23_2_1_2m_v2.0.json",
+          "dem_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/41_23/41_23_2_1_2m_v2.0_dem.tif",
+          "count_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/41_23/41_23_2_1_2m_v2.0_count.tif",
+          "window_px": [
+            22364,
+            4027,
+            25100,
+            8027
+          ],
+          "window_valid_px": 10944000,
+          "bytes_fetched_approx": 11141132,
+          "item_proj_bbox": [
+            -800100,
+            1049900,
+            -749900,
+            1100100
+          ],
+          "item_data_perc": 0.292878,
+          "item_start_datetime": "2011-10-02T00:00:00Z",
+          "item_end_datetime": "2020-02-21T00:00:00Z",
+          "item_num_components": 88,
+          "item_published": "2022-10-19T00:00:00Z",
+          "item_created": "2022-08-05T00:00:00Z",
+          "cog_check": {
+            "epsg": 3031,
+            "resolution": [
+              2,
+              -2
+            ],
+            "origin": [
+              -800100,
+              1100100
+            ],
+            "nodata": -9999,
+            "size": [
+              25100,
+              25100
+            ],
+            "tiled": true,
+            "tileSize": [
+              512,
+              512
+            ],
+            "overviews": 6,
+            "compression": 5
+          }
+        },
+        {
+          "item_id": "41_23_2_2_2m_v2.0",
+          "tile": "41_23_2_2",
+          "stac_item": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/41_23/41_23_2_2_2m_v2.0.json",
+          "dem_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/41_23/41_23_2_2_2m_v2.0_dem.tif",
+          "count_cog": "https://pgc-opendata-dems.s3.us-west-2.amazonaws.com/rema/mosaics/v2.0/2m/41_23/41_23_2_2_2m_v2.0_count.tif",
+          "window_px": [
+            0,
+            4027,
+            1364,
+            8027
+          ],
+          "window_valid_px": 5456000,
+          "bytes_fetched_approx": 5701647,
+          "item_proj_bbox": [
+            -750100,
+            1049900,
+            -699900,
+            1100100
+          ],
+          "item_data_perc": 0.999881,
+          "item_start_datetime": "2010-10-27T00:00:00Z",
+          "item_end_datetime": "2020-02-19T00:00:00Z",
+          "item_num_components": 154,
+          "item_published": "2022-10-19T00:00:00Z",
+          "item_created": "2022-08-05T00:00:00Z",
+          "cog_check": {
+            "epsg": 3031,
+            "resolution": [
+              2,
+              -2
+            ],
+            "origin": [
+              -750100,
+              1100100
+            ],
+            "nodata": -9999,
+            "size": [
+              25100,
+              25100
+            ],
+            "tiled": true,
+            "tileSize": [
+              512,
+              512
+            ],
+            "overviews": 6,
+            "compression": 5
+          }
+        }
+      ],
+      "tiles_missing_in_catalog": [],
+      "overlap_between_tiles": {
+        "pixels_compared": 400000,
+        "max_abs_diff_m": 0,
+        "mean_abs_diff_m": 0,
+        "rule": "se conserva el primer valor válido en el orden de tiles_used"
+      }
+    },
+    "output": {
+      "file": "data/rema/belgrano-ii_2m.tif",
+      "bytes": 11041349,
+      "sha256": "1008a6a7906d02bd57fdde31865baadb3f71114d24e777cafb0d8d491342328e",
+      "format": "GeoTIFF (TIFF clásico), float32, 1 banda, DEFLATE + predictor 3, tiras de 16 filas",
+      "read_back_check": {
+        "pixels_mismatch": 0,
+        "epsg": 3031,
+        "origin": [
+          -755372,
+          1092046,
+          0
+        ],
+        "resolution": [
+          2,
+          -2,
+          0
+        ],
+        "nodata": -9999,
+        "size": [
+          4000,
+          4000
+        ]
+      },
+      "previews_note": "Reducidas x4 (1000x1000 px, 8 m/px). Solo inspección visual, no usar como dato.",
+      "previews": [
+        "data/rema/belgrano-ii_2m_preview16.png",
+        "data/rema/belgrano-ii_2m_hillshade.png"
+      ]
+    },
+    "resolution_m": 2,
+    "crs": {
+      "epsg": 3031,
+      "name": "WGS 84 / Antarctic Polar Stereographic",
+      "proj4": "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    },
+    "geotransform_gdal": [
+      -755372,
+      2,
+      0,
+      1092046,
+      0,
+      -2
+    ],
+    "pixel_is": "area",
+    "width": 4000,
+    "height": 4000,
+    "bbox_requested_epsg3031": [
+      -755372,
+      1084046,
+      -747372,
+      1092046
+    ],
+    "bbox_epsg3031": [
+      -755372,
+      1084046,
+      -747372,
+      1092046
+    ],
+    "bbox_wgs84": {
+      "west": -34.869095,
+      "south": -77.924556,
+      "east": -34.386871,
+      "north": -77.823228,
+      "corners": {
+        "upper_left": [
+          -34.671744,
+          -77.823228
+        ],
+        "upper_right": [
+          -34.386871,
+          -77.864514
+        ],
+        "lower_right": [
+          -34.583479,
+          -77.924556
+        ],
+        "lower_left": [
+          -34.869095,
+          -77.88306
+        ]
+      }
+    },
+    "nodata_value": -9999,
+    "nodata_pixels": 0,
+    "nodata_percent": 0,
+    "valid_pixels": 16000000,
+    "elevation_stats_m": {
+      "min": -11.2109375,
+      "max": 564.71875,
+      "mean": 219.21367551464843,
+      "note": "Incluye la superficie del mar aplanada por PGC (~22 m elipsoidales); ver measured_vs_filled.land_ice_stats_m para tierra/hielo."
+    },
+    "measured_vs_filled": {
+      "explanation": "Según PGC, REMA v2 usó la costa del Antarctic Digital Database para enmascarar datos de mala calidad sobre el océano y \"add the sea surface height\". Por eso el recorte no tiene nodata: el mar tiene un valor de relleno casi constante (~22 m elipsoidales). Comprobado en este recorte: count = 0 solo marca bloques sin ninguna tira (mar abierto); dentro de la caleta el agua también está aplanada aunque count > 0. Para separar mar de tierra se usa además la heurística sea_surface_flat_heuristic.",
+      "source": "https://www.pgc.umn.edu/guides/stereo-derived-elevation-models/pgc-dem-products-arcticdem-rema-and-earthdem/",
+      "pixels_count_gt0": 16000000,
+      "percent_count_gt0": 100,
+      "land_ice_stats_m": {
+        "pixels": 15997123,
+        "percent": 99.982,
+        "min": -11.2109375,
+        "max": 564.71875,
+        "mean": 219.2551137119898,
+        "rule": "count > 0 y no marcado por sea_surface_flat_heuristic"
+      },
+      "filled_pixels_count0": 0,
+      "filled_percent": 0,
+      "filled_value_range_m": null,
+      "count_histogram": {
+        "8": 125,
+        "14": 93500,
+        "15": 16488,
+        "16": 250125,
+        "17": 117500,
+        "19": 250350,
+        "20": 237270,
+        "21": 2963041,
+        "22": 3700518,
+        "23": 3851269,
+        "24": 2038362,
+        "25": 1312438,
+        "26": 669018,
+        "27": 251042,
+        "28": 248954
+      },
+      "count_raster": "data/rema/belgrano-ii_2m_count.tif",
+      "sea_surface_flat_heuristic": {
+        "rule": "valor en [-12.95, -8.95] m elipsoidales y rango de la vecindad 3x3 < 0.05 m",
+        "pixels": 2877,
+        "percent": 0.018,
+        "of_which_count0": 0,
+        "caveat": "Estimación; no es una máscara oficial. La franja se centra en la ondulación del geoide local (EGM96), que es donde PGC dejó el relleno del mar en caleta Potter; no está documentado que sea igual en todas partes."
+      }
+    },
+    "units": "metros",
+    "value_quantization": {
+      "multiples_of_1_128_m_percent": 100,
+      "note": "Los valores de origen son múltiplos de 1/128 m (~0.8 cm), propio de los COG de PGC; no lo introduce este script."
+    },
+    "vertical_reference": {
+      "datum": "Altura elipsoidal sobre el elipsoide WGS84 (no es altura sobre el nivel del mar).",
+      "evidence": "PGC (https://www.pgc.umn.edu/data/rema/): los DEM de PGC están referidos al elipsoide WGS84; los servicios Esri convierten a alturas ortométricas con EGM2008.",
+      "to_msl": "Para \"metros sobre el nivel del mar\" aproximado: H = h_REMA - N_EGM2008, con N consultado en GeographicLib GeoidEval para este lugar (ver <nombre>_check.json). El nivel medio del mar real difiere además del geoide por la topografía dinámica oceánica y las mareas."
+    },
+    "temporal_note": "El mosaico combina tiras de distintas fechas (ver item_start_datetime/item_end_datetime por tesela); el recorte no representa un instante único.",
+    "reference_points_sampled": [
+      {
+        "key": "belgrano-ii",
+        "name": "Base Antártica Belgrano II",
+        "lon": -34.627778,
+        "lat": -77.873889,
+        "source": "COMNAP Antarctic Facilities nov 2024: elevación publicada 256.5 m (MSL)",
+        "x_3031": -751371.91,
+        "y_3031": 1088046.65,
+        "inside_crop": true,
+        "rema_ellipsoidal_m": 240.0703125
+      }
+    ],
+    "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) según el catálogo STAC de PGC y el AWS Open Data Registry",
+    "citation": {
+      "dataset": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
+      "acknowledgement": "DEMs provided by the Byrd Polar and Climate Research Center and the Polar Geospatial Center under NSF-OPP awards 1043681, 1542736, 1543501, 1559691, 1810976, and 2129685.",
+      "aws": "Reference Elevation Model of Antarctica (REMA) was accessed on 2026-11-08 from https://registry.opendata.aws/pgc-rema.",
+      "policy": "https://www.pgc.umn.edu/guides/user-services/acknowledgement-policy/"
+    },
+    "place": "Base Antártica Belgrano II (8×8 km centrados en la base)",
+    "processing": "Recorte por ventana en la grilla nativa (sin remuestreo, sin relleno de huecos, sin suavizado). Script: pipeline/rema/fetch-potter-cove.mjs"
+  }
+}

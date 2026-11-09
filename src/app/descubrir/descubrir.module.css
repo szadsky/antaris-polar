@@ -1,0 +1,35 @@
+.page {
+  padding-block: clamp(40px, 7vw, 88px);
+  display: grid;
+  gap: 40px;
+}
+
+.intro {
+  display: grid;
+  gap: 12px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.lede {
+  max-width: 56ch;
+  font-size: 1.125rem;
+  color: var(--ink-soft);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "label": "SCAR ADD v7.12 (2025)",
+  "dataset": "High resolution vector polygons of the Antarctic coastline",
+  "layer": "add_coastline_high_res_polygon_v7_12",
+  "serviceUrl": "https://services7.arcgis.com/tPxy1hrFDhJfZ0Mf/arcgis/rest/services/High_resolution_vector_polygons_of_the_Antarctic_coastline/FeatureServer/1",
+  "foundVia": "Visor oficial del ADD (https://add.data.bas.ac.uk/) → web map de ArcGIS 61622bee6b664138aaa0576b09aec647",
+  "query": {
+    "geometry": "envelope EPSG:3031 [-2631500, 1595000, -2622500, 1604000] (recorte REMA + 500 m de margen)",
+    "spatialRel": "esriSpatialRelIntersects",
+    "outSR": 3031,
+    "format": "Esri JSON"
+  },
+  "retrievedAt": "2026-11-08",
+  "citation": "SCAR Antarctic Digital Database, 2025, https://doi.org/qc9x (copyrightText del servicio)",
+  "licence": {
+    "value": "CC BY 4.0",
+    "status": "Inferida: las fichas de datos del ADD (polígonos de versiones previas y polilíneas v7.11) declaran CC BY 4.0. No se encontró ficha propia de v7.12. La página del ADD en data.bas.ac.uk muestra CC BY-ND 4.0, pero esa licencia es de los METADATOS, no de los datos."
+  },
+  "features": "9 polígonos, todos surface = land (incluye hielo glaciar sobre tierra). Sin ice shelf en el área.",
+  "clipped": {
+    "to": [
+      -2631500,
+      1595000,
+      -2622500,
+      1604000
+    ],
+    "method": "Sutherland–Hodgman por anillo (pipeline/rema/lib/clip-coast.mjs)",
+    "bytesBefore": 1665142,
+    "bytesAfter": 107060,
+    "note": "El servicio devuelve polígonos completos (el continente entero si se toca); solo se conserva el recuadro."
+  }
+}

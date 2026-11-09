@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:26:05.558Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "primavera",
+  "nombre": "Base Antártica Primavera",
+  "bbox_epsg3031": [
+    -2499676,
+    1381982,
+    -2491676,
+    1389982
+  ],
+  "geoid": {
+    "egm2008": 20.8244,
+    "egm96": 19.2891
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 19.15625,
+    "max": 566.7421875,
+    "tiles": [
+      "44_06_2_1_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2011-03-12",
+        "2020-09-05"
+      ]
+    ],
+    "sea_flat_percent": 75.175
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 44.4765625,
+    "rema_H_aprox_msnm_egm2008": 23.65,
+    "comnap_publicada_m": 50,
+    "comnap_datum": "MSL",
+    "diferencia_m": -26.35,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}

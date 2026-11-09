@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T02:24:07.272Z",
+  "geoid_source": "GeographicLib GeoidEval online",
+  "id": "camara",
+  "nombre": "Base Antártica Cámara",
+  "bbox_epsg3031": [
+    -2628998,
+    1516474,
+    -2620998,
+    1524474
+  ],
+  "geoid": {
+    "egm2008": 20.9134,
+    "egm96": 20.9856
+  },
+  "rema": {
+    "nodata_percent": 0,
+    "min": 20.8203125,
+    "max": 877.421875,
+    "tiles": [
+      "46_04_1_2_2m_v2.0"
+    ],
+    "tiles_missing": [],
+    "fechas": [
+      [
+        "2010-09-03",
+        "2020-05-08"
+      ]
+    ],
+    "sea_flat_percent": 81.81
+  },
+  "altura_en_base": {
+    "rema_h_elipsoidal_m": 38.796875,
+    "rema_H_aprox_msnm_egm2008": 17.88,
+    "comnap_publicada_m": 22,
+    "comnap_datum": "MSL",
+    "diferencia_m": -4.12,
+    "nota": "REMA es un modelo de SUPERFICIE (incluye edificios/nieve) y la coordenada COMNAP es un punto aproximado de la base; se esperan diferencias de algunos metros."
+  }
+}
