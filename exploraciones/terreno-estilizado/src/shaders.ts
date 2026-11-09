@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { lin, noiseTexture, type SharedTextures } from "./materials";
+import { detailTexture, lin, noiseTexture, type SharedTextures } from "./materials";
 
 /**
  * Materiales del terreno. Dos estilos sobre las mismas texturas calculadas:
@@ -97,6 +97,10 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     uSurface: { value: tex.surface },
     uLight: { value: tex.light },
     uNoise: { value: noiseTexture() },
+    // Fase 3A: detalle de cerca (normales generadas; interpretación). 1 = activo.
+    uDetail: { value: detailTexture() },
+    uDetailOn: { value: 1 },
+    uDetailFade: { value: new THREE.Vector2(500, 2200) },
     uHalf: { value: new THREE.Vector2(...p.halfSize) },
     uSeaY: { value: p.seaY },
     // Solo la última franja de ~60 m baja al mar (cierra el borde); el resto del borde
@@ -116,7 +120,9 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
 export type StyleUniforms = ReturnType<typeof styleUniforms>;
 
 const STYLE_FRAG_PARS = `
-uniform sampler2D uSurface, uLight, uNoise;
+uniform sampler2D uSurface, uLight, uNoise, uDetail;
+uniform float uDetailOn;
+uniform vec2 uDetailFade;
 uniform vec3 uSnow, uSnowShade, uRockA, uRockB, uIce, uSeaDeep, uSeaShallow, uFoam;
 uniform float uSeaY, uEdgeHaze;
 uniform vec2 uHalf;
@@ -129,7 +135,8 @@ vec2 triNoise(vec3 p, vec3 n, float f) {
   return texture2D(uNoise, p.zy * f).rg * w.x + texture2D(uNoise, p.xz * f).rg * w.y + texture2D(uNoise, p.xy * f).rg * w.z;
 }
 vec3 seaColor(float shore, float fine, out float foam) {
-  foam = smoothstep(0.86, 0.97, shore) * (0.55 + 0.45 * fine);
+  // Espuma angosta (~10 m) y cortada por ruido: de cerca no debe leerse como una plataforma.
+  foam = smoothstep(0.92, 0.985, shore) * smoothstep(0.35, 0.7, fine);
   vec3 sea = mix(uSeaDeep, uSeaShallow, smoothstep(0.2, 0.85, shore));
   return mix(sea, uFoam, foam * 0.85);
 }`;
@@ -169,7 +176,26 @@ float foam;
 vec3 sea = seaColor(shore, fine, foam);
 diffuseColor.rgb = mix(land, sea, isSea);
 gRough = mix(mix(mix(0.82, 0.95, rockT), 0.28, iceT), mix(0.16, 0.7, foam), isSea);
-gN = mix(n, vec3(0.0, 1.0, 0.0), isSea);`;
+vec3 nd = n;
+#ifndef FAR
+// Detalle de cerca (triplanar, 3 lecturas): grietas en roca, ondas de viento en nieve.
+// Se desvanece entre 500 y 2200 m; casi nulo en hielo; nada en el agua.
+float dAmt = uDetailOn * (1.0 - smoothstep(uDetailFade.x, uDetailFade.y, length(cameraPosition - vWorld))) * (1.0 - isSea);
+if (dAmt > 0.001) {
+  vec3 w3 = pow(abs(n), vec3(4.0)); w3 /= (w3.x + w3.y + w3.z);
+  float f = 1.0 / 110.0; // un mosaico cada ~110 m: grietas y ondas de 2–15 m, legibles a cientos de metros
+  vec4 tx = texture2D(uDetail, vWorld.zy * f);
+  vec4 ty = texture2D(uDetail, vWorld.xz * f);
+  vec4 tz = texture2D(uDetail, vWorld.xy * f);
+  vec2 dx = mix(tx.ba, tx.rg, rockT) * 2.0 - 1.0;
+  vec2 dy = mix(ty.ba, ty.rg, rockT) * 2.0 - 1.0;
+  vec2 dz = mix(tz.ba, tz.rg, rockT) * 2.0 - 1.0;
+  float str = mix(0.2, 1.7, rockT) * (1.0 - iceT * 0.85) * dAmt;
+  vec3 pert = vec3(0.0, dx.y, dx.x) * w3.x + vec3(dy.x, 0.0, dy.y) * w3.y + vec3(dz.x, dz.y, 0.0) * w3.z;
+  nd = normalize(n + pert * str);
+}
+#endif
+gN = mix(nd, vec3(0.0, 1.0, 0.0), isSea);`;
 
 const EDGE_HAZE = `
 #ifdef USE_FOG

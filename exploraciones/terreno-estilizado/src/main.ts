@@ -171,8 +171,16 @@ async function main() {
   };
   baseBtn.addEventListener("click", () => setStyle("base"));
   styBtn.addEventListener("click", () => setStyle("estilizado"));
+  let detail = params.get("detalle") !== "0";
+  const setDetail = (on: boolean) => {
+    detail = on;
+    terrain?.setDetail(on);
+    requestRender();
+  };
   addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "a" && !(e.target as HTMLElement).closest("select")) setStyle(style === "base" ? "estilizado" : "base");
+    if ((e.target as HTMLElement).closest("select")) return;
+    if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
+    if (e.key.toLowerCase() === "d") setDetail(!detail);
   });
   exaggerationEl.addEventListener("change", async () => {
     exaggeration = Number(exaggerationEl.value);
@@ -209,6 +217,7 @@ async function main() {
     if (pin) scene.remove(pin.group);
     terrain = t;
     t.setStyle(style);
+    t.setDetail(detail);
     scene.add(t.object);
     seaPlane.material = t.seaMaterial ?? seaPlainMat;
     placeSea(t);
@@ -259,6 +268,7 @@ async function main() {
     benchResult = {
       estilo: style,
       geometria: geo,
+      detalle: detail,
       base: baseId,
       nivel: metrics.load?.level,
       ...r,
@@ -277,7 +287,7 @@ async function main() {
   };
   $("bench").addEventListener("click", () => void bench());
   Object.assign(window, {
-    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, get terrain() { return terrain; } },
+    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, get terrain() { return terrain; } },
     __bench: bench,
     __pose: (i: number) => {
       applyPose(ctx, i);

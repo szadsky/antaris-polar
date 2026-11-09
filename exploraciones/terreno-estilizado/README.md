@@ -1,4 +1,4 @@
-# Exploración · terreno estilizado (fases 1 y 2)
+# Exploración · terreno estilizado (fases 1, 2 y 3A)
 
 > **Prueba aislada, no es el sitio.** **Interpretación artística basada en REMA**, no una reconstrucción geográfica exacta. El relieve es dato (REMA v2.0, costa SCAR ADD v7.12); las sombras de un sol fijo, los materiales, el hielo costero, la variación procedural y el tratamiento de bordes son estilización.
 
@@ -13,6 +13,7 @@ npm run dev      # http://localhost:3400/?base=brown
 
 - Botón **Base / Interpretación** (tecla `A`): "Base" reproduce el sombreado de [`terreno-nitidez`](../terreno-nitidez/) para comparar con la misma app, datos y cámaras.
 - **Medir**: corre el banco de medición (5 cámaras fijas × 20 cuadros, tiempo de GPU por consulta de temporizador).
+- Tecla `D` o `?detalle=0`: apaga el detalle de cerca (fase 3A) para comparar.
 - Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
 - Los terrenos se leen de `../terreno-nitidez/public` (mismo formato; evita duplicar ~8,5 MB). Ver `vite.config.ts`.
 
@@ -96,9 +97,38 @@ Registro de decisiones:
 
 Capturas: `capturas/brown-*-fase2-lod.jpg` (comparar con `brown-*-despues.jpg` de la fase 1, mismas cámaras).
 
-## Pendiente (no medido o fuera de las fases 1 y 2)
+## Fase 3A · detalle de cerca (0 bytes de descarga)
+
+Qué cambió:
+
+1. **Mapa de normales de detalle generado al cargar** (512², `detailTexture()` en `src/materials.ts`): roca = fbm crestado (grietas y aristas); nieve = ondas de viento suaves. **Es estilización**, no proviene de REMA.
+2. **Aplicado en triplanar** (3 lecturas), un mosaico cada ~110 m (rasgos de 2–15 m), solo en bloques cercanos (los lejanos no lo compilan) y desvanecido entre 500 y 2200 m de la cámara. Intensidad por material: fuerte en roca, suave en nieve, casi nula en hielo, nada en agua.
+3. **Espuma** más angosta (~10 m) y cortada por ruido: antes, de cerca, se leía como una plataforma gris de ~22 m (defecto que ya estaba en la fase 1).
+
+Primer intento descartado: con un mosaico cada 24 m el detalle quedaba por debajo del tamaño de píxel a 300 m y el filtrado lo aplanaba (solo cambiaba el 1,9 % de los píxeles). A ~110 m cambia el 19,6 %.
+
+### Medido (fase 2 → 3A)
+
+Brown, nivel 4 m, Interpretación + LOD, mismas 5 cámaras.
+
+| | Sin detalle | Con detalle |
+|---|---|---|
+| GPU por cuadro, mediana | 2,33 ms | 2,13 ms |
+| GPU por cuadro, p95 | 3,62 ms | 3,31 ms |
+| Cámara "cerca" (la que más detalle muestra) | 2,48 ms | 2,97 ms |
+| Descarga | 860 KB | 860 KB |
+| Memoria GPU extra | — | ~1,4 MB (textura de detalle con mipmaps; no incluida en el total del banco) |
+
+La diferencia en la mediana está dentro de la variación entre corridas; el costo real aparece de cerca (+0,5 ms).
+
+### KTX2 (fase 3B): no aplicado, por ahora
+
+Las reglas piden KTX2 solo cuando lo justifique una textura descargada. Hoy **no se descarga ninguna textura de imagen**: todas (superficie, luz, ruido, detalle) se generan en el navegador. Si más adelante se suman texturas reales de roca/nieve (p. ej. CC0), corresponde **UASTC para normales** (no toleran bien la compresión agresiva) y **ETC1S para color**, comparando peso y calidad antes de adoptarlas.
+
+Capturas: `capturas/brown-cerca-fase2.jpg` → `capturas/brown-cerca-fase3a-detalle.jpg` (misma cámara).
+
+## Pendiente (no medido o fuera de las fases 1, 2 y 3A)
 
 - **FPS reales y celular**: no medidos (el panel frena `requestAnimationFrame`; el banco usa render sincrónico).
-- **Fase 3 (detalle de cerca)**: texturas de detalle KTX2 (UASTC normales / ETC1S color) vs. detalle procedural; elegir por resultado medido.
 - **Fase 4**: calidad adaptativa (DPR, sombras, detalle) según el tiempo por cuadro.
 - La línea serpenteante sobre la nieve de Petrel también aparece en el dato (no es costa ADD); sin identificar.
