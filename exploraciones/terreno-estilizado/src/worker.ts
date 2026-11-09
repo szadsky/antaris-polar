@@ -22,6 +22,8 @@ export interface BuildMsg {
   stride: number;
   exaggeration: number;
   sun: Vec3;
+  /** true: arma la malla única de la fase 1 (para medir el "antes"). false: solo alturas para LOD. */
+  full: boolean;
 }
 export interface UpdateMsg {
   type: "update";
@@ -39,6 +41,10 @@ export interface BuiltMsg {
   surface: Uint8Array;
   light: Uint8Array;
   heightsM: Float32Array;
+  /** Alturas (m, sin exagerar) a resolución de malla; NaN → 0. Textura de alturas del LOD. */
+  meshHeights: Float32Array;
+  /** 1 = la celda de malla es tierra/hielo (costa ADD), 0 = mar. */
+  meshLand: Uint8Array;
   mesh: { width: number; height: number };
   seaLevelM: number | null;
   ms: { decode: number; surface: number; light: number; mesh: number };
@@ -58,6 +64,7 @@ interface Grid {
   h: number;
   cell: number;
   stride: number;
+  full: boolean;
   heights: Float32Array;
   land: Uint8Array | null;
   cavity: Uint8Array;
@@ -83,13 +90,14 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
 
       const cavity = cavityShade(heights, msg.width, msg.height, msg.cellSizeM);
       const shore = shoreProximity(land, msg.width, msg.height, msg.stride, msg.cellSizeM);
-      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, heights, land, cavity, shore };
+      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, cavity, shore };
       grids.set(msg.key, g);
       const surface = surfaceTexture(g, msg.exaggeration);
       const t2 = performance.now();
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const t3 = performance.now();
-      const m = meshFrom(g, msg.exaggeration);
+      const m = msg.full ? meshFrom(g, msg.exaggeration) : emptyMesh(g);
+      const { meshHeights, meshLand } = meshResolution(g);
       const heightsCopy = heights.slice();
       const out: BuiltMsg = {
         type: "built",
@@ -98,10 +106,15 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
         surface,
         light,
         heightsM: heightsCopy,
+        meshHeights,
+        meshLand,
         seaLevelM: seaLevel(heights, land),
         ms: { decode: t1 - t0, surface: t2 - t1, light: t3 - t2, mesh: performance.now() - t3 },
       };
-      post(out, [m.positions.buffer, m.normals.buffer, m.uvs.buffer, m.index.buffer, surface.buffer, light.buffer, heightsCopy.buffer]);
+      post(out, [
+        m.positions.buffer, m.normals.buffer, m.uvs.buffer, m.index.buffer,
+        surface.buffer, light.buffer, heightsCopy.buffer, meshHeights.buffer, meshLand.buffer,
+      ]);
     } else {
       const g = grids.get(msg.key);
       if (!g) return;
@@ -109,7 +122,8 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
       const t0 = performance.now();
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const ms = { light: performance.now() - t0 };
-      const { positions, normals } = meshFrom(g, msg.exaggeration, false);
+      // Con LOD la exageración es un uniform del shader: no hace falta rehacer vértices.
+      const { positions, normals } = g.full ? meshFrom(g, msg.exaggeration, false) : emptyMesh(g);
       const out: UpdatedMsg = { type: "updated", key: msg.key, positions, normals, surface, light, ms };
       post(out, [positions.buffer, normals.buffer, surface.buffer, light.buffer]);
     }
@@ -327,6 +341,34 @@ function dequantize(hs: Float32Array, w: number, h: number, step: number, iterat
       hs[i] = m < lo[i] ? lo[i] : m > hi[i] ? hi[i] : m;
     }
   }
+}
+
+// ─── Alturas para LOD ──────────────────────────────────────
+function meshResolution(g: Grid) {
+  const { w, h, stride, heights, land } = g;
+  const mw = Math.floor((w - 1) / stride) + 1;
+  const mh = Math.floor((h - 1) / stride) + 1;
+  const meshHeights = new Float32Array(mw * mh);
+  const meshLand = new Uint8Array(mw * mh);
+  for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
+    const i = y * stride * w + x * stride;
+    const v = heights[i];
+    meshHeights[y * mw + x] = v === v ? v : 0;
+    meshLand[y * mw + x] = land ? land[i] : 1;
+  }
+  return { meshHeights, meshLand };
+}
+
+function emptyMesh(g: Grid) {
+  const mw = Math.floor((g.w - 1) / g.stride) + 1;
+  const mh = Math.floor((g.h - 1) / g.stride) + 1;
+  return {
+    positions: new Float32Array(0),
+    normals: new Float32Array(0),
+    uvs: new Float32Array(0),
+    index: new Uint32Array(0),
+    mesh: { width: mw, height: mh },
+  };
 }
 
 // ─── Malla ─────────────────────────────────────────────────

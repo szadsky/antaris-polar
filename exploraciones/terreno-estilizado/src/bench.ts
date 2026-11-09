@@ -32,6 +32,10 @@ export interface BenchCtx {
   controls: MapControls;
   origin: THREE.Vector3; // posición de la base en la escena
   size: number;
+  /** Elige bloques y niveles (LOD) para la cámara actual. */
+  beforeRender?: () => void;
+  /** Estadísticas del LOD tras beforeRender. */
+  lodStats?: () => unknown;
 }
 
 export function applyPose(ctx: BenchCtx, i: number) {
@@ -41,6 +45,7 @@ export function applyPose(ctx: BenchCtx, i: number) {
   ctx.controls.target.set(o.x + p.target[0] * s, p.target[1] * s, o.z + p.target[2] * s);
   ctx.camera.position.set(o.x + p.camera[0] * s, p.camera[1] * s, o.z + p.camera[2] * s);
   ctx.controls.update();
+  ctx.beforeRender?.();
 }
 
 const px = new Uint8Array(4);
@@ -51,7 +56,7 @@ export async function runBench(ctx: BenchCtx, framesPerPose = 20) {
   const tq = gl.getExtension("EXT_disjoint_timer_query_webgl2");
   const gpu: number[] = [];
   const sync: number[] = [];
-  const poses: Record<string, { gpuMs: number | null; syncMs: number; triangulos: number; drawCalls: number }> = {};
+  const poses: Record<string, { gpuMs: number | null; syncMs: number; triangulos: number; drawCalls: number; lod?: unknown }> = {};
 
   for (let i = 0; i < POSES.length; i++) {
     applyPose(ctx, i);
@@ -84,6 +89,7 @@ export async function runBench(ctx: BenchCtx, framesPerPose = 20) {
       syncMs: round(pct(sy, 0.5)),
       triangulos: renderer.info.render.triangles,
       drawCalls: renderer.info.render.calls,
+      lod: ctx.lodStats?.(),
     };
   }
   applyPose(ctx, 0);

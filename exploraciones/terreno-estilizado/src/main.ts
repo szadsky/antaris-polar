@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
-import { MESH_STRIDE, TerrainLoader, type Level, type Style, type Terrain, type TerrainMeta } from "./terrain";
+import { MESH_STRIDE, TerrainLoader, type GeoMode, type Level, type Style, type Terrain, type TerrainMeta } from "./terrain";
 import { Metrics } from "./metrics";
 import { applyPose, runBench, type BenchCtx } from "./bench";
 import type { Vec3 } from "./worker";
@@ -68,10 +68,11 @@ async function main() {
   const hemi = new THREE.HemisphereLight();
   const sun = new THREE.DirectionalLight();
   scene.add(hemi, sun);
-  const seaPlane = new THREE.Mesh(
+  const seaPlane = new THREE.Mesh<THREE.PlaneGeometry, THREE.Material>(
     new THREE.PlaneGeometry(size * 8, size * 8).rotateX(-Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: "#14303f", roughness: 0.18, metalness: 0 })
   );
+  const seaPlainMat = seaPlane.material;
   seaPlane.name = "mar-extendido";
   scene.add(seaPlane);
   const LOOKS: Record<Style, () => void> = {
@@ -123,6 +124,7 @@ async function main() {
     }
     idleFrames = 0;
     dirty = false;
+    terrain?.beforeRender(camera, renderer.domElement.height);
     renderer.render(scene, camera);
     if (pin) {
       v.copy(pin.top).project(camera);
@@ -150,6 +152,7 @@ async function main() {
 
   // ─── Estado ───
   let style: Style = params.get("estilo") === "base" ? "base" : "estilizado";
+  const geo: GeoMode = params.get("geo") === "completa" ? "completa" : "lod";
   let exaggeration = 1;
   let terrain: Terrain | null = null;
   let benchResult: unknown = null;
@@ -200,13 +203,14 @@ async function main() {
   const placeSea = (t: Terrain) => (seaPlane.position.y = ((t.seaLevelM ?? 0) - 0.6) * exaggeration);
   const show = (t: Terrain) => {
     if (terrain) {
-      scene.remove(terrain.mesh);
+      scene.remove(terrain.object);
       terrain.dispose();
     }
     if (pin) scene.remove(pin.group);
     terrain = t;
     t.setStyle(style);
-    scene.add(t.mesh);
+    scene.add(t.object);
+    seaPlane.material = t.seaMaterial ?? seaPlainMat;
     placeSea(t);
     pin = buildPin(meta, t, size);
     if (pin) {
@@ -219,7 +223,7 @@ async function main() {
     requestRender();
   };
   const info = (t: Terrain, firstViewMs: number, fullMs: number | null) => ({
-    level: `alturas ${t.level.cellSizeM} m · malla ${t.meshSize.width}×${t.meshSize.height}`,
+    level: `alturas ${t.level.cellSizeM} m · ${t.geo === "lod" ? "LOD por bloques" : `malla ${t.meshSize.width}×${t.meshSize.height}`}`,
     bytes: t.level.transferBytes,
     transferBytes: null,
     fetchMs: t.ms.fetch,
@@ -228,12 +232,12 @@ async function main() {
     fullMs,
   });
 
-  const first = await loader.load(dir, meta, plan[0], exaggeration, style, maxAniso);
+  const first = await loader.load(dir, meta, plan[0], exaggeration, style, maxAniso, geo);
   show(first);
   const firstViewMs = performance.now() - t0;
   const p0 = pin as ReturnType<typeof buildPin>;
   const origin = new THREE.Vector3(p0?.local.x ?? 0, 0, p0?.local.z ?? 0);
-  const ctx: BenchCtx = { renderer, scene, camera, controls, origin, size };
+  const ctx: BenchCtx = { renderer, scene, camera, controls, origin, size, beforeRender: () => terrain?.beforeRender(camera, renderer.domElement.height), lodStats: () => terrain?.lodStats() ?? undefined };
   applyPose(ctx, Number(params.get("pose") ?? 0));
   statusEl.hidden = true;
   metrics.load = info(first, firstViewMs, null);
@@ -241,7 +245,7 @@ async function main() {
 
   if (plan[1]) {
     const k = exaggeration;
-    const detailed = await loader.load(dir, meta, plan[1], k, style, maxAniso);
+    const detailed = await loader.load(dir, meta, plan[1], k, style, maxAniso, geo);
     if (exaggeration !== k) await detailed.update(exaggeration);
     show(detailed);
     metrics.load = info(detailed, firstViewMs, performance.now() - t0);
@@ -254,12 +258,13 @@ async function main() {
     const r = await runBench(ctx);
     benchResult = {
       estilo: style,
+      geometria: geo,
       base: baseId,
       nivel: metrics.load?.level,
       ...r,
       memoriaGpuMB: {
-        geometria: +(t.gpuBytes.geometry / 1048576).toFixed(1),
-        texturas: +(t.gpuBytes.textures / 1048576).toFixed(1),
+        geometria: +(t.gpuBytes().geometry / 1048576).toFixed(2),
+        texturas: +(t.gpuBytes().textures / 1048576).toFixed(1),
       },
       descargaKB: Math.round(t.level.transferBytes / 1024),
       cargaMs: { primeraVista: Math.round(firstViewMs), worker: Math.round(t.ms.decode + t.ms.surface + t.ms.light + t.ms.mesh), sombras: Math.round(t.ms.light) },

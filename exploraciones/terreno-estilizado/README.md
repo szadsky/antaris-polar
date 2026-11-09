@@ -1,4 +1,4 @@
-# Exploración · terreno estilizado (fase 1)
+# Exploración · terreno estilizado (fases 1 y 2)
 
 > **Prueba aislada, no es el sitio.** **Interpretación artística basada en REMA**, no una reconstrucción geográfica exacta. El relieve es dato (REMA v2.0, costa SCAR ADD v7.12); las sombras de un sol fijo, los materiales, el hielo costero, la variación procedural y el tratamiento de bordes son estilización.
 
@@ -13,7 +13,7 @@ npm run dev      # http://localhost:3400/?base=brown
 
 - Botón **Base / Interpretación** (tecla `A`): "Base" reproduce el sombreado de [`terreno-nitidez`](../terreno-nitidez/) para comparar con la misma app, datos y cámaras.
 - **Medir**: corre el banco de medición (5 cámaras fijas × 20 cuadros, tiempo de GPU por consulta de temporizador).
-- Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
+- Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
 - Los terrenos se leen de `../terreno-nitidez/public` (mismo formato; evita duplicar ~8,5 MB). Ver `vite.config.ts`.
 
 ## Diagnóstico (antes de cambiar nada)
@@ -62,10 +62,43 @@ Registro de decisiones:
 
 Capturas en `capturas/` (pares *antes* / *después*). En Petrel, el *antes* es `terreno-nitidez` y el encuadre del *después* no es idéntico.
 
-## Pendiente (no medido o fuera de la fase 1)
+## Fase 2 · geometría con nivel de detalle
+
+Qué cambió (`src/lod.ts`, `src/shaders.ts`):
+
+1. **Terreno por bloques** de 128 celdas (8×8 bloques en el nivel de 4 m). **Una plantilla de geometría por nivel** (paso 1, 2, 4 y 8 celdas = 8, 16, 32 y 64 m entre vértices) que solo contiene índices de celda: **la altura la lee el vertex shader de una textura** (R32F, sin filtrar).
+2. **Un `InstancedMesh` por nivel**: como máximo 4 draw calls para todo el terreno.
+3. **Elección de nivel por tamaño en pantalla** de una celda (≤ 7 px) y **descarte por pirámide de visión** con la caja de alturas real de cada bloque.
+4. **Faldones** en el borde de cada bloque (bajan 1,5 celdas del nivel + 5 m) para tapar las uniones entre bloques de distinto nivel. Sin grietas visibles en las 5 cámaras.
+5. **Mar**: el plano dibuja el mar abierto con el mismo color de costa y sombra; el terreno sigue dibujando el agua costera (< ~90 m de la costa, idéntica a la fase 1) y no se dibujan bloques sin tierra a menos de 96 m.
+6. **Material más simple de lejos**: los niveles 3 y 4 omiten las 3 lecturas de vetas finas.
+7. **Exageración vertical = un uniform**: ya no se reconstruyen vértices (sin tareas largas en el hilo principal al cambiarla).
+
+### Antes / después medido (fase 1 → fase 2)
+
+Brown, nivel 4 m, estilo Interpretación, mismas 5 cámaras × 20 cuadros, misma PC y lienzo que la fase 1.
+
+| | Fase 1 (`?geo=completa`) | Fase 2 (LOD) |
+|---|---|---|
+| GPU por cuadro, mediana | 8,8 ms | **2,9 ms** (−67 %) |
+| GPU por cuadro, p95 | 12,3 ms | **3,9 ms** |
+| Triángulos (general / media / cerca / rasante / cenital) | 2,0 M en todas | 142 k / 307 k / 249 k / 262 k / 118 k |
+| Draw calls | 2 | 2–4 |
+| Memoria GPU geometría | 53,4 MB | **0,8 MB** |
+| Memoria GPU texturas (estimada, con mipmaps) | 25,4 MB | 29,2 MB (+ textura de alturas 4 MB) |
+| Total GPU estimado | ~79 MB | **~30 MB** |
+| Descarga | 860 KB | 860 KB |
+
+El tiempo del worker varió entre corridas en este entorno (2,5–4,3 s; sombras 0,8–1,7 s) por competir con otras pestañas: no es comparable entre fases.
+
+Registro de decisiones:
+- Con el agua solo en el plano apareció una **franja gris sobre la costa**. No era la geometría (forzar un nivel más fino en la costa subió a 520 k triángulos sin cambiarla) ni la mezcla tierra/mar: pintando el plano de rojo desapareció, así que era el agua del plano vista en ángulo rasante. Se volvió a dibujar el agua costera con el terreno.
+
+Capturas: `capturas/brown-*-fase2-lod.jpg` (comparar con `brown-*-despues.jpg` de la fase 1, mismas cámaras).
+
+## Pendiente (no medido o fuera de las fases 1 y 2)
 
 - **FPS reales y celular**: no medidos (el panel frena `requestAnimationFrame`; el banco usa render sincrónico).
-- **Fase 2 (geometría)**: LOD por bloques sin grietas, mar como plano único, descarte por cámara. Es la que más baja la carga de GPU y memoria (hoy 2 M triángulos y ~79 MB).
 - **Fase 3 (detalle de cerca)**: texturas de detalle KTX2 (UASTC normales / ETC1S color) vs. detalle procedural; elegir por resultado medido.
 - **Fase 4**: calidad adaptativa (DPR, sombras, detalle) según el tiempo por cuadro.
 - La línea serpenteante sobre la nieve de Petrel también aparece en el dato (no es costa ADD); sin identificar.
