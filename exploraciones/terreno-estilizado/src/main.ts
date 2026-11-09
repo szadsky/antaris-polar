@@ -1,3 +1,4 @@
+import { createOcean } from "./ocean";
 import { loadTerrainTextures } from "./terrain-textures";
 import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
@@ -59,7 +60,7 @@ async function main() {
   const plan = levelPlan(meta.levels, params.get("nivel"), initialTier === "baja" ? "8m" : device.level);
 
   // ─── Render ───
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: devicePixelRatio < 2, powerPreference: "high-performance" });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(devicePixelRatio, TIERS[initialTier].dpr));
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -80,12 +81,8 @@ async function main() {
   const hemi = new THREE.HemisphereLight();
   const sun = new THREE.DirectionalLight();
   scene.add(hemi, sun);
-  const seaPlane = new THREE.Mesh<THREE.PlaneGeometry, THREE.Material>(
-    new THREE.PlaneGeometry(size * 8, size * 8).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ color: "#14303f", roughness: 0.18, metalness: 0 })
-  );
-  const seaPlainMat = seaPlane.material;
-  seaPlane.name = "mar-extendido";
+  const ocean=createOcean(size,new THREE.Vector3(...SUN),device.mobile,initialTier);
+  const seaPlane=ocean.mesh;
   scene.add(seaPlane);
   const LOOKS: Record<Style, () => void> = {
     base: () => {
@@ -100,7 +97,7 @@ async function main() {
       sun.position.set(-0.6, 0.35, -1).multiplyScalar(size);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1;
-      seaPlane.visible = false;
+      seaPlane.visible = true;
     },
     estilizado: () => {
       // Cielo frío y luminoso; rebote de nieve como luz de suelo (evita roca negra).
@@ -110,7 +107,7 @@ async function main() {
       scene.fog = new THREE.Fog("#a6c8e6", size * 0.55, size * 2.5);
       hemi.color.set("#b3d3f0"); // antes #cfe0ee
       hemi.groundColor.set("#8796a0");
-      hemi.intensity = 0.75; // antes 1,05
+      hemi.intensity = 1.0;
       sun.color.set("#fff3e0"); // antes #fff0d8
       sun.intensity = 3.3; // antes 2,6
       sun.position.set(SUN[0], SUN[1], SUN[2]).multiplyScalar(size);
@@ -130,14 +127,14 @@ async function main() {
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const WAVE_IDLE_MS = 1000 / 24;
   let lastWaveMs = 0;
-  const wavesOn = () => !reducedMotion && seaPlane.visible && document.visibilityState === "visible" && (terrain?.styleUniforms.uSeaLook.value.z ?? 0) > 0;
+  const wavesOn = () => style === "estilizado" && !reducedMotion && seaPlane.visible && document.visibilityState === "visible" && (terrain?.styleUniforms.uSeaLook.value.z ?? 0) > 0;
   // Se asigna más abajo; el bucle puede correr antes (p. ej. por un resize temprano).
   let qualityRef: AdaptiveQuality | null = null;
   const frame = () => {
     const moved = controls.update();
     const now = performance.now();
     const waves = wavesOn();
-    if (waves && terrain) terrain.styleUniforms.uTime.value = now / 1000;
+    if (waves && terrain) { terrain.styleUniforms.uTime.value = now / 1000; ocean.time(now / 1000); }
     if (!moved && !dirty && waves) {
       // en reposo: solo el agua se mueve, a cadencia reducida
       if (now - lastWaveMs < WAVE_IDLE_MS) return;
@@ -199,6 +196,7 @@ async function main() {
     baseBtn.setAttribute("aria-pressed", String(s === "base"));
     styBtn.setAttribute("aria-pressed", String(s === "estilizado"));
     LOOKS[s]();
+    ocean.refresh();
     terrain?.setStyle(s);
     noteEl.textContent =
       s === "base"
@@ -226,6 +224,7 @@ async function main() {
   };
   // Aplica un nivel de calidad: DPR, densidad del LOD y detalle de cerca.
   const applyTier = (t: Tier, why: string) => {
+    ocean.quality(t);
     renderer.setPixelRatio(Math.min(devicePixelRatio, TIERS[t].dpr));
     renderer.setSize(innerWidth, innerHeight, false);
     terrain?.setLodTarget(TIERS[t].lodPx);
@@ -272,6 +271,7 @@ async function main() {
     await t.update(exaggeration);
     if (terrain !== t) return;
     placeSea(t);
+    ocean.refresh();
     pin?.setExaggeration(exaggeration);
     requestRender();
   });
@@ -295,7 +295,7 @@ async function main() {
   // ─── Carga progresiva ───
   const loader = new TerrainLoader(SUN);
   const t0 = performance.now();
-  const placeSea = (t: Terrain) => (seaPlane.position.y = ((t.seaLevelM ?? 0) - 0.6) * exaggeration);
+  const placeSea = (t: Terrain) => (seaPlane.position.y = (t.seaLevelM ?? 0) * exaggeration - 0.03);
   const show = (t: Terrain) => {
     if (terrain) {
       scene.remove(terrain.object);
@@ -308,8 +308,9 @@ async function main() {
     t.setDetail(detail && TIERS[quality.tier].detail);
     t.setLodTarget(TIERS[quality.tier].lodPx);
     scene.add(t.object);
-    seaPlane.material = t.seaMaterial ?? seaPlainMat;
+    ocean.bind(t);
     placeSea(t);
+    ocean.refresh();
     pin = buildPin(meta, t, size);
     if (pin) {
       pin.setExaggeration(exaggeration);

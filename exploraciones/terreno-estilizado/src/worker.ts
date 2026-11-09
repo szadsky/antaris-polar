@@ -1,3 +1,4 @@
+import { TILE } from "./tile-size";
 /**
  * Web Worker del terreno estilizado. A partir de UNA grilla de alturas REMA arma:
  *   - malla submuestreada (cada `stride` muestras);
@@ -13,6 +14,9 @@ export type Vec3 = [number, number, number];
 
 export interface BuildMsg {
   type: "build";
+  seaDatum: number | null;
+  vector?: ArrayBuffer;
+  baked?: ArrayBuffer;
   key: string;
   bin: ArrayBuffer;
   mask: ArrayBuffer | null;
@@ -51,6 +55,7 @@ export interface BuiltMsg {
   meshHeights: Float32Array;
   /** 1 = la celda de malla es tierra/hielo (costa ADD), 0 = mar. */
   meshLand: Uint8Array;
+  tileKinds: Uint8Array;
   mesh: { width: number; height: number };
   seaLevelM: number | null;
   ms: { decode: number; surface: number; light: number; mesh: number };
@@ -78,6 +83,8 @@ interface Grid {
   cavity: Uint8Array;
   /** Curvatura con signo (128 = plano, + surco, − cresta), resolución completa. */
   curv: Uint8Array;
+  /** Nivel del mar del recorte (m); 0 si no hay costa. */
+  sea: number;
   shore: Uint8Array; // a resolución de malla
 }
 
@@ -101,18 +108,20 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
       const q = decodeDeltaPlanar(raw, msg.width);
       const heights = new Float32Array(q.length);
       for (let i = 0; i < q.length; i++) heights[i] = q[i] === 0 ? NaN : (q[i] - 1) * msg.stepM;
-      dequantize(heights, msg.width, msg.height, msg.stepM, 12);
+      if (!msg.vector && !msg.baked) dequantize(heights, msg.width, msg.height, msg.stepM, 12);
+      const seaM = msg.seaDatum ?? seaLevel(heights, land);
       const t1 = performance.now();
 
       const { cavity, curv } = cavityShade(heights, msg.width, msg.height, msg.cellSizeM);
       const shore = shoreProximity(land, msg.width, msg.height, msg.stride, msg.cellSizeM);
-      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, sdf, cavity, curv, shore };
+      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, sdf, cavity, curv, shore, sea: seaM ?? 0 };
       grids.set(msg.key, g);
       const surface = surfaceTexture(g, msg.exaggeration);
       const t2 = performance.now();
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const t3 = performance.now();
-      const m = msg.full ? meshFrom(g, msg.exaggeration) : emptyMesh(g);
+      const vector: VectorCoast | undefined = msg.vector ? JSON.parse(new TextDecoder().decode(await gunzipMaybe(msg.vector))) : undefined;
+      const m = msg.baked ? readBaked(await gunzipMaybe(msg.baked),g) : meshFrom(g, vector);
       const { meshHeights, meshLand } = meshResolution(g);
       const heightsCopy = heights.slice();
       const out: BuiltMsg = {
@@ -124,7 +133,7 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
         heightsM: heightsCopy,
         meshHeights,
         meshLand,
-        seaLevelM: seaLevel(heights, land),
+        seaLevelM: seaM,
         ms: { decode: t1 - t0, surface: t2 - t1, light: t3 - t2, mesh: performance.now() - t3 },
       };
       post(out, [
@@ -139,7 +148,7 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const ms = { light: performance.now() - t0 };
       // Con LOD la exageración es un uniform del shader: no hace falta rehacer vértices.
-      const { positions, normals } = g.full ? meshFrom(g, msg.exaggeration, false) : emptyMesh(g);
+      const { positions, normals } = emptyMesh(g);
       const out: UpdatedMsg = { type: "updated", key: msg.key, positions, normals, surface, light, ms };
       post(out, [positions.buffer, normals.buffer, surface.buffer, light.buffer]);
     }
@@ -158,7 +167,7 @@ function surfaceTexture(g: Grid, k: number): Uint8Array {
       const isSea = land ? land[i] === 0 : false;
       let nx = 0;
       let nz = 0;
-      if (!isSea) [nx, nz] = sobelNormalXZ(heights, w, h, x, y, cell, k);
+      if (!isSea || heights[i] > g.sea || (sdf && sdf[i] >= -cell)) [nx, nz] = sobelNormalXZ(heights, w, h, x, y, cell, k);
       out[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
       out[i * 4 + 1] = Math.round((nz * 0.5 + 0.5) * 255);
       out[i * 4 + 2] = cavity[i];
@@ -207,11 +216,11 @@ function lightTexture(g: Grid, k: number, sun: Vec3): Uint8Array {
   const mw = Math.floor((w - 1) / stride) + 1;
   const mh = Math.floor((h - 1) / stride) + 1;
   const mc = cell * stride;
-  // Alturas a resolución de malla (NaN → 0)
+  // Alturas a resolución de malla (sin dato → nivel del mar)
   const H = new Float32Array(mw * mh);
   for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
     const v = heights[y * stride * w + x * stride];
-    H[y * mw + x] = v === v ? v * k : 0;
+    H[y * mw + x] = (v === v ? v : g.sea) * k;
   }
   const horiz = Math.hypot(sun[0], sun[2]);
   const dx = sun[0] / horiz; // dirección en la grilla: x → columnas, z → filas
@@ -398,8 +407,8 @@ function meshResolution(g: Grid) {
   for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
     const i = y * stride * w + x * stride;
     const v = heights[i];
-    meshHeights[y * mw + x] = v === v ? v : 0;
-    meshLand[y * mw + x] = land ? land[i] : 1;
+    meshHeights[y * mw + x] = v === v ? v : g.sea; // sin dato: al nivel del mar, no a 0
+    meshLand[y * mw + x] = Number.isFinite(v) && (!land || land[i]) ? 1 : 0;
   }
   return { meshHeights, meshLand };
 }
@@ -417,36 +426,216 @@ function emptyMesh(g: Grid) {
 }
 
 // ─── Malla ─────────────────────────────────────────────────
-function meshFrom(g: Grid, k: number, withTopology = true) {
-  const { w, h, cell, stride, heights } = g;
-  const mw = Math.floor((w - 1) / stride) + 1;
-  const mh = Math.floor((h - 1) / stride) + 1;
-  const halfW = ((w - 1) * cell) / 2, halfD = ((h - 1) * cell) / 2;
-  const n = mw * mh;
-  const positions = new Float32Array(n * 3);
-  const normals = new Float32Array(n * 3);
-  const uvs = new Float32Array(withTopology ? n * 2 : 0);
-  for (let my = 0; my < mh; my++) for (let mx = 0; mx < mw; mx++) {
-    const j = my * mw + mx, x = mx * stride, y = my * stride;
-    const v = heights[y * w + x];
-    positions[j * 3] = x * cell - halfW;
-    positions[j * 3 + 1] = v === v ? v * k : 0;
-    positions[j * 3 + 2] = y * cell - halfD;
-    const [nx, nz] = sobelNormalXZ(heights, w, h, x, y, cell * 1, k);
-    const ny = Math.sqrt(Math.max(0, 1 - nx * nx - nz * nz));
-    normals[j * 3] = nx; normals[j * 3 + 1] = ny; normals[j * 3 + 2] = nz;
-    if (withTopology) { uvs[j * 2] = (x + 0.5) / w; uvs[j * 2 + 1] = (y + 0.5) / h; }
+// Las alturas se guardan sin exageración. Ambos modos usan el mismo borde abierto.
+function readBaked(bytes: Uint8Array, g: Grid) {
+  const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  const u=(i:number)=>v.getUint32(i*4,true);
+  const n=u(1), ni=u(2), tiles=u(3), width=u(4),height=u(5);
+  if(u(0)!==0x314d5041 || bytes.length!==24+n*12+ni*4+tiles ||
+     width!==Math.floor((g.w-1)/g.stride)+1 || height!==Math.floor((g.h-1)/g.stride)+1)
+    throw Error("Malla costera incompatible con el relieve");
+  const posOffset=bytes.byteOffset+24;
+  const positions=new Float32Array(bytes.buffer,posOffset,n*3).slice();
+  const index=new Uint32Array(bytes.buffer,posOffset+n*12,ni).slice();
+  const tileKinds=bytes.slice(24+n*12+ni*4);
+  const normals=new Float32Array(n*3),uvs=new Float32Array(n*2);
+  for(let i=0;i<n;i++) {
+    normals[i*3+1]=1;
+    uvs[i*2]=(positions[i*3]/g.cell+(width-1)*g.stride/2+0.5)/g.w;
+    uvs[i*2+1]=(positions[i*3+2]/g.cell+(height-1)*g.stride/2+0.5)/g.h;
   }
-  let index = new Uint32Array(0);
-  if (withTopology) {
-    index = new Uint32Array((mw - 1) * (mh - 1) * 6);
-    let t = 0;
-    for (let y = 0; y < mh - 1; y++) for (let x = 0; x < mw - 1; x++) {
-      const a = x + mw * y, b = x + mw * (y + 1), c = x + 1 + mw * (y + 1), d = x + 1 + mw * y;
-      index[t++] = a; index[t++] = b; index[t++] = d; index[t++] = b; index[t++] = c; index[t++] = d;
+  return {positions,index,tileKinds,normals,uvs,mesh:{width,height}};
+}
+
+interface VectorCoast {
+  nx: number;
+  ny: number;
+  runs: [number, number][];
+  cuts: [number, number[]][];
+}
+
+function meshFrom(g: Grid, vector?: VectorCoast) {
+  const { w, h, stride, cell, heights, land, sdf } = g;
+  const mw = Math.floor((w - 1) / stride) + 1, mh = Math.floor((h - 1) / stride) + 1;
+  const halfW = (mw - 1) * stride * cell / 2, halfD = (mh - 1) * stride * cell / 2;
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = [];
+  const samples = new Int32Array(w * h).fill(-1);
+  const intersections = new Map<number, number>();
+  const addDistance = (i: number) => sdf ? sdf[i] : land && !land[i] ? -1 : 1;
+  // Si ADD corta una ladera por encima del agua, seguir únicamente muestras REMA
+  // emergidas y conectadas a esa tierra hasta la intersección real con el plano.
+  const shore = new Uint8Array(heights.length);
+  if (land && !vector) {
+    const queue = new Int32Array(heights.length);
+    let head = 0, tail = 0;
+    function visit(i: number) {
+      if (shore[i] || land![i] || !Number.isFinite(heights[i])) return;
+      shore[i] = 1;
+      if (heights[i] > g.sea) queue[tail++] = i;
+    }
+    function neighbors(i: number) {
+      if (i % w) visit(i - 1);
+      if (i % w < w - 1) visit(i + 1);
+      if (i >= w && i % w < w - 1) visit(i - w + 1);
+      if (i + w < heights.length && i % w) visit(i + w - 1);
+      if (i >= w) visit(i - w);
+      if (i + w < heights.length) visit(i + w);
+    }
+    for (let i = 0; i < heights.length; i++)
+      if (land[i] && Number.isFinite(heights[i])) neighbors(i);
+    while (head < tail) neighbors(queue[head++]);
+  }
+  const distance = (i: number) => {
+    const add = addDistance(i);
+    return shore[i] || add >= 0 ? Math.max(add, heights[i] - g.sea) : add;
+  };
+  function vertex(x: number, y: number, elevation: number) {
+    const id = positions.length / 3;
+    positions.push(x * cell - halfW, elevation, y * cell - halfD);
+    uvs.push((x + 0.5) / w, (y + 0.5) / h);
+    return id;
+  }
+  function sample(i: number) {
+    if (samples[i] < 0) samples[i] = vertex(i % w, Math.floor(i / w), heights[i]);
+    return samples[i];
+  }
+  function crossing(i: number, j: number) {
+    if (i > j) [i,j] = [j,i];
+    const di = distance(i), dj = distance(j);
+    if (di === 0) return sample(i);
+    if (dj === 0) return sample(j);
+    const key = i * heights.length + j;
+    const cached = intersections.get(key);
+    if (cached !== undefined) return cached;
+    let t = di / (di - dj);
+    const hi = heights[i], hj = heights[j];
+    if (hi + (hj - hi) * t > g.sea && (hi > g.sea) !== (hj > g.sea)) {
+      t = (g.sea - hi) / (hj - hi);
+    }
+    const mix = (a: number, b: number) => a + (b - a) * t;
+    const id = vertex(mix(i % w, j % w), mix(Math.floor(i / w), Math.floor(j / w)), mix(heights[i], heights[j]));
+    intersections.set(key,id);
+    return id;
+  }
+  function triangle(a: number,b: number,c: number) {
+    if (![heights[a], heights[b], heights[c]].every(Number.isFinite)) return;
+    const da = distance(a), db = distance(b), dc = distance(c);
+    if (Math.max(da,db,dc) <= 0) return;
+    if (Math.min(da,db,dc) >= 0) { indices.push(sample(a),sample(b),sample(c)); return; }
+    const polygon: number[] = [];
+    let prev = c;
+    for (const i of [a,b,c]) {
+      if ((distance(prev) > 0) !== (distance(i) > 0)) polygon.push(crossing(prev,i));
+      if (distance(i) > 0) polygon.push(sample(i));
+      prev = i;
+    }
+    for (let j=1; j+1<polygon.length; j++) {
+      if (polygon[0] !== polygon[j] && polygon[j] !== polygon[j+1] && polygon[j+1] !== polygon[0])
+        indices.push(polygon[0],polygon[j],polygon[j+1]);
     }
   }
-  return { positions, normals, uvs, index, mesh: { width: mw, height: mh } };
+  const cellLand = vector ? new Uint8Array(vector.nx * vector.ny) : null;
+  if (vector && (vector.nx !== mw-1 || vector.ny !== mh-1)) throw Error("Grilla ADD incompatible");
+  for (const [first,count] of vector?.runs ?? []) cellLand!.fill(1, first, first+count);
+  const cuts = new Map(vector?.cuts);
+  const shared = new Map<string,number>();
+  function emitVectorCell(x: number,y: number) {
+    const id=(y/stride)*(mw-1)+x/stride, a=y*w+x, b=a+w*stride;
+    const faces=cuts.get(id);
+    // No salvar huecos NoData mediante un triángulo de resolución más gruesa.
+    for(let dy=0;dy<=stride;dy++) for(let dx=0;dx<=stride;dx++)
+      if(!Number.isFinite(heights[a+dy*w+dx])) return;
+    if (!faces) {
+      if (cellLand![id]) indices.push(sample(a),sample(b),sample(a+stride),sample(b),sample(b+stride),sample(a+stride));
+      return;
+    }
+    for(let j=0;j<faces.length;j+=7) {
+      const lower=faces[j]===0;
+      for(let n=1;n<7;n+=2) {
+        const u=faces[j+n], v=faces[j+n+1];
+        const px=x+stride*u, py=y+stride*v;
+        if(Number.isInteger(px/stride) && Number.isInteger(py/stride)) {
+          indices.push(sample(py*w+px)); continue;
+        }
+        const key=Math.round(px*1e7)+","+Math.round(py*1e7);
+        let k=shared.get(key);
+        if(k===undefined) {
+          const z=lower ? heights[a]*(1-u-v)+heights[a+stride]*u+heights[b]*v
+            : heights[b]*(1-u)+heights[a+stride]*(1-v)+heights[b+stride]*(u+v-1);
+          k=vertex(px,py,z); shared.set(key,k);
+        }
+        indices.push(k);
+      }
+    }
+  }
+  const tileKinds: number[] = [];
+  for (let row=0; row<mh-1; row+=TILE) for (let col=0; col<mw-1; col+=TILE) {
+    const x0 = col*stride, y0=row*stride;
+    const x1=Math.min(col+TILE,mw-1)*stride, y1=Math.min(row+TILE,mh-1)*stride;
+    let inside=false, outside=false;
+    if (vector) {
+      for(let y=row;y<y1/stride;y++) for(let x=col;x<x1/stride;x++) {
+        const id=y*(mw-1)+x;
+        const faces=cuts.get(id);
+        if(faces ? faces.length>0 : cellLand![id]!==0) inside=true;
+        if(faces || !cellLand![id]) outside=true;
+      }
+      for(let y=y0;y<=y1 && !outside;y++) for(let x=x0;x<=x1;x++)
+        if(!Number.isFinite(heights[y*w+x])) outside=true;
+      tileKinds.push(!inside ? 0 : outside ? 2 : 1);
+      if(inside && (g.full || outside))
+        for(let y=y0;y<y1;y+=stride) for(let x=x0;x<x1;x+=stride) emitVectorCell(x,y);
+      continue;
+    }
+    for(let y=y0; y<=y1 && !(inside && outside); y++) for(let x=x0;x<=x1;x++) {
+      const i=y*w+x;
+      if(Number.isFinite(heights[i]) && distance(i)>0) inside=true; else outside=true;
+    }
+    tileKinds.push(!inside ? 0 : outside ? 2 : 1);
+    if (!inside || (!g.full && !outside)) continue;
+    // Conservar el muestreo de la malla en tierra firme. Refinar a resolución
+    // ADD sólo las celdas que tocan la costa o un hueco de datos.
+    for (let y=y0; y<y1; y+=stride) for (let x=x0; x<x1; x+=stride) {
+      const a=y*w+x, b=a+stride*w;
+      let refine=false;
+      if (outside) {
+        let valid=0;
+        for (let dy=0;dy<=stride;dy++) for(let dx=0;dx<=stride;dx++) {
+          const i=a+dy*w+dx;
+          if (distance(i)>0 && Number.isFinite(heights[i])) valid++;
+        }
+        if (!valid) continue;
+        refine=valid<(stride+1)*(stride+1);
+      }
+      if (!refine) {
+        triangle(a,b,a+stride);
+        triangle(b,b+stride,a+stride);
+      } else {
+        for(let dy=0;dy<stride;dy++) for(let dx=0;dx<stride;dx++) {
+          const i=a+dy*w+dx;
+          triangle(i,i+w,i+1);
+          triangle(i+w,i+w+1,i+1);
+        }
+      }
+    }
+  }
+  const gpuPositions = Float32Array.from(positions);
+  if (vector) {
+    // Intersecciones submilimétricas pueden colapsar al convertir a precisión GPU.
+    let count = 0;
+    for (let j = 0; j < indices.length; j += 3) {
+      const a = 3*indices[j], b = 3*indices[j+1], c = 3*indices[j+2];
+      const p = gpuPositions;
+      const area = (p[b+2]-p[a+2])*(p[c]-p[a]) - (p[b]-p[a])*(p[c+2]-p[a+2]);
+      if (area <= 0) continue;
+      indices[count++] = indices[j]; indices[count++] = indices[j+1]; indices[count++] = indices[j+2];
+    }
+    indices.length = count;
+  }
+  const normals = new Float32Array(positions.length);
+  for(let i=1;i<normals.length;i+=3) normals[i]=1; // normales de iluminación en uSurface
+  return {positions:gpuPositions, normals, uvs:Float32Array.from(uvs),
+    index:Uint32Array.from(indices), mesh:{width:mw,height:mh}, tileKinds:Uint8Array.from(tileKinds)};
 }
 
 // ─── Decodificación ────────────────────────────────────────

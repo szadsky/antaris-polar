@@ -32,11 +32,12 @@ attribute vec2 chunk;`;
 
 const GRID_BEGIN_VERTEX = `
 vec2 cr = min(chunk + position.xy, uGridSize - 1.0);
-float hgt = texelFetch(uHeight, ivec2(cr), 0).r * uK - position.z * uSkirt;
+float hgt = texelFetch(uHeight, ivec2(cr), 0).r * uK - position.z * uSkirt * float(all(greaterThan(cr, vec2(0.0))) && all(lessThan(cr, uGridSize - 1.0)));
 vec3 transformed = vec3(cr.x * uCell - (uGridSize.x - 1.0) * uCell * 0.5, hgt, cr.y * uCell - (uGridSize.y - 1.0) * uCell * 0.5);
 vSurfUv = (cr * uStride + 0.5) / uTexSize;`;
 
 export interface VertexPath {
+  exactCoast?: boolean;
   grid?: GridUniforms;
   /** Profundidad del faldón (m): tapa las uniones entre bloques de distinto nivel. */
   skirt?: { value: number };
@@ -58,6 +59,7 @@ function vertexPath(s: THREE.WebGLProgramParametersWithUniforms, v: VertexPath, 
 // ─── BASE ───────────────────────────────────────────────────
 export function baseMaterial(tex: SharedTextures, v: VertexPath = {}) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0 });
+  if (v.exactCoast) (m as THREE.MeshStandardMaterial & {defines: Record<string,string>}).defines = { STANDARD: "", EXACT_COAST: "" };
   const uniforms = {
     uSurface: { value: tex.surface },
     uSnow: { value: lin("#eef3f6") },
@@ -74,13 +76,14 @@ export function baseMaterial(tex: SharedTextures, v: VertexPath = {}) {
         [
           "#include <color_fragment>",
           "vec4 surf = texture2D(uSurface, vSurfUv);",
-          "if (surf.a < 0.05) discard;",
+          "#ifndef EXACT_COAST", "if (surf.a < 0.05) discard;", "#endif",
           "vec3 nDet = vec3(surf.r * 2.0 - 1.0, 0.0, surf.g * 2.0 - 1.0);",
           "nDet.y = sqrt(max(0.0, 1.0 - dot(nDet.xz, nDet.xz)));",
           "vec3 ground = mix(uSnow, uRock, smoothstep(0.18, 0.42, 1.0 - nDet.y));",
           "float sdfM = (surf.a * 255.0 - 128.0) / 8.0;",
           "float aaW = max(fwidth(sdfM) * 0.75, 0.05);",
           "float isSea = 1.0 - smoothstep(-aaW, aaW, sdfM);",
+          "#ifdef EXACT_COAST", "isSea = 0.0;", "#endif",
           "diffuseColor.rgb = mix(ground, uSea, isSea) * mix(1.0, surf.b, 1.0 - isSea);",
         ].join("\n")
       )
@@ -112,6 +115,8 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     // x = oscurecer surcos · y = peso de la normal de la capa media de la textura (90 m) · z = aclarar crestas.
     uRockRelief: { value: new THREE.Vector3(0.4, 0, 0.1) }, // surcos 0,9 → 0,4: bandas oscuras
     // Volumen de la nieve por la misma curvatura REMA: surcos algo más sombreados y fríos.
+    // Nieve: y = oclusión de hondonadas (cavidades); x, z, w sin uso.
+    uSnowLook: { value: new THREE.Vector4(0, 0.5, 0, 0) },
     uSnowRelief: { value: 0 }, // apagado en el estilizado: moteaba la nieve; el volumen lo da la luz en bandas
     // Fracturas de la roca: intensidad del relieve de detalle generado (el de la prueba C, 0 bytes de
     // descarga) sobre la roca, solo de cerca. 0 = sin fracturas.
@@ -120,13 +125,13 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     // normales REMA para el sombreado (sesgo de mipmap; la geometría no cambia) · z = suavizado extra
     // de las normales solo en la nieve ·
     // w = microrelieve de la nieve (Snow007A).
-    uStylize: { value: new THREE.Vector4(0, 1.5, 3, 0.6) }, // luz en bandas apagada (se pidió la luz realista); textura de nieve 0,6
+    uStylize: { value: new THREE.Vector4(0, 1.5, 1, 1) }, // luz realista (sin bandas); nieve: suavizado 1 (volumen), textura 1
     // Tono de la roca: x = luminancia media lineal objetivo (gris mineral) · y = fracción del color de la
     // foto · z = cuánto se conservan las zonas más claras que la media (1 = todas; menos = sin vetas blancas).
     uRockTone: { value: new THREE.Vector3(0.17, 0, 0.3) },
-    // Metros por mosaico: roca 12,66 m (Marble Cliff 04, tamaño real publicado); nieve 8 m (Snow007A:
+    // Metros por mosaico: roca 12,66 m (Marble Cliff 04, tamaño real publicado); nieve 5 m (Snow007A:
     // escala artística para que el grano se lea desde la cámara; la fuente no publica el tamaño real).
-    uTexScale: { value: new THREE.Vector2(12.66, 8) },
+    uTexScale: { value: new THREE.Vector2(12.66, 5) },
     // Roca: normal ×2, contraste ×1,6, gradientes ×0,6 (mipmap más nítido a media distancia);
     // borde nieve-roca con ±0,02 de pendiente (definido, sin recorte duro).
     // Textura nítida (mipmap estándar, contraste 1, normal 0,9); el moteado blanco lo evita uRockTone.z
@@ -150,8 +155,8 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     uRockB: { value: lin("#8e9196") },
     uIce: { value: lin("#9fd3e6") },
     // Océano Austral azul petróleo oscuro (antes #14303f / #2b5a6b).
-    uSeaDeep: { value: lin("#0b2a35") },
-    uSeaShallow: { value: lin("#1b4b57") },
+    uSeaDeep: { value: lin("#244453") },
+    uSeaShallow: { value: lin("#346271") },
     // Agua (estilizada, sin simulación): x = pendiente de las ondas · y = reflejo del cielo (Fresnel)
     // · z = velocidad de las ondas (0 = quietas) · w = rugosidad del agua.
     uSeaLook: { value: new THREE.Vector4(0.05, 0.3, 0.5, 0.22) },
@@ -175,6 +180,7 @@ uniform vec3 uRockTone;
 uniform vec3 uRockRelief;
 uniform float uRockFrac;
 uniform vec4 uStylize;
+uniform vec4 uSnowLook;
 uniform float uSnowRelief;
 uniform vec3 uSnow, uSnowShade, uRockA, uRockB, uIce, uSeaDeep, uSeaShallow, uFoam;
 uniform float uSeaY, uEdgeHaze;
@@ -289,25 +295,25 @@ vec3 biNormal(sampler2D m, vec3 n, float s, float str) {
 #endif
 vec3 seaColor(float shore, float fine, out float foam) {
   // Espuma angosta (~10 m) y cortada por ruido: de cerca no debe leerse como una plataforma.
-  foam = smoothstep(0.92, 0.985, shore) * smoothstep(0.35, 0.7, fine);
-  vec3 sea = mix(uSeaDeep, uSeaShallow, smoothstep(0.2, 0.85, shore));
-  return mix(sea, uFoam, foam * 0.85);
+  foam = smoothstep(0.966, 0.995, shore) * smoothstep(0.50, 0.76, fine);
+  vec3 sea = mix(uSeaDeep, uSeaShallow, 0.42 * smoothstep(0.78, 0.98, shore));
+  return mix(sea, uFoam, foam * 0.48);
 }`;
 
 const STYLE_COLOR = `
 vec4 surf = texture2D(uSurface, vSurfUv);
+#ifndef EXACT_COAST
 if (surf.a < 0.05) discard; // sin dato
+#endif
 // Tierra / agua: distancia con signo a la costa ADD (m, + tierra), interpolada entre texeles; el
 // borde se recorta a ~1 píxel (fwidth): sin escalones de la grilla de 4 m (dientes de sierra).
 float sdfM = (surf.a * 255.0 - 128.0) / 8.0;
-float aaW = max(fwidth(sdfM) * 0.75, 0.05);
-float isSea = 1.0 - smoothstep(-aaW, aaW, sdfM);
-vec4 lgt = texture2D(uLight, vSurfUv);
-#ifdef SEA_BY_PLANE
-// Mar abierto (> ~90 m de la costa): lo dibuja el plano. El agua costera la sigue
-// dibujando el terreno, igual que en la fase 1 (el plano la filtra peor en ángulos rasantes).
-if (isSea > 0.5 && lgt.g < 0.45) discard;
+float aaW = max(fwidth(sdfM), 0.05);
+float isSea = (1.0 - smoothstep(-aaW, aaW, sdfM)) * (1.0 - smoothstep(0.1, 1.0, vWorld.y - uSeaY));
+#ifdef EXACT_COAST
+isSea = 0.0;
 #endif
+vec4 lgt = texture2D(uLight, vSurfUv);
 vec3 n = vec3(surf.r * 2.0 - 1.0, 0.0, surf.g * 2.0 - 1.0);
 #ifdef MAT_N
 // Estilizado: formas más simples y menos rugosas. Normal REMA de un mipmap más grueso (sesgo
@@ -436,7 +442,7 @@ rock *= mix(1.0, 0.75 + 0.25 * cav, uColorVar);
 #endif
 #ifdef MAT_N
 // Estilizado: el sombreado por cavidades (escalas de 24 y 64 m) moteaba la nieve; queda al 20 %.
-vec3 snow = mix(uSnow, mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav)), uColorVar * (1.0 - 0.8 * uStylize.x));
+vec3 snow = mix(uSnow, mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav)), uColorVar * uSnowLook.y);
 #else
 vec3 snow = mix(uSnow, mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav)), uColorVar);
 #endif
@@ -456,7 +462,9 @@ rock *= mix(1.0, mix(0.86, 1.12, big), uColorVar);
 #endif
 // Hielo (interpretación): paredes empinadas junto a la costa y cerca del nivel del mar.
 float lowAlt = 1.0 - smoothstep(25.0, 60.0, vWorld.y - uSeaY);
-float iceT = smoothstep(0.72, 0.9, shore) * smoothstep(0.22, 0.34, steep) * lowAlt * (1.0 - rockT * 0.7);
+float cliff = smoothstep(0.63, 0.91, shore) * smoothstep(0.22, 0.46, steep) * lowAlt;
+float iceT = cliff * (1.0 - rockT * 0.66);
+gSun = mix(gSun, 1.0, 0.18 * cliff);
 vec3 land = mix(mix(snow, rock, rockT), uIce * (0.8 + 0.2 * fine), iceT);
 float foam;
 vec3 sea = seaColor(shore, fine, foam);
@@ -524,7 +532,8 @@ if (dAmt > 0.001) {
 #endif
 vec3 seaN = isSea > 0.0 ? seaNormal(vWorld) : vec3(0.0, 1.0, 0.0);
 gN = mix(nd, seaN, isSea);
-gRefl = isSea * (1.0 - foam) * seaReflection(seaN, vWorld);`;
+gRefl = isSea * (1.0 - foam) * seaReflection(seaN, vWorld);
+`;
 
 const EDGE_HAZE = `
 #ifdef USE_FOG
@@ -542,7 +551,7 @@ export interface StyleVariant extends VertexPath {
   /** Bloques lejanos: material más simple (sin vetas finas). */
   far?: boolean;
   /** El agua la dibuja el plano del mar: el terreno descarta sus píxeles de mar. */
-  seaByPlane?: boolean;
+
   /** Prueba de materiales: a = actual, b = básico optimizado, c = b + muestreo aperiódico. */
   variant?: MaterialVariant;
 }
@@ -552,7 +561,8 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0 });
   const defines: Record<string, string> = {};
   if (v.far) defines.FAR = "";
-  if (v.seaByPlane) defines.SEA_BY_PLANE = "";
+
+  if (v.exactCoast) defines.EXACT_COAST = "";
   if (v.variant === "b") defines.MAT_B = "";
   if (v.variant === "c") defines.MAT_C = "";
   if (v.variant === "n") defines.MAT_N = "";
@@ -565,8 +575,6 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
       "#include <morphtarget_vertex>",
       [
         "#include <morphtarget_vertex>",
-        "float edge = min(uHalf.x - abs(transformed.x), uHalf.y - abs(transformed.z));",
-        "transformed.y = mix(uSeaY, transformed.y, smoothstep(0.0, uEdgeFade, edge));",
         "vWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;",
       ].join("\n")
     );
@@ -586,7 +594,7 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
  * Plano del mar (fase 2): dibuja toda el agua, dentro y fuera del recorte, con el mismo
  * color de costa y sombra del sol que el terreno (mapea la posición de mundo a las texturas).
  */
-export function seaPlaneMaterial(u: StyleUniforms, grid: GridUniforms) {
+export function seaPlaneMaterial(u: StyleUniforms, grid: Pick<GridUniforms, "uGridSize" | "uTexSize" | "uCell" | "uStride">) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.16, metalness: 0 });
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, u, grid);

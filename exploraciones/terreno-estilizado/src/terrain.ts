@@ -90,13 +90,13 @@ export class TerrainLoader {
       if (r.ok) return { sdf: await r.arrayBuffer(), mask: null };
       return { sdf: null, mask: level.maskFile ? await get(`${dir}/${level.maskFile}`) : null };
     };
-    const [bin, { sdf, mask }] = await Promise.all([get(`${dir}/${level.file}`), coast()]);
+    const [bin, { sdf, mask }, vector] = await Promise.all([get(`${dir}/${level.file}`), coast(), meta.id === "brown" ? get(`${dir}/malla-${level.name}-${geo}.bin.gz`) : null]);
     const fetchMs = performance.now() - t0;
     const key = `${dir}/${level.file}`;
     const b = await this.call<BuiltMsg>(
       "built",
-      { type: "build", key, bin, mask, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", sdf },
-      [bin, ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
+      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", sdf },
+      [bin, ...(vector ? [vector] : []), ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
     );
 
     const dataTex = (data: Uint8Array, w: number, h: number) => {
@@ -125,22 +125,30 @@ export class TerrainLoader {
     let style_ = style;
 
     // ─── Modo completa (fase 1) ───
-    if (geo === "completa") {
+    {
       const geometry = new THREE.BufferGeometry();
       geometry.setIndex(new THREE.BufferAttribute(b.index, 1));
       geometry.setAttribute("position", new THREE.BufferAttribute(b.positions, 3));
       geometry.setAttribute("normal", new THREE.BufferAttribute(b.normals, 3));
       geometry.setAttribute("surfUv", new THREE.BufferAttribute(b.uvs, 2));
       geometry.computeBoundingSphere();
-      const styl = { a: stylizedMaterial(su, { variant: "a" }), b: stylizedMaterial(su, { variant: "b" }), c: stylizedMaterial(su, { variant: "c" }), n: stylizedMaterial(su, { variant: "n" }) };
+      const styl = { a: stylizedMaterial(su, { exactCoast: !!vector, variant: "a" }), b: stylizedMaterial(su, { exactCoast: !!vector, variant: "b" }), c: stylizedMaterial(su, { exactCoast: !!vector, variant: "c" }), n: stylizedMaterial(su, { exactCoast: !!vector, variant: "n" }) };
       const pick = (s: Style) => (s === "base" ? baseMat : styl[variant]);
-      const baseMat = baseMaterial(tex);
+      const baseMat = baseMaterial(tex, {exactCoast: !!vector});
       const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.Material>(geometry, pick(style));
       mesh.name = "terreno-rema";
+      mesh.scale.y = k;
+      const waterGrid = {
+        uGridSize: {value: new THREE.Vector2(b.mesh.width,b.mesh.height)},
+        uTexSize: {value: new THREE.Vector2(level.width,level.height)},
+        uCell: {value:meshCell}, uStride:{value:MESH_STRIDE},
+      };
       const geomBytes = b.index.byteLength + b.positions.byteLength + b.normals.byteLength + b.uvs.byteLength;
+      if (geo === "completa") {
+      const water = seaPlaneMaterial(su, waterGrid);
       return {
         object: mesh, geo, level, heightsM: b.heightsM, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
-        meshSize: b.mesh, seaMaterial: null, ms: { fetch: fetchMs, ...b.ms },
+        meshSize: b.mesh, seaMaterial: water, ms: { fetch: fetchMs, ...b.ms },
         gpuBytes: () => ({ geometry: geomBytes, textures: Math.round((b.surface.byteLength + b.light.byteLength) * (4 / 3)) }),
         lodStats: () => null,
         beforeRender: () => {},
@@ -151,9 +159,7 @@ export class TerrainLoader {
         setLodTarget: () => {},
         update: async (kk) => {
           const r = await this.call<UpdatedMsg>("updated", { type: "update", key, exaggeration: kk, sun: this.sun });
-          geometry.setAttribute("position", new THREE.BufferAttribute(r.positions, 3));
-          geometry.setAttribute("normal", new THREE.BufferAttribute(r.normals, 3));
-          geometry.computeBoundingSphere();
+          mesh.scale.y = kk;
           surface.image.data = r.surface;
           surface.needsUpdate = true;
           light.image.data = r.light;
@@ -162,6 +168,7 @@ export class TerrainLoader {
           return { lightMs: r.ms.light };
         },
         dispose: () => {
+          water.dispose();
           geometry.dispose();
           baseMat.dispose();
           Object.values(styl).forEach((m) => m.dispose());
@@ -186,18 +193,19 @@ export class TerrainLoader {
     };
     // Faldón por nivel: proporcional al paso (cubre la diferencia entre niveles vecinos).
     const skirts = STEPS.map((s) => ({ value: (s * meshCell * 1.5 + 5) * k }));
-    const lodStyl = (vr: MaterialVariant) => STEPS.map((_, i) => stylizedMaterial(su, { grid, skirt: skirts[i], far: i >= 2, seaByPlane: true, variant: vr }));
-    const baseMats = STEPS.map((_, i) => baseMaterial(tex, { grid, skirt: skirts[i] }));
+    const lodStyl = (vr: MaterialVariant) => STEPS.map((_, i) => stylizedMaterial(su, { exactCoast: !!vector, grid, skirt: skirts[i], far: i >= 2, variant: vr }));
+    const baseMats = STEPS.map((_, i) => baseMaterial(tex, { exactCoast: !!vector, grid, skirt: skirts[i] }));
     const stylMats = { a: lodStyl("a"), b: lodStyl("b"), c: lodStyl("c"), n: lodStyl("n") };
     const lodPick = (s: Style) => (s === "base" ? baseMats : stylMats[variant]);
-    const chunked = new ChunkedTerrain(b.meshHeights, b.meshLand, b.mesh.width, b.mesh.height, meshCell, lodPick(style), k);
+    const chunked = new ChunkedTerrain(b.meshHeights, b.meshLand, b.tileKinds, b.mesh.width, b.mesh.height, meshCell, lodPick(style), k, !!vector);
+    chunked.group.add(mesh);
     chunked.skipSea = style === "estilizado";
     const seaMat = seaPlaneMaterial(su, grid);
     return {
       object: chunked.group, geo, level, heightsM: b.heightsM, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
       meshSize: b.mesh, seaMaterial: seaMat, ms: { fetch: fetchMs, ...b.ms },
       gpuBytes: () => ({
-        geometry: chunked.geometryBytes(),
+        geometry: geomBytes + chunked.geometryBytes(),
         textures: Math.round((b.surface.byteLength + b.light.byteLength) * (4 / 3)) + b.meshHeights.byteLength,
       }),
       lodStats: () => chunked.stats,
@@ -207,15 +215,18 @@ export class TerrainLoader {
       styleUniforms: su,
       setVariant: (v) => {
         variant = v;
+        mesh.material = pick(style_);
         chunked.setMaterials(lodPick(style_));
       },
       setStyle: (s) => {
         style_ = s;
+        mesh.material = pick(s);
         chunked.setMaterials(lodPick(s));
         // En Base el terreno dibuja su mar (sin plano); en la interpretación el agua es del plano.
         chunked.skipSea = s === "estilizado";
       },
       update: async (kk) => {
+        mesh.scale.y = kk;
         grid.uK.value = kk; // sin rehacer vértices
         skirts.forEach((sk, i) => (sk.value = (STEPS[i] * meshCell * 1.5 + 5) * kk));
         chunked.setExaggeration(kk);
@@ -229,6 +240,9 @@ export class TerrainLoader {
         return { lightMs: r.ms.light };
       },
       dispose: () => {
+        geometry.dispose();
+        baseMat.dispose();
+        Object.values(styl).forEach(m => m.dispose());
         chunked.dispose();
         [...baseMats, ...stylMats.a, ...stylMats.b, ...stylMats.c, ...stylMats.n, seaMat].forEach((m) => m.dispose());
         surface.dispose();
@@ -236,6 +250,7 @@ export class TerrainLoader {
         heightTex.dispose();
       },
     };
+    }
   }
 }
 
