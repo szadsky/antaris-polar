@@ -31,6 +31,9 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   floor.position.z=-30; // = SEABED_MAX_M del workerfloor.name="fondo-marino";
   mesh.add(floor);
   const mat=mesh.material,u=mat.uniforms;
+  const ripples=Array.from({length:4},()=>new THREE.Vector4(0,0,0,-1));
+  u.uBergRipples={value:ripples};
+  let nextRipple=0;
   const reflection=u.mirrorSampler.value as THREE.Texture;reflection.generateMipmaps=true;reflection.minFilter=THREE.LinearMipmapLinearFilter;reflection.magFilter=THREE.LinearFilter;
   // Agua algo transparente junto a la orilla (0,6: con 0,18–0,42 se veía oscura) y con un tinte claro de
   // agua poco profunda; opaca a partir de ~160 m de la costa.
@@ -116,33 +119,49 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     // lectura además es estocástica (silkTex). En escritorio, capa fina de 31 m que se apaga a lo lejos.
     // Se probaron olas calculadas (suma de senos): desde arriba se cruzaban en una trama de rombos.
     // SILK_SCALE agranda todas las capas (con 1 las ondas eran chicas y el agua se veía revuelta).
-    // Todas las capas avanzan dentro de ±30° de un mismo viento, a distinta velocidad (las grandes más
-    // rápido, SILK_SPEED en m por unidad de tiempo): el cruce cambia despacio, sin turbulencia.
+    // Independent UV phase velocities follow the Water.js animation pattern.
+    // Spatial scale controls wave size only; it must not slow the animation.
     #define SILK_SCALE 2.5
-    #define SILK_SPEED 1.0
+    #define SILK_SPEED 0.34
+    uniform vec4 uBergRipples[4];
     vec4 getNoise(vec2 uv) {
+      vec2 waterPoint=uv;
       vec2 bend=vec2(sin(dot(uv,vec2(.0061,.0037)/SILK_SCALE)+time*.05),sin(dot(uv,vec2(-.0029,.0071)/SILK_SCALE)-time*.04));
       uv+=21.0*SILK_SCALE*bend;
       mat2 r1=mat2(.9524,.3048,-.3048,.9524), r1b=mat2(.2588,-.9659,.9659,.2588);
       mat2 r2=mat2(.4226,-.9063,.9063,.4226), r2b=mat2(-.7660,.6428,-.6428,-.7660);
-      vec2 w1=vec2(.940,.342), w2=vec2(.766,.643), w3=vec2(.985,-.174), w4=vec2(.866,.500);
+      // Like Water.js, time offsets are UV phase, independent of world texture scale.
       float sp=time*SILK_SPEED;
-      vec3 sA=silkTex(r1*(uv-w1*sp*3.0)/(211.0*SILK_SCALE),SILK_BIAS);
-      vec3 sB=silkTex(r1b*(uv-w3*sp*2.4)/(163.0*SILK_SCALE),SILK_BIAS);
-      vec3 mA=silkTex(r2*(uv-w2*sp*1.9)/(83.0*SILK_SCALE),SILK_BIAS);
+      vec3 sA=silkTex(r1*uv/(211.0*SILK_SCALE)+vec2(sp/17.0,sp/29.0),SILK_BIAS);
+      vec3 sB=silkTex(r1b*uv/(163.0*SILK_SCALE)+vec2(sp/19.0,-sp/31.0),SILK_BIAS);
+      vec3 mA=silkTex(r2*uv/(83.0*SILK_SCALE)+vec2(-sp/37.0,sp/41.0),SILK_BIAS);
       float pixelFootprint=length(fwidth(uv));
       float mediumWeight=1.0-smoothstep(8.0,45.0,pixelFootprint);
       vec2 slopes=.45*(sA.xy*r1+sB.xy*r1b);
       #ifdef SILK_FINE
-      vec3 mB=silkTex(r2b*(uv-w4*sp*1.6)/(67.0*SILK_SCALE),SILK_BIAS);
+      vec3 mB=silkTex(r2b*uv/(67.0*SILK_SCALE)+vec2(sp/43.0,sp/47.0),SILK_BIAS);
       slopes+=mediumWeight*.2*(mA.xy*r2+mB.xy*r2b);
       mat2 r3=mat2(-.5048,.8632,-.8632,-.5048);
-      vec2 fuv=r3*(uv-w1*sp*1.2)/(31.0*SILK_SCALE);
+      vec2 fuv=r3*uv/(31.0*SILK_SCALE)+vec2(-sp/59.0,-sp/61.0);
       float fineK=.12*(1.0-smoothstep(.002,.01,length(fwidth(fuv))));
       slopes+=fineK*(silkTex(fuv,1.0).xy*r3);
       #else
       slopes+=mediumWeight*.38*(mA.xy*r2);
       #endif
+      // Four bounded interaction impulses, no textures or extra render passes.
+      for(int i=0;i<4;i++){
+        vec4 event=uBergRipples[i];
+        if(event.w<0.0) continue;
+        vec2 delta=waterPoint-event.xy;
+        float reach=event.z+event.w*8.0+18.0;
+        if(dot(delta,delta)>reach*reach) continue;
+        float radius=length(delta),edge=radius-event.z;
+        float front=edge-event.w*8.0;
+        float envelope=exp(-front*front/180.0)*smoothstep(-8.0,5.0,edge);
+        float fade=(1.0-smoothstep(.2,1.5,event.w))*smoothstep(0.0,.18,event.w);
+        float filtered=1.0-smoothstep(3.0,12.0,pixelFootprint);
+        slopes+=delta/max(radius,1.0)*cos(front*.48)*envelope*fade*filtered*.16;
+      }
       return vec4(slopes,mix(sA.z,mA.z,.38),1.0);
     }
   `;
@@ -153,7 +172,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     "vec3 reflectionSample=mix(vec3(.24,.36,.44),vec3(.085,.16,.22),clamp(reflect(-eyeDirection,surfaceNormal).y,0.,1.));");  // A reflection only needs the silhouette and broad snow/rock tones.
   let current:Terrain|undefined;
   const mirror=mesh.onBeforeRender;
-  let waterSpeed=.95;
+  let waterSpeed=1.0;
   let high=false,dirty=true,movingReflection=false,lastMirrorMs=-Infinity;
   const motionMirrorInterval=mobile?250:160;
   const world=new THREE.Matrix4(),projection=new THREE.Matrix4();
@@ -175,7 +194,10 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     dirty=true;
   }
   quality(initial);
-  return {mesh,quality,setSpeed(value:number){waterSpeed=Math.max(.3,Math.min(1.6,value));},setWaves(value:number){u.uSilk.value=Math.max(.3,Math.min(1.5,value));},setSun(direction:THREE.Vector3,color:THREE.Color,direct:number,daylight:number){
+  return {mesh,quality,
+    disturb(position:THREE.Vector3,radius=50){ripples[nextRipple].set(position.x,position.z,radius,0);nextRipple=(nextRipple+1)%ripples.length;},
+    stepRipples(dt:number){let active=false;for(const r of ripples){if(r.w<0)continue;r.w+=dt;if(r.w>=1.5)r.w=-1;else active=true;}return active;},
+    setSpeed(value:number){waterSpeed=Math.max(.3,Math.min(1.6,value));},setWaves(value:number){u.uSilk.value=Math.max(.3,Math.min(1.5,value));},setSun(direction:THREE.Vector3,color:THREE.Color,direct:number,daylight:number){
     sun.copy(direction);
     u.sunDirection.value.copy(direction);
     u.sunColor.value.copy(color).multiplyScalar(direct);
@@ -184,6 +206,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   },refresh:()=>{dirty=true;},motion:(active:boolean)=>{movingReflection=active;},time:(t:number,moving=false)=>{u.time.value=t*waterSpeed;movingReflection=moving;},
     bind(t:Terrain){
       if(current!==t){
+        for(const r of ripples)r.w=-1;
         const domain=t.oceanDomain?.[diorama?"diorama":"landscape"];
         let geometry:THREE.BufferGeometry;
         if(domain){

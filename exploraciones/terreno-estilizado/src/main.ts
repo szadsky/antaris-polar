@@ -220,7 +220,8 @@ async function main() {
     if(floating){if(icebergMotionEnabled)icebergSeconds+=dt;icebergs.animate(icebergSeconds,dt);}
     if (waves && terrain) { waterSeconds+=dt;terrain.styleUniforms.uTime.value=waterSeconds; ocean.time(waterSeconds,floating); }
     ocean.motion(floating);
-    if (!moved && !dirty && (waves || floating)) {
+    const rippling=ocean.stepRipples(dt);
+    if (!moved && !dirty && (waves || floating || rippling)) {
       // en reposo: solo el agua se mueve, a cadencia reducida
       if (now - lastWaveMs < WAVE_IDLE_MS) return;
       lastWaveMs = now;
@@ -295,7 +296,10 @@ async function main() {
     const rect=canvas.getBoundingClientRect();camera.updateMatrixWorld();icebergs.group.updateMatrixWorld(true);
     icebergRay.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2),camera);
     const hit=icebergRay.intersectObjects(icebergs.group.children.filter(m=>m.visible),false).find(h=>h.point.y>=seaPlane.position.y);
-    if(hit&&icebergs.push(hit.object,hit.point)){ocean.refresh();requestRender();}
+    if(hit&&icebergs.push(hit.object,hit.point)){
+      const center=hit.object.getWorldPosition(new THREE.Vector3());
+      ocean.disturb(center,50*hit.object.scale.x);ocean.refresh();requestRender();
+    }
   };
   let lastBergHover=0;
   const clearBergHover=()=>{canvas.style.cursor='';};
