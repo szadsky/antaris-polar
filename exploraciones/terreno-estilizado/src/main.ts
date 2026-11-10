@@ -81,7 +81,9 @@ async function main() {
   const L0 = plan[0];
   const size = Math.max((L0.width - 1) * L0.cellSizeM, (L0.height - 1) * L0.cellSizeM);
   const scene = new THREE.Scene();
-  const diorama=params.get("vista")==="diorama" ? createDiorama() : null;
+  // Vista por defecto: diorama (bloque con corte lateral, agua estilizada sin reflejo planar, fondo liso).
+  // ?vista=paisaje vuelve al paisaje abierto con océano hasta el horizonte.
+  const diorama=params.get("vista")!=="paisaje" ? createDiorama() : null;
   const expanded = !diorama && baseId==="brown" && params.get("area")==="12";
   // The preprocessed mesh closes the land perimeter.
   const outerData = expanded ? await fetch(dir+"/exterior-60m.bin").then(async r=>{if(!r.ok) throw Error("Falta el relieve exterior"); return new Int16Array(await r.arrayBuffer());}) : null;
@@ -100,6 +102,8 @@ async function main() {
   const sun = new THREE.DirectionalLight();
   scene.add(hemi, sun);
   const ocean=createOcean(size,new THREE.Vector3(...SUN),device.mobile,initialTier,expanded);
+  // En el diorama también el agua del océano (oleaje, Fresnel, reflejo), recortada al bloque en placeSea.
+  // Se probó el mar estilizado del terreno (más barato, sin reflejo): se veía como una superficie plana, sin agua.
   const seaPlane=ocean.mesh;
   scene.add(seaPlane);
   const disc=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),new THREE.MeshBasicMaterial({color:0xfff3d7,fog:false,toneMapped:false}));
@@ -114,7 +118,7 @@ async function main() {
     sun.color.set(0xffac72).lerp(new THREE.Color(0xfff3e0),direct);
     hemi.intensity=.08+daylight;
     const sky=scene.background as THREE.Color;
-    sky.set(0x101c34).lerp(new THREE.Color(style==="base"?0x9fb6c6:0xa6c8e6),daylight);
+    sky.set(0x101c34).lerp(new THREE.Color(diorama?0xdbe5ea:style==="base"?0x9fb6c6:0xa6c8e6),daylight); // diorama: fondo claro neutro
     if(scene.fog) scene.fog.color.copy(sky);
     disc.visible=elevation>0;
     ocean.setSun(solar.direction,sun.color,direct,daylight);
@@ -264,7 +268,7 @@ async function main() {
     baseBtn.setAttribute("aria-pressed", String(s === "base"));
     styBtn.setAttribute("aria-pressed", String(s === "estilizado"));
     LOOKS[s]();
-    if(diorama){scene.background=new THREE.Color("#c9d6d9");scene.fog=null;}
+    if(diorama){scene.background=new THREE.Color("#dbe5ea");scene.fog=null;}
     ocean.refresh();
     illuminate();
     terrain?.setStyle(s);

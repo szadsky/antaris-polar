@@ -639,6 +639,19 @@ Es una reconstrucción artística: las acumulaciones no son elevaciones medidas.
   - No se aplica en caras de cierre ni en paredes de acantilado.
   - **Costo**: no medible (5,69–5,70 ms con y sin canto, alternando 3 veces). Sin lecturas de textura ni geometría nuevas.
 
+### Diorama como vista por defecto
+
+- **La vista por defecto es el diorama** (`capturas/diorama-antes.jpg` → `diorama-despues.jpg`, `diorama-despues-cerca.jpg`): el recorte se ve como un bloque, con corte lateral, base y fondo liso. `?vista=paisaje` vuelve al paisaje abierto con océano hasta el horizonte. Antes era al revés (`?vista=diorama`).
+- **Corte lateral** (`src/diorama.ts`): roca gris con degradé donde el borde es tierra; agua turquesa que pasa a azul profundo donde el borde es mar. Material sin iluminación (colores fijos, como en una maqueta): con luz, los laterales que no miran al sol quedaban negros.
+- **Borde del bloque rayado** (`capturas/diorama-borde-antes.jpg` → `diorama-borde-despues.jpg`, Esperanza): en el corte se veía un "trazado con huecos", con rayas verticales claras y oscuras.
+  - La causa: la malla costera del terreno (`terreno-rema`) cierra el bloque con su propia pared, exactamente en el mismo plano que el corte, y las dos se peleaban por la profundidad (z-fighting).
+  - El arreglo: el corte se corre hacia afuera `max(1 m, 0,04 % del ancho)` (≈ 3 m en 8 km), así que siempre queda adelante. A la distancia del diorama el escalón no se ve. Sin costo.
+  - Revisado en Esperanza, San Martín, Carlini y Belgrano II.
+- **Rampa de costa solo donde ADD y REMA coinciden** (`agreeC` en `COAST_RAMP_VERTEX`): si un vértice está en el mar según ADD pero REMA lo pone sobre el agua (o al revés), la rampa ya no lo hunde ni lo levanta. Es una protección para islas bajas y frentes de hielo; en San Martín no cambió la imagen visible.
+- **Fondo**: gris azulado claro (#dbe5ea). La iluminación por hora del día lo pisaba con el celeste del paisaje; ahora lo respeta.
+- **Agua**: la misma del océano (oleaje, Fresnel, reflejo), recortada al bloque. Se probó el mar estilizado del terreno, más barato y sin reflejo, y se veía como una superficie plana sin agua (`capturas/diorama-mar-plano-descartado.jpg`).
+- **Rendimiento**: en Brown (5 poses, lienzo 1243×787) el diorama da 5,54 ms de GPU contra 5,61–5,67 ms del paisaje: prácticamente igual. El bloque sigue teniendo los mismos 8×8 km de terreno y de agua. Para que sea más rápido habría que recortarlo (por ejemplo, 3×3 km alrededor de la base), lo que implica volver a procesar los datos de cada base.
+
 ### Peso de la descarga y del repositorio
 
 - **El 3D se carga bajo demanda**: `index.html` arranca con `src/boot.ts` (2 KB), que verifica WebGL 2 y recién entonces importa `src/main.ts`. Sin WebGL no se descarga el visor. Cuando el sitio tenga más páginas, solo la home importa el visor y las páginas interiores no cargan Three.js.

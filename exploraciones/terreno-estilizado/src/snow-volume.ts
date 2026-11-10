@@ -211,7 +211,11 @@ if (uCoastRamp.w > 0.0) {
   vec3 wpC = (modelMatrix * vec4(transformed, 1.0)).xyz;
   float bandC = 1.0 - smoothstep(uCoastRamp.z * 0.6, uCoastRamp.z, abs(sdfC));
   float lowC = 1.0 - smoothstep(uCoastRamp.y * 0.6, uCoastRamp.y, wpC.y - uSeaY);
-  float kC = bandC * lowC * uCoastRamp.w;
+  // Solo donde la costa ADD y la malla (REMA) coinciden: tierra sobre el agua con ADD diciendo tierra, o fondo
+  // bajo el agua con ADD diciendo mar. Donde REMA mide hielo o nieve sobre el agua y ADD dice mar (hielo costero,
+  // islas bajas), la rampa los hundía y la orilla quedaba como un contorno con huecos.
+  float agreeC = (sdfC < 0.0 && wpC.y > uSeaY + 0.2) || (sdfC > 0.0 && wpC.y < uSeaY - 0.2) ? 0.0 : 1.0;
+  float kC = bandC * lowC * agreeC * uCoastRamp.w;
   if (kC > 0.0) {
     float yC = uSeaY + clamp(sdfC * uCoastRamp.x, -3.0, uCoastRamp.y);
     transformed.y += (yC - wpC.y) * kC;
