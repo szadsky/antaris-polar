@@ -16,7 +16,7 @@ npm run dev      # http://localhost:3400/?base=brown
 - Tecla `D` o `?detalle=0`: apaga el detalle de cerca (fase 3A) para comparar.
 - Selector **Calidad** (Automática / Alta / Media / Baja) o `?calidad=alta|media|baja` (fase 4).
 - Selector **Material**: Corregido (predeterminado), A anterior, B, C; tecla `M` o `?material=n|a|b|c`.
-- Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
+- Parámetros: `?base=<id>`, `?nivel=4m|8m`, `?estilo=base`, `?geo=completa` (malla única de la fase 1, para medir el antes; ya no se publica precalculada: el navegador la arma, más lento), `?pose=0..4` (cámaras del banco), `?ui=0` (sin interfaz, para capturas).
 - Los terrenos se leen de `../terreno-nitidez/public` (mismo formato; evita duplicar ~8,5 MB). Ver `vite.config.ts`.
 
 ## Diagnóstico (antes de cambiar nada)
@@ -638,6 +638,15 @@ Es una reconstrucción artística: las acumulaciones no son elevaciones medidas.
   - Se probó medir la distancia al borde en metros con derivadas de pantalla: el término de paredes hace saltar `tEdge` justo en el borde y el canto quedaba en 1–2 píxeles.
   - No se aplica en caras de cierre ni en paredes de acantilado.
   - **Costo**: no medible (5,69–5,70 ms con y sin canto, alternando 3 veces). Sin lecturas de textura ni geometría nuevas.
+
+### Peso de la descarga y del repositorio
+
+- **El 3D se carga bajo demanda**: `index.html` arranca con `src/boot.ts` (2 KB), que verifica WebGL 2 y recién entonces importa `src/main.ts`. Sin WebGL no se descarga el visor. Cuando el sitio tenga más páginas, solo la home importa el visor y las páginas interiores no cargan Three.js.
+- **Three.js en su propio archivo** (`manualChunks` en `vite.config.ts`): cambia poco, así el navegador lo guarda en caché aparte del código del visor. Build: entrada 2,2 KB, visor 114 KB (43 KB con gzip), Three.js 589 KB (162 KB con gzip) y worker 17 KB. Antes era un único archivo de 704 KB.
+- **Mallas `-completa` fuera de lo publicado** (65 MB en las 13 bases; `terreno-nitidez/public/terreno` pasa de 90 a 25 MB):
+  - Solo las usaba `?geo=completa` (depuración). Si faltan, el worker arma la malla en el navegador; la descarga opcional descarta la respuesta HTML que Vite y muchos hostings devuelven para un archivo inexistente.
+  - `rehornear-brown.mjs --completa` las sigue generando para validar la costa (`check-continuous-coast.mjs` revisa bordes abiertos con ellas), pero están en `.gitignore`. Las validaciones se saltean las que faltan.
+- **Descarga por base** (Brown, por defecto): relieve de 8 y 4 m (0,3 + 0,87 MB), mallas costeras LOD (0,43 + 1,07 MB) y distancias a la costa (0,06 MB): ~2,7 MB. Las alturas ya están en uint16 (paso de 0,5 m) con codificación delta y gzip.
 
 ### Probado y revertido: MARTINI, NoData y conciliación ADD/REMA
 

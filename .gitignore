@@ -22,3 +22,7 @@ npm-debug.log*
 # y se verifican con el sha256 que guarda cada data/rema/<base>_2m.json.
 /data/rema/*.tif
 /data/rema/*.png
+
+# Malla única de depuración (?geo=completa): no se publica; se genera con
+# exploraciones/terreno-estilizado/scripts/rehornear-brown.mjs --completa para validar la costa.
+exploraciones/terreno-nitidez/public/terreno/*/malla-*-completa.bin.gz

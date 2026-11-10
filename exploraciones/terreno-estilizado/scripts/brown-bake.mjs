@@ -3,12 +3,14 @@ import { build } from "esbuild";
 import { gzipSync } from "node:zlib";
 import fs from "node:fs/promises";
 // Use the same decoder and mesh construction as the viewer at build time.
-export async function bake(dir,meta,level,vector) {
+// La malla única (completa) solo sirve para depurar (?geo=completa) y para validar la costa: no se publica.
+// Se genera con { completa: true } (rehornear-brown.mjs --completa) y luego no se versiona.
+export async function bake(dir,meta,level,vector,{completa=false}={}) {
   const file = new URL("../src/worker.ts",import.meta.url);
   const {outputFiles}=await build({entryPoints:[(await import("node:url")).fileURLToPath(file)],bundle:true,write:false,format:"esm"});
   globalThis.self={};
   await import("data:text/javascript;base64,"+Buffer.from(outputFiles[0].contents).toString("base64")+"#"+meta.id+"-"+level.name);
-  for(const full of [false,true]) {
+  for(const full of completa?[false,true]:[false]) {
     let m; self.postMessage=result=>m=result;
     await self.onmessage({data:{type:"build",key:level.name,bin:await fs.readFile(new URL(level.file,dir)),
       sdf:await fs.readFile(new URL("costa-"+level.name+".sdf.gz",dir)),width:level.width,height:level.height,

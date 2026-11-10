@@ -96,7 +96,7 @@ export class TerrainLoader {
       if (r.ok) return { sdf: await r.arrayBuffer(), mask: null };
       return { sdf: null, mask: level.maskFile ? await get(`${dir}/${level.maskFile}`) : null };
     };
-    const [bin, { sdf, mask }, vector,coverage] = await Promise.all([get(`${dir}/${level.file}`), coast(), get(`${dir}/malla-${level.name}-${geo}.bin.gz`),level.coverageFile?get(`${dir}/${level.coverageFile}`):Promise.resolve(null)]);
+    const [bin, { sdf, mask }, vector,coverage] = await Promise.all([get(`${dir}/${level.file}`), coast(), (geo === "completa" ? getOptional : get)(`${dir}/malla-${level.name}-${geo}.bin.gz`),level.coverageFile?get(`${dir}/${level.coverageFile}`):Promise.resolve(null)]);
     const fetchMs = performance.now() - t0;
     const key = `${dir}/${level.file}:${++this.nextKey}`;
     const b = await this.call<BuiltMsg>(
@@ -260,6 +260,14 @@ export class TerrainLoader {
     };
     }
   }
+}
+
+/** Malla única de depuración (?geo=completa): ya no se publica; si falta, el worker la arma en el navegador. */
+async function getOptional(url: string) {
+  const r = await fetch(url);
+  // Vite y muchos hostings responden un archivo inexistente con la página HTML (200), no con 404.
+  if (!r.ok || (r.headers.get("content-type") ?? "").includes("text/html")) return undefined;
+  return r.arrayBuffer();
 }
 
 async function get(url: string) {

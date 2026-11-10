@@ -23,4 +23,6 @@ export default defineConfig({
   server: { port: 3400 },
   assetsInclude: ["**/*.ktx2"],
   plugins: [basisTranscoder()],
+  // Three.js en su propio archivo: cambia poco, así el navegador lo guarda en caché aparte del código del visor.
+  build: { rollupOptions: { output: { manualChunks: (id) => (id.includes("node_modules/three/") ? "three" : undefined) } } },
 });

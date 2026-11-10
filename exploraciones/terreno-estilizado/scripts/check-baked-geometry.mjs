@@ -6,7 +6,9 @@ let count=0,triangles=0;
 for(const {id} of JSON.parse(fs.readFileSync(root+'index.json')).bases){
  const meta=JSON.parse(fs.readFileSync(root+id+'/terreno.json'));
  for(const l of meta.levels)for(const mode of ['lod','completa']){
-  const b=gunzipSync(fs.readFileSync(root+id+'/malla-'+l.name+'-'+mode+'.bin.gz'));
+  const file=root+id+'/malla-'+l.name+'-'+mode+'.bin.gz';
+  if(!fs.existsSync(file)){console.log(id,l.name,mode,'sin malla (no se publica; rehornear-brown.mjs --completa)');continue;}
+  const b=gunzipSync(fs.readFileSync(file));
   const n=b.readUInt32LE(4),ni=b.readUInt32LE(8),p=new Float32Array(n*3),ix=new Uint32Array(ni);
   for(let i=0;i<p.length;i++)p[i]=b.readFloatLE(24+i*4);
   for(let i=0;i<ni;i++)ix[i]=b.readUInt32LE(24+p.byteLength+i*4);
