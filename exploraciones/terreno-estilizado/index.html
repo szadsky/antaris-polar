@@ -13,19 +13,19 @@
     <button id="ui-toggle" class="ui-toggle" type="button" aria-pressed="false" aria-keyshortcuts="h" title="Ocultar la interfaz (tecla H)">Ocultar interfaz</button>
 
     <aside class="hud" aria-label="Controles del terreno">
-      <header class="polar-title"><span aria-hidden="true">✳</span><h1>Antaris Polar</h1></header>
-      <div id="dial-base"></div>
-      <div id="dial-style" role="group" aria-label="Estilo del terreno"></div>
-      <details class="polar-details solar-panel" open><summary>Sol y hora <small>UTC</small></summary><div class="solar-fields">
+      <header class="polar-title"><span class="polar-mark" aria-hidden="true">✳</span><div><h1>Antaris Polar</h1><p>Explorador antártico</p></div></header>
+      <div class="primary-controls"><div id="dial-base"></div>
+      <div id="dial-style" role="group" aria-label="Estilo del terreno"></div></div>
+      <details class="polar-details solar-panel" open><summary>Sol y hora <small>UTC</small></summary><div class="panel-content"><div class="solar-fields">
         <label >Fecha <input type="date" id="solar-date"></label>
         <label >Hora <input type="time" id="solar-time" step="60"></label>
         </div><div id="dial-solar-hour"></div><div id="dial-solar" role="group" aria-label="Cambiar hora UTC"></div>
-        <output class="hud__source" id="solar-reading"></output>
+        <output class="hud__source" id="solar-reading"></output></div>
       </details>
-      <details class="polar-details"><summary>Ajustes de vista</summary>
-        <h2 class="view-section">Terreno y calidad</h2><div id="dial-exaggeration"></div><div id="dial-quality"></div><div id="dial-material"></div>
-        <h2 class="view-section">Océano</h2><div id="dial-water-speed"></div><div id="dial-water-strength"></div>
-        <section id="iceberg-settings" hidden><h2 class="view-section">Icebergs</h2><div id="dial-berg-visible"></div><div id="dial-berg-motion"></div><div id="dial-berg-strength"></div><div id="dial-berg-view"></div><p class="hud__help">Tocá un iceberg para inclinarlo y hacerlo rebotar.</p></section>
+      <details class="polar-details"><summary>Ajustes de vista</summary><div class="panel-content">
+        <section class="control-section"><h2 class="view-section">Terreno y calidad</h2><div id="dial-exaggeration"></div><div id="dial-quality"></div><div id="dial-material"></div></section>
+        <section class="control-section"><h2 class="view-section">Océano</h2><div id="dial-water-speed"></div><div id="dial-water-strength"></div></section>
+        <section id="iceberg-settings" class="control-section" hidden><h2 class="view-section">Icebergs</h2><div id="dial-berg-visible"></div><div id="dial-berg-motion"></div><div id="dial-berg-strength"></div><div id="dial-berg-view"></div><p class="hud__help">Tocá un iceberg para inclinarlo y hacerlo rebotar.</p></section></div>
       </details>
       <div hidden>
       <label class="hud__row">
@@ -66,12 +66,12 @@
         </select>
       </label>
       </div>
-      <details class="polar-details"><summary>Datos y navegación</summary>
+      <details class="polar-details"><summary>Datos y navegación</summary><div class="panel-content">
       <p id="quality-note" class="hud__source"></p>
       <p id="style-note" class="hud__note"></p>
       <p id="source" class="hud__source"></p>
       <p class="hud__help">Tecla <kbd>A</kbd>: alternar estilo · <kbd>H</kbd>: ocultar interfaz · Arrastrar: mover · Clic derecho o dos dedos: girar · Rueda: zoom</p>
-    </details></aside>
+    </div></details></aside>
 
     <details class="metrics"><summary>Rendimiento</summary>
       <pre id="metrics"></pre>
