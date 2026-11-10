@@ -27,9 +27,15 @@ export interface TierSettings {
 
 export const TIERS: Record<Tier, TierSettings> = {
   alta: { dpr: 2, lodPx: 7, detail: true },
-  media: { dpr: 1.25, lodPx: 11, detail: true },
+  media: { dpr: 1.5, lodPx: 11, detail: true },
   baja: { dpr: 1, lodPx: 18, detail: false },
 };
+
+/** Small supersampling on 1x desktop screens; low quality keeps its original cost. */
+export function renderPixelRatio(nativeDpr: number, tier: Tier, mobile: boolean): number {
+  const floor = !mobile && tier === "alta" ? 1.25 : 1;
+  return Math.min(Math.max(nativeDpr, floor), TIERS[tier].dpr);
+}
 
 export interface DeviceGuess {
   mobile: boolean;
@@ -123,7 +129,8 @@ export class AdaptiveQuality {
     if (!this.auto || now < this.cooldownUntil) return;
     const i = TIER_ORDER.indexOf(this.tier);
     // Sin temporizador de GPU solo se mide el intervalo entre cuadros (topeado por la pantalla).
-    const over = this.source === "gpu" ? median > this.budgetMs : median > 1000 / 45;
+    // A mobile 30 FPS target is not a failure of the desktop 45 FPS threshold.
+    const over = this.source === "gpu" ? median > this.budgetMs : median > Math.max(1000 / 45, this.budgetMs * 1.5);
     if (over && i > 0) {
       this.calmWindows = 0;
       this.set(TIER_ORDER[i - 1], `GPU ${this.lastMedianMs} ms > ${this.budgetMs} ms`);

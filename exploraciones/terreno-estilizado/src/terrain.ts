@@ -11,6 +11,7 @@ export interface Level {
   maskFile: string | null;
   /** Aligned measured coverage, same dimensions, encoding, origin and datum. */
   coverageFile?: string;
+  oceanFile?: string;
   width: number;
   height: number;
   cellSizeM: number;
@@ -32,7 +33,11 @@ export type Style = "base" | "estilizado";
 /** "lod": bloques con nivel de detalle (fase 2). "completa": malla única de la fase 1 (para medir el antes). */
 export type GeoMode = "lod" | "completa";
 
+export interface OceanMeshData { positions: number[]; indices: number[]; }
+export interface OceanDomain { diorama: OceanMeshData; landscape: OceanMeshData; }
+
 export interface Terrain {
+  oceanDomain?: OceanDomain;
   object: THREE.Object3D;
   geo: GeoMode;
   level: Level;
@@ -96,7 +101,7 @@ export class TerrainLoader {
       if (r.ok) return { sdf: await r.arrayBuffer(), mask: null };
       return { sdf: null, mask: level.maskFile ? await get(`${dir}/${level.maskFile}`) : null };
     };
-    const [bin, { sdf, mask }, vector,coverage] = await Promise.all([get(`${dir}/${level.file}`), coast(), (geo === "completa" ? getOptional : get)(`${dir}/malla-${level.name}-${geo}.bin.gz`),level.coverageFile?get(`${dir}/${level.coverageFile}`):Promise.resolve(null)]);
+    const [bin, { sdf, mask }, vector,coverage,oceanDomain] = await Promise.all([get(`${dir}/${level.file}`), coast(), (geo === "completa" ? getOptional : get)(`${dir}/malla-${level.name}-${geo}.bin.gz`),level.coverageFile?get(`${dir}/${level.coverageFile}`):Promise.resolve(null),level.oceanFile?fetch(`${dir}/${level.oceanFile}`).then(async r=>{if(!r.ok)throw Error("Falta el recorte del océano");return await r.json() as OceanDomain;}):Promise.resolve(undefined)]);
     const fetchMs = performance.now() - t0;
     const key = `${dir}/${level.file}:${++this.nextKey}`;
     const b = await this.call<BuiltMsg>(
@@ -153,7 +158,7 @@ export class TerrainLoader {
       if (geo === "completa") {
       const water = seaPlaneMaterial(su, waterGrid);
       return {
-        object: mesh, geo, level, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
+        object: mesh, geo, level, oceanDomain, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
         meshSize: b.mesh, seaMaterial: water, ms: { fetch: fetchMs, ...b.ms },
         gpuBytes: () => ({ geometry: geomBytes, textures: Math.round((b.surface.byteLength + b.light.byteLength) * (4 / 3)) }),
         lodStats: () => null,
@@ -209,7 +214,7 @@ export class TerrainLoader {
     chunked.skipSea = style === "estilizado";
     const seaMat = seaPlaneMaterial(su, grid);
     return {
-      object: chunked.group, geo, level, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
+      object: chunked.group, geo, level, oceanDomain, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
       meshSize: b.mesh, seaMaterial: seaMat, ms: { fetch: fetchMs, ...b.ms },
       gpuBytes: () => ({
         geometry: geomBytes + chunked.geometryBytes(),

@@ -519,7 +519,7 @@ if (rockT > 0.003) {
   gGrad = uRockLook.z;
   rockAlb = biColor(uRockCol, S_ROCK);
 #ifndef FAR
-  if (dDet > 0.001) rockNw = biNormal(uRockNor, n, S_ROCK, uRockLook.x);
+  if (dDet > 0.001) rockNw = normalize(mix(n, biNormal(uRockNor, n, S_ROCK, uRockLook.x), dDet));
 #endif
   if (uRockMacro.y > 0.0) {
     float SM = 1.0 / uRockMacro.x;
@@ -527,7 +527,7 @@ if (rockT > 0.003) {
     // la capa media modula el tono (fracturas grandes) sin cambiar el color medio
     rockAlb = mix(rockAlb, rockAlb * macroAlb / max(dot(macroAlb, vec3(0.333)), 0.03), uRockMacro.y);
 #ifndef FAR
-    if (dDet > 0.001 && uRockRelief.y > 0.0) rockNw = normalize(rockNw + (biNormal(uRockNor, n, SM, uRockLook.x) - n) * uRockMacro.y * uRockRelief.y);
+    if (dDet > 0.001 && uRockRelief.y > 0.0) rockNw = normalize(rockNw + (biNormal(uRockNor, n, SM, uRockLook.x) - n) * uRockMacro.y * uRockRelief.y * dDet);
 #endif
   }
   gGrad = 1.0;
@@ -718,12 +718,16 @@ gRefl = isSea * (1.0 - foam) * seaReflection(seaN, vWorld);
 {
   // lado corto del píxel en el mundo: en ángulo rasante, con el lado largo los destellos salían como rayitas
   float pxW = min(length(dFdx(vWorld)), length(dFdy(vWorld)));
-  float cellS = exp2(ceil(log2(max(pxW * 1.5, 0.02))));
+  float sparkLod=log2(max(pxW * 1.5,0.02));
+  float cellS=exp2(floor(sparkLod));
+  float sparkBlend=smoothstep(0.0,1.0,fract(sparkLod));
   vec3 cid = floor(vWorld / cellS);
   vec3 hr = fract(sin(vec3(dot(cid, vec3(127.1, 311.7, 74.7)), dot(cid, vec3(269.5, 183.3, 246.1)), dot(cid, vec3(113.5, 271.9, 124.6)))) * 43758.5453);
-  vec3 facet = normalize(gN + (hr.yzx * 2.0 - 1.0) * 0.45);
+  vec3 cid2=floor(vWorld/(cellS*2.0));
+  vec3 hr2=fract(sin(vec3(dot(cid2,vec3(127.1,311.7,74.7)),dot(cid2,vec3(269.5,183.3,246.1)),dot(cid2,vec3(113.5,271.9,124.6))))*43758.5453);
+  vec3 facet = normalize(gN + (mix(hr.yzx,hr2.yzx,sparkBlend) * 2.0 - 1.0) * 0.45);
   gGlitN = normalize((viewMatrix * vec4(facet, 0.0)).xyz);
-  gGlit = gSnowK * step(hr.x, uSnowGlint.w);
+  gGlit = gSnowK * mix(step(hr.x,uSnowGlint.w),step(hr2.x,uSnowGlint.w),sparkBlend);
 }
 #endif
 `;
@@ -761,7 +765,7 @@ export type MaterialVariant = "a" | "b" | "c" | "n";
 export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0 });
   const defines: Record<string, string> = {};
-  if (v.far) defines.FAR = "";
+  if (v.far && v.variant !== "n") defines.FAR = ""; // N uses one distance-filtered material across every chunk.
 
   if (v.exactCoast) defines.EXACT_COAST = "";
   if (v.variant === "b") defines.MAT_B = "";
@@ -771,7 +775,7 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
     defines.SNOW_VOL = ""; // desplazamiento en todos los niveles (mismos vértices compartidos: sin grietas)
     // Luz del relieve y paredes de acantilado solo en los bloques cercanos: lejos no se distinguen y así
     // las vistas generales no pagan el costo (medido: +0,7 ms en todos los niveles).
-    if (!v.far) defines.SNOW_VOL_FRAG = "";
+    defines.SNOW_VOL_FRAG = ""; // Same snow normals, cavity and coverage at every LOD.
   }
   (m as unknown as { defines: Record<string, string> }).defines = defines;
   m.onBeforeCompile = (s) => {

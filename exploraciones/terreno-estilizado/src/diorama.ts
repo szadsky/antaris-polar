@@ -8,7 +8,7 @@ export function createDiorama(withFooting = true) {
   const footing=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshStandardMaterial({color:0x243941,roughness:.78}));
   // Corte lateral con color por vértice: roca donde hay tierra, agua donde el borde es mar (turquesa arriba,
   // azul profundo abajo). Antes era una pared oscura pareja.
-  const section=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,fog:false}));
+  const section=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide,fog:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2}));
   const ROCK_TOP=new THREE.Color("#6f767c"),ROCK_BOTTOM=new THREE.Color("#2b2f33");
   const WATER_TOP=new THREE.Color("#4f97a6"),WATER_BOTTOM=new THREE.Color("#0c2a35");
   group.add(section);
@@ -44,6 +44,10 @@ export function createDiorama(withFooting = true) {
     for(let z=height-2;z>0;z--)point(0,z);
     const n=pos.length/3;
     for(let a=0;a<n;a+=2){const b=(a+2)%n;idx.push(a,b,a+1,b,b+1,a+1);}
+    // Close the existing outward offset with a top collar instead of leaving a sky-visible slit.
+    const topStart=pos.length/3;
+    for(let a=0;a<n;a+=2){const i=a*3;pos.push(Math.max(-t.widthM/2,Math.min(t.widthM/2,pos[i])),pos[i+1],Math.max(-t.depthM/2,Math.min(t.depthM/2,pos[i+2])));col.push(col[i],col[i+1],col[i+2]);}
+    for(let a=0;a<n;a+=2){const b=(a+2)%n,ia=topStart+a/2,ib=topStart+b/2;idx.push(a,ia,b,b,ia,ib);}
     section.geometry.dispose();
     section.geometry=new THREE.BufferGeometry();
     section.geometry.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));

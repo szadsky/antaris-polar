@@ -49,3 +49,16 @@ export function mountViewControls(style:()=>string, setStyle:(value:"base"|"esti
   return ()=>{segment.update({...props,value:style()});syncMaterial();};
 }
 
+
+export function mountMarineControls(o:{visible:boolean;floating:boolean;onVisible:(v:boolean)=>void;onFloating:(v:boolean)=>void;onIntensity:(v:number)=>void;onView:()=>void;onSpeed:(v:number)=>void;onWaves:(v:number)=>void}){
+ const host=(id:string)=>document.getElementById(id)!;
+ Slider(host('dial-water-speed'),{label:'Velocidad del agua',value:.95,min:.3,max:1.6,step:.05,onChange:o.onSpeed});
+ Slider(host('dial-water-strength'),{label:'Ondulación del agua',value:1,min:.3,max:1.5,step:.05,onChange:o.onWaves});
+ const visibleProps={label:'Mostrar icebergs',value:o.visible?'on':'off',options:[{value:'on',label:'Visibles'},{value:'off',label:'Ocultos'}],onChange:(v:string)=>o.onVisible(v==='on')};
+ const visible=SelectControl(host('dial-berg-visible'),visibleProps);
+ const motionProps={label:'Flotación',value:o.floating?'on':'off',options:[{value:'on',label:'En movimiento'},{value:'off',label:'En reposo'}],onChange:(v:string)=>o.onFloating(v==='on')};
+ const motion=SelectControl(host('dial-berg-motion'),motionProps);
+ Slider(host('dial-berg-strength'),{label:'Intensidad de flotación',value:1,min:.25,max:1.5,step:.05,onChange:o.onIntensity});
+ ButtonGroup(host('dial-berg-view'),{buttons:[{label:'Ver siguiente iceberg',onClick:o.onView}]});
+ return {sync(v:boolean,f:boolean){visible.update({...visibleProps,value:v?'on':'off'});motion.update({...motionProps,value:f?'on':'off'});},setAvailable(available:boolean){host('iceberg-settings').hidden=!available;}};
+}

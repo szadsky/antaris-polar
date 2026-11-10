@@ -1,0 +1,196 @@
+{
+  "note": "CPU measurements in Node; not browser FPS or GPU timings.",
+  "animationCpuMsPerStep": 0.00446875,
+  "maxGeometry": {
+    "usableWaterArea": 0,
+    "targetCount": 0,
+    "placementMs": 0,
+    "count": 12,
+    "triangles": 24576,
+    "geometryBytes": 147672
+  },
+  "bases": [
+    {
+      "base": "belgrano-ii",
+      "level": "4m",
+      "usableWaterKm2": 0,
+      "count": 0,
+      "placementMs": 40.39
+    },
+    {
+      "base": "belgrano-ii",
+      "level": "8m",
+      "usableWaterKm2": 0,
+      "count": 0,
+      "placementMs": 8.93
+    },
+    {
+      "base": "carlini",
+      "level": "4m",
+      "usableWaterKm2": 7.71,
+      "count": 3,
+      "placementMs": 39.93
+    },
+    {
+      "base": "carlini",
+      "level": "8m",
+      "usableWaterKm2": 7.69,
+      "count": 3,
+      "placementMs": 20.2
+    },
+    {
+      "base": "esperanza",
+      "level": "4m",
+      "usableWaterKm2": 13.92,
+      "count": 5,
+      "placementMs": 41.58
+    },
+    {
+      "base": "esperanza",
+      "level": "8m",
+      "usableWaterKm2": 13.88,
+      "count": 5,
+      "placementMs": 14.74
+    },
+    {
+      "base": "marambio",
+      "level": "4m",
+      "usableWaterKm2": 23.05,
+      "count": 8,
+      "placementMs": 51.76
+    },
+    {
+      "base": "marambio",
+      "level": "8m",
+      "usableWaterKm2": 23,
+      "count": 8,
+      "placementMs": 9.66
+    },
+    {
+      "base": "petrel",
+      "level": "4m",
+      "usableWaterKm2": 30.47,
+      "count": 11,
+      "placementMs": 38.73
+    },
+    {
+      "base": "petrel",
+      "level": "8m",
+      "usableWaterKm2": 30.36,
+      "count": 11,
+      "placementMs": 7.13
+    },
+    {
+      "base": "san-martin",
+      "level": "4m",
+      "usableWaterKm2": 22,
+      "count": 8,
+      "placementMs": 39.35
+    },
+    {
+      "base": "san-martin",
+      "level": "8m",
+      "usableWaterKm2": 21.87,
+      "count": 8,
+      "placementMs": 24.09
+    },
+    {
+      "base": "orcadas",
+      "level": "4m",
+      "usableWaterKm2": 18.82,
+      "count": 7,
+      "placementMs": 48.9
+    },
+    {
+      "base": "orcadas",
+      "level": "8m",
+      "usableWaterKm2": 18.82,
+      "count": 7,
+      "placementMs": 21.66
+    },
+    {
+      "base": "brown",
+      "level": "4m",
+      "usableWaterKm2": 22,
+      "count": 8,
+      "placementMs": 60.17
+    },
+    {
+      "base": "brown",
+      "level": "8m",
+      "usableWaterKm2": 21.96,
+      "count": 8,
+      "placementMs": 10.41
+    },
+    {
+      "base": "camara",
+      "level": "4m",
+      "usableWaterKm2": 35.29,
+      "count": 12,
+      "placementMs": 32.01
+    },
+    {
+      "base": "camara",
+      "level": "8m",
+      "usableWaterKm2": 35.21,
+      "count": 12,
+      "placementMs": 9.19
+    },
+    {
+      "base": "decepcion",
+      "level": "4m",
+      "usableWaterKm2": 21.12,
+      "count": 8,
+      "placementMs": 33.71
+    },
+    {
+      "base": "decepcion",
+      "level": "8m",
+      "usableWaterKm2": 21.04,
+      "count": 8,
+      "placementMs": 9.43
+    },
+    {
+      "base": "matienzo",
+      "level": "4m",
+      "usableWaterKm2": 36.26,
+      "count": 12,
+      "placementMs": 26.97
+    },
+    {
+      "base": "matienzo",
+      "level": "8m",
+      "usableWaterKm2": 36.22,
+      "count": 12,
+      "placementMs": 9.44
+    },
+    {
+      "base": "melchior",
+      "level": "4m",
+      "usableWaterKm2": 26.07,
+      "count": 9,
+      "placementMs": 40.75
+    },
+    {
+      "base": "melchior",
+      "level": "8m",
+      "usableWaterKm2": 26.05,
+      "count": 9,
+      "placementMs": 10.18
+    },
+    {
+      "base": "primavera",
+      "level": "4m",
+      "usableWaterKm2": 32.65,
+      "count": 12,
+      "placementMs": 39.16
+    },
+    {
+      "base": "primavera",
+      "level": "8m",
+      "usableWaterKm2": 32.83,
+      "count": 12,
+      "placementMs": 15.69
+    }
+  ]
+}

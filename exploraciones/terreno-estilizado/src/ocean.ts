@@ -5,21 +5,22 @@ import type { Tier } from "./quality";
 
 import normalUrl from "./waternormals.jpg";
 
-function rippleMap() {
+function rippleMap(maxAniso:number) {
   const tex=new THREE.TextureLoader().load(normalUrl);
   tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
   tex.colorSpace=THREE.NoColorSpace;
+  tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;tex.generateMipmaps=true;tex.anisotropy=Math.min(4,maxAniso);
   return tex;
 }
 // Color del agua profunda vista desde arriba (lo que se ve a través de la superficie con poco reflejo).
 const WATER_COLOR=0x103a42;
-export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial:Tier, expanded=false) {
+export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial:Tier, expanded=false,maxAniso=1,diorama=false) {
   const aspect=window.innerWidth/Math.max(1,window.innerHeight);
   const longest=mobile?384:768;
   const reflectionWidth=Math.max(128,Math.round(longest*Math.min(1,aspect)));
   const reflectionHeight=Math.max(128,Math.round(longest*Math.min(1,1/aspect)));
   const mesh=new Water(new THREE.PlaneGeometry(size*8,size*8),{
-    textureWidth:reflectionWidth,textureHeight:reflectionHeight,waterNormals:rippleMap(),waterColor:WATER_COLOR,
+    textureWidth:reflectionWidth,textureHeight:reflectionHeight,waterNormals:rippleMap(maxAniso),waterColor:WATER_COLOR,
     sunColor:0xd9eafa,sunDirection:sun,distortionScale:1.4,clipBias:0.0001,fog:true,
   });
   mesh.rotation.x=-Math.PI/2;
@@ -30,6 +31,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   floor.position.z=-30; // = SEABED_MAX_M del workerfloor.name="fondo-marino";
   mesh.add(floor);
   const mat=mesh.material,u=mat.uniforms;
+  const reflection=u.mirrorSampler.value as THREE.Texture;reflection.generateMipmaps=true;reflection.minFilter=THREE.LinearMipmapLinearFilter;reflection.magFilter=THREE.LinearFilter;
   // Agua algo transparente junto a la orilla (0,6: con 0,18–0,42 se veía oscura) y con un tinte claro de
   // agua poco profunda; opaca a partir de ~160 m de la costa.
   // La cercanía a la costa sale del canal G de la textura de luz del terreno (sin pases nuevos).
@@ -40,13 +42,13 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   u.uShoreCurve={value:0.6}; // <1: la transparencia llega más lejos y se desvanece más suave
   u.uSunGlint={value:1}; // intensidad del reflejo del sol (GLSL)
   u.uGlintLobes={value:new THREE.Vector3(0.08,0.28,0.9)}; // pesos: amplio, camino de luz, disco
-  u.uSilk={value:0.8}; // altura del oleaje (Water original 1,5): con 0,5 parecía un espejo
+  u.uSilk={value:1.0}; // altura del oleaje (Water original 1,5): con 0,5 parecía un espejo
   u.uRipple={value:new THREE.Vector2(0.04,3)}; // x = deformación del reflejo a lo lejos (Water: 0,001) · y = estiramiento vertical
   u.uWater={value:new THREE.Vector3(0.02,0,0.03)}; // x = reflejo base (Fresnel) · y = gris fijo del reflejo · z = difusa del sol (Water: 0,3 · 0,1 · 0,3)
   u.uShore.value.needsUpdate=true;
   mat.transparent=false;mat.depthWrite=true;
-  // Give solid terrain priority on equal depth samples at grazing angles.
-  mat.polygonOffset=true;mat.polygonOffsetFactor=1;mat.polygonOffsetUnits=1;
+  // Use geometric depth: slope-dependent offsets make water cross shallow terrain.
+  mat.polygonOffset=false;
   const officialFragment=mat.fragmentShader
     .replace("uniform float alpha;","uniform float alpha;\nuniform sampler2D uShore;\nuniform vec2 uCrop, uShoreLook;\nuniform vec3 uShallow;\nuniform float uShoreCurve, uSunGlint, uSilk;\nuniform vec2 uRipple;\nuniform vec3 uWater;\nuniform vec3 uGlintLobes;")
     .replace("gl_FragColor = vec4( outgoingLight, alpha );",[
@@ -60,7 +62,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
       "float sunAlign = max(dot(eyeDirection, reflect(-sunDirection, surfaceNormal)), 0.0);",
       // tres lóbulos: x = amplio (aclara el agua del lado del sol, visible desde casi cualquier vista),
       // y = camino de luz sobre las ondas, z = disco del sol reflejado
-      "vec3 glint = sunColor * (pow(sunAlign, 6.0) * uGlintLobes.x + pow(sunAlign, 48.0) * uGlintLobes.y + pow(sunAlign, 900.0) * uGlintLobes.z) * uSunGlint;",
+      "vec3 glint = sunColor * (pow(sunAlign, 6.0) * uGlintLobes.x + pow(sunAlign, 48.0) * uGlintLobes.y + pow(sunAlign, 900.0) * uGlintLobes.z / (1.0+900.0*fwidth(sunAlign))) * uSunGlint;",
       "vec3 waterOut = mix(outgoingLight + glint, uShallow, shallowK * uShoreLook.y);",
       "gl_FragColor = vec4( waterOut, 1.0 );",
     ].join("\n"))
@@ -128,16 +130,18 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
       vec3 sA=silkTex(r1*(uv-w1*sp*3.0)/(211.0*SILK_SCALE),SILK_BIAS);
       vec3 sB=silkTex(r1b*(uv-w3*sp*2.4)/(163.0*SILK_SCALE),SILK_BIAS);
       vec3 mA=silkTex(r2*(uv-w2*sp*1.9)/(83.0*SILK_SCALE),SILK_BIAS);
+      float pixelFootprint=length(fwidth(uv));
+      float mediumWeight=1.0-smoothstep(8.0,45.0,pixelFootprint);
       vec2 slopes=.45*(sA.xy*r1+sB.xy*r1b);
       #ifdef SILK_FINE
       vec3 mB=silkTex(r2b*(uv-w4*sp*1.6)/(67.0*SILK_SCALE),SILK_BIAS);
-      slopes+=.2*(mA.xy*r2+mB.xy*r2b);
+      slopes+=mediumWeight*.2*(mA.xy*r2+mB.xy*r2b);
       mat2 r3=mat2(-.5048,.8632,-.8632,-.5048);
       vec2 fuv=r3*(uv-w1*sp*1.2)/(31.0*SILK_SCALE);
       float fineK=.12*(1.0-smoothstep(.002,.01,length(fwidth(fuv))));
       slopes+=fineK*(silkTex(fuv,1.0).xy*r3);
       #else
-      slopes+=.38*(mA.xy*r2);
+      slopes+=mediumWeight*.38*(mA.xy*r2);
       #endif
       return vec4(slopes,mix(sA.z,mA.z,.38),1.0);
     }
@@ -149,15 +153,19 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     "vec3 reflectionSample=mix(vec3(.24,.36,.44),vec3(.085,.16,.22),clamp(reflect(-eyeDirection,surfaceNormal).y,0.,1.));");  // A reflection only needs the silhouette and broad snow/rock tones.
   let current:Terrain|undefined;
   const mirror=mesh.onBeforeRender;
-  let high=false,dirty=true;
+  let waterSpeed=.95;
+  let high=false,dirty=true,movingReflection=false,lastMirrorMs=-Infinity;
+  const motionMirrorInterval=mobile?250:160;
   const world=new THREE.Matrix4(),projection=new THREE.Matrix4();
   mesh.onBeforeRender=(renderer,scene,camera,geometry,material,group)=>{
     if(!high){u.eye.value.setFromMatrixPosition(camera.matrixWorld);return;}
     if(!current)return;
-    if(!dirty && world.equals(camera.matrixWorld)&&projection.equals(camera.projectionMatrix))return;
+    const now=performance.now();
+    const motionDue=movingReflection&&now-lastMirrorMs>=motionMirrorInterval;
+    if(!dirty && !motionDue && world.equals(camera.matrixWorld)&&projection.equals(camera.projectionMatrix))return;
     // Rendering the mirror must not mutate the main camera chunk instance buffers.
     mirror.call(mesh,renderer,scene,camera,geometry,material,group);
-    world.copy(camera.matrixWorld);projection.copy(camera.projectionMatrix);dirty=false;
+    world.copy(camera.matrixWorld);projection.copy(camera.projectionMatrix);dirty=false;lastMirrorMs=now;
   };
   function quality(t:Tier) {
     high=mobile || t==="alta";
@@ -167,14 +175,29 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     dirty=true;
   }
   quality(initial);
-  return {mesh,quality,setSun(direction:THREE.Vector3,color:THREE.Color,direct:number,daylight:number){
+  return {mesh,quality,setSpeed(value:number){waterSpeed=Math.max(.3,Math.min(1.6,value));},setWaves(value:number){u.uSilk.value=Math.max(.3,Math.min(1.5,value));},setSun(direction:THREE.Vector3,color:THREE.Color,direct:number,daylight:number){
     sun.copy(direction);
     u.sunDirection.value.copy(direction);
     u.sunColor.value.copy(color).multiplyScalar(direct);
     u.waterColor.value.setHex(WATER_COLOR).multiplyScalar(.1+.9*daylight);
     dirty=true;
-  },refresh:()=>{dirty=true;},time:(t:number)=>{u.time.value=t*.75;},
-    bind(t:Terrain){current=t;dirty=true;
+  },refresh:()=>{dirty=true;},motion:(active:boolean)=>{movingReflection=active;},time:(t:number,moving=false)=>{u.time.value=t*waterSpeed;movingReflection=moving;},
+    bind(t:Terrain){
+      if(current!==t){
+        const domain=t.oceanDomain?.[diorama?"diorama":"landscape"];
+        let geometry:THREE.BufferGeometry;
+        if(domain){
+          // Offline ADD clipping: low terrestrial depressions are not ocean.
+          // Local plane XY becomes world XZ after the Water rotation.
+          const sx=diorama?size*8:t.widthM,sy=diorama?size*8:t.depthM;
+          const positions=new Float32Array(domain.positions.length/2*3);
+          for(let i=0;i<domain.positions.length/2;i++){positions[i*3]=domain.positions[i*2]*sx;positions[i*3+1]=-domain.positions[i*2+1]*sy;}
+          geometry=new THREE.BufferGeometry();geometry.setAttribute("position",new THREE.BufferAttribute(positions,3));
+          geometry.setIndex(domain.indices);geometry.computeVertexNormals();geometry.computeBoundingSphere();
+        }else geometry=new THREE.PlaneGeometry(size*8,size*8);
+        mesh.geometry.dispose();mesh.geometry=geometry;
+      }
+      current=t;dirty=true;
       u.uShore.value=t.styleUniforms.uLight.value;u.uCrop.value.set(t.widthM,t.depthM);}
   };
 }

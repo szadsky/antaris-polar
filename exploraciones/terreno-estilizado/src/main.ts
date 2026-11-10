@@ -1,7 +1,8 @@
+import {createIcebergs} from './icebergs';
 import { solarPosition } from "./solar";
 import { outerTerrain } from "./outer-terrain";
 import { createDiorama } from "./diorama";
-import { mountViewControls } from "./view-controls";
+import { mountViewControls, mountMarineControls } from "./view-controls";
 import { createOcean } from "./ocean";
 import { loadTerrainTextures } from "./terrain-textures";
 import * as THREE from "three";
@@ -10,7 +11,7 @@ import { MESH_STRIDE, TerrainLoader, type GeoMode, type Level, type Style, type 
 import { Metrics } from "./metrics";
 import { applyPose, runBench, runFpsTest, type BenchCtx } from "./bench";
 import type { MaterialVariant } from "./shaders";
-import { AdaptiveQuality, TIERS, guessDevice, type Tier } from "./quality";
+import { AdaptiveQuality, TIERS, guessDevice, renderPixelRatio, type Tier } from "./quality";
 import type { Vec3 } from "./worker";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -64,10 +65,15 @@ async function main() {
   const plan = levelPlan(meta.levels, params.get("nivel"), initialTier === "baja" ? "8m" : device.level);
 
   // ─── Render ───
+  // Preserve hardware multisample depth at water/terrain intersections.
+  // Fragment-written logarithmic depth produced jagged overlap boundaries.
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, TIERS[initialTier].dpr));
+  renderer.setPixelRatio(renderPixelRatio(devicePixelRatio, initialTier, device.mobile));
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  // Read actual default-framebuffer MSAA support, not only the requested flag.
+  const glAA = renderer.getContext();
+  const antialiasInfo = { enabled: glAA.getContextAttributes()?.antialias ?? false, samples: glAA.getParameter(glAA.SAMPLES) as number };
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
   const dateInput=$<HTMLInputElement>("solar-date"), timeInput=$<HTMLInputElement>("solar-time");
@@ -101,7 +107,7 @@ async function main() {
   const hemi = new THREE.HemisphereLight();
   const sun = new THREE.DirectionalLight();
   scene.add(hemi, sun);
-  const ocean=createOcean(size,new THREE.Vector3(...SUN),device.mobile,initialTier,expanded);
+  const ocean=createOcean(size,new THREE.Vector3(...SUN),device.mobile,initialTier,expanded,maxAniso,!!diorama);
   // En el diorama también el agua del océano (oleaje, Fresnel, reflejo), recortada al bloque en placeSea.
   // Se probó el mar estilizado del terreno (más barato, sin reflejo): se veía como una superficie plana, sin agua.
   const seaPlane=ocean.mesh;
@@ -165,9 +171,11 @@ async function main() {
   // Agua en movimiento (estilo Interpretación): en reposo se redibuja solo a ~24 cuadros/s; nada con
   // prefers-reduced-motion, con la pestaña oculta ni en el estilo Base.
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let motionEnabled=params.get("movimiento")==="1" || !reducedMotion;
   const WAVE_IDLE_MS = 1000 / 24;
   let lastWaveMs = 0;
-  const wavesOn = () => style === "estilizado" && !reducedMotion && seaPlane.visible && document.visibilityState === "visible" && (terrain?.styleUniforms.uSeaLook.value.z ?? 0) > 0;
+  let icebergMotionEnabled=motionEnabled,icebergSeconds=0,waterSeconds=0,lastMotionMs=performance.now();
+  const wavesOn = () => style === "estilizado" && motionEnabled && seaPlane.visible && document.visibilityState === "visible";
   // Se asigna más abajo; el bucle puede correr antes (p. ej. por un resize temprano).
   let qualityRef: AdaptiveQuality | null = null;
   // Protect the eye and near plane when orbiting or panning across a cliff.
@@ -201,16 +209,26 @@ async function main() {
   const frame = () => {
     const moved = controls.update();
     keepCameraAboveSurface();
+    // More depth precision in the distant diorama, retaining the original near plane up close.
+    const nextNear=Math.max(5,Math.min(50,camera.position.distanceTo(controls.target)*.002));
+    if(Math.abs(nextNear-camera.near)>.05){camera.near=nextNear;camera.updateProjectionMatrix();dirty=true;}
     const now = performance.now();
     disc.position.copy(camera.position).addScaledVector(solar.direction,camera.far*.8);
     const waves = wavesOn();
-    if (waves && terrain) { terrain.styleUniforms.uTime.value = now / 1000; ocean.time(now / 1000); }
-    if (!moved && !dirty && waves) {
+    const dt=Math.min(.1,Math.max(0,(now-lastMotionMs)/1000));lastMotionMs=now;
+    const floating=(icebergMotionEnabled || icebergs.interacting) && document.visibilityState === "visible" && icebergs.group.visible && icebergs.group.children.some(m=>m.visible);
+    if(floating){if(icebergMotionEnabled)icebergSeconds+=dt;icebergs.animate(icebergSeconds,dt);}
+    if (waves && terrain) { waterSeconds+=dt;terrain.styleUniforms.uTime.value=waterSeconds; ocean.time(waterSeconds,floating); }
+    ocean.motion(floating);
+    if (!moved && !dirty && (waves || floating)) {
       // en reposo: solo el agua se mueve, a cadencia reducida
       if (now - lastWaveMs < WAVE_IDLE_MS) return;
       lastWaveMs = now;
       terrain?.beforeRender(camera, renderer.domElement.height);
+      qualityRef?.begin();
       renderer.render(scene, camera);
+      qualityRef?.end(false);
+      if(metrics.tick())metricsEl.textContent=metrics.format();
       return;
     }
     if (!moved && !dirty) {
@@ -250,6 +268,7 @@ async function main() {
   addEventListener("resize", () => {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(renderPixelRatio(devicePixelRatio, qualityRef?.tier ?? initialTier, device.mobile));
     renderer.setSize(innerWidth, innerHeight, false);
     requestRender();
   });
@@ -259,6 +278,38 @@ async function main() {
   const geo: GeoMode = params.get("geo") === "completa" ? "completa" : "lod";
   let exaggeration = 1;
   let terrain: Terrain | null = null;
+  const icebergs=createIcebergs();scene.add(icebergs.group);let bergsOn=true;icebergs.group.visible=bergsOn;
+  let bergViewIndex=0;
+  const marineControls=mountMarineControls({visible:bergsOn,floating:icebergMotionEnabled,
+    onVisible(v){bergsOn=v;icebergs.group.visible=v;canvas.style.cursor='';marineControls.sync(v,icebergMotionEnabled);ocean.refresh();requestRender();},
+    onFloating(v){icebergMotionEnabled=v;marineControls.sync(bergsOn,v);ocean.refresh();requestRender();},
+    onIntensity(v){icebergs.setIntensity(v);icebergMotionEnabled=true;marineControls.sync(bergsOn,true);requestRender();},
+    onSpeed(v){ocean.setSpeed(v);requestRender();},onWaves(v){ocean.setWaves(v);requestRender();},
+    onView(){const visible=icebergs.group.children.filter(m=>m.visible);if(!visible.length)return;const m=visible[bergViewIndex++%visible.length];const target=m.position.clone().add(icebergs.group.position);target.y+=16;controls.target.copy(target);camera.position.copy(target).add(new THREE.Vector3(115,65,145));bergsOn=true;icebergs.group.visible=true;marineControls.sync(true,icebergMotionEnabled);controls.update();ocean.refresh();requestRender();}
+  });
+  const icebergRay=new THREE.Raycaster();let icebergTap:{x:number;y:number;id:number;time:number}|null=null;
+  const beginIcebergTap=(e:PointerEvent)=>{if(e.button!==0){icebergTap=null;return;}if(icebergTap){icebergTap=null;return;}icebergTap={x:e.clientX,y:e.clientY,id:e.pointerId,time:performance.now()};};
+  const moveIcebergTap=(e:PointerEvent)=>{if(icebergTap&&Math.hypot(e.clientX-icebergTap.x,e.clientY-icebergTap.y)>6)icebergTap=null;};
+  const cancelIcebergTap=()=>{icebergTap=null;};
+  const endIcebergTap=(e:PointerEvent)=>{const tap=icebergTap;icebergTap=null;if(!tap||tap.id!==e.pointerId||performance.now()-tap.time>700||Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>6||!icebergs.group.visible)return;
+    const rect=canvas.getBoundingClientRect();camera.updateMatrixWorld();icebergs.group.updateMatrixWorld(true);
+    icebergRay.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2),camera);
+    const hit=icebergRay.intersectObjects(icebergs.group.children.filter(m=>m.visible),false).find(h=>h.point.y>=seaPlane.position.y);
+    if(hit&&icebergs.push(hit.object,hit.point)){ocean.refresh();requestRender();}
+  };
+  let lastBergHover=0;
+  const clearBergHover=()=>{canvas.style.cursor='';};
+  const hoverIceberg=(e:PointerEvent)=>{
+    if(e.pointerType==='touch'||e.buttons||!icebergs.group.visible){clearBergHover();return;}
+    const now=performance.now();if(now-lastBergHover<50)return;lastBergHover=now;
+    const rect=canvas.getBoundingClientRect();camera.updateMatrixWorld();icebergs.group.updateMatrixWorld(true);
+    icebergRay.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2),camera);
+    const hit=icebergRay.intersectObjects(icebergs.group.children.filter(m=>m.visible),false).find(h=>h.point.y>=seaPlane.position.y);
+    canvas.style.cursor=hit?'pointer':'';
+  };
+  canvas.addEventListener('pointermove',hoverIceberg);canvas.addEventListener('pointerleave',clearBergHover);controls.addEventListener('start',clearBergHover);
+  canvas.addEventListener('pointerdown',beginIcebergTap,true);canvas.addEventListener('pointermove',moveIcebergTap,true);canvas.addEventListener('pointerup',endIcebergTap,true);canvas.addEventListener('pointercancel',cancelIcebergTap,true);
+  window.addEventListener('pagehide',()=>{canvas.removeEventListener('pointermove',hoverIceberg);canvas.removeEventListener('pointerleave',clearBergHover);controls.removeEventListener('start',clearBergHover);clearBergHover();canvas.removeEventListener('pointerdown',beginIcebergTap,true);canvas.removeEventListener('pointermove',moveIcebergTap,true);canvas.removeEventListener('pointerup',endIcebergTap,true);canvas.removeEventListener('pointercancel',cancelIcebergTap,true);icebergs.dispose();},{once:true});
   let benchResult: unknown = null;
 
   let syncViewControls: (()=>void) | undefined;
@@ -300,7 +351,7 @@ async function main() {
   // Aplica un nivel de calidad: DPR, densidad del LOD y detalle de cerca.
   const applyTier = (t: Tier, why: string) => {
     ocean.quality(t);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, TIERS[t].dpr));
+    renderer.setPixelRatio(renderPixelRatio(devicePixelRatio, t, device.mobile));
     renderer.setSize(innerWidth, innerHeight, false);
     terrain?.setLodTarget(TIERS[t].lodPx);
     terrain?.setDetail(detail && TIERS[t].detail);
@@ -384,6 +435,7 @@ async function main() {
     if(!expanded && !diorama) t.styleUniforms.uEdgeHaze.value=-1;
     if(outer) outer.scale.y=exaggeration;
     seaPlane.position.y=(t.seaLevelM??0)*exaggeration-.03;
+    icebergs.setSea(seaPlane.position.y);
     if(diorama){
       seaPlane.scale.set(t.widthM/(size*8),t.depthM/(size*8),1);
       diorama.update(t,exaggeration);
@@ -417,7 +469,8 @@ async function main() {
       pinEl.textContent = meta.base.nombre.replace(/^Base (Antártica )?/, "Base ");
       pinEl.hidden = document.body.classList.contains("no-ui");
     }
-    sourceEl.textContent = describeSource(meta, t) + (outerData ? " · 12 × 12 km · exterior REMA a 60 m" : "");
+    const count=icebergs.bind(t,pin?.local??new THREE.Vector3());marineControls.setAvailable(count>0);
+    sourceEl.textContent = describeSource(meta, t) + (count?` · ${count} icebergs decorativos`:"") + (outerData ? " · 12 × 12 km · exterior REMA a 60 m" : "");
     requestRender();
   };
   const info = (t: Terrain, firstViewMs: number, fullMs: number | null) => ({
@@ -493,6 +546,7 @@ async function main() {
       descargaKB: Math.round(t.level.transferBytes / 1024),
       texturas: texInfo ? { descargaKB: +(texInfo.bytes / 1024).toFixed(1), cargaMs: Math.round(texInfo.ms) } : null,
       cargaMs: { primeraVista: Math.round(firstViewMs), worker: Math.round(t.ms.decode + t.ms.surface + t.ms.light + t.ms.mesh), sombras: Math.round(t.ms.light) },
+      antialias: antialiasInfo,
       pantalla: `${renderer.domElement.width}×${renderer.domElement.height} (dpr ${renderer.getPixelRatio()})`,
       gpu: metrics.snapshot().gpu,
     };
@@ -502,7 +556,7 @@ async function main() {
   };
   $("bench").addEventListener("click", () => void bench());
   Object.assign(window, {
-    __terreno: { scene, camera, controls, renderer, metrics, meta, requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
+    __terreno: { scene, camera, controls, renderer, antialiasInfo, metrics, meta, icebergStats:()=>icebergs.stats(), requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
     __bench: bench,
     // Diagnóstico por capas sobre el material estilizado: a = colores base, b = + variación de color,
     // c = + detalle al 15 %, d = material completo.
