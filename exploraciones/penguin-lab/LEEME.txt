@@ -1,0 +1,13 @@
+LABORATORIO DEL PINGUINO
+Desarrollo independiente: npm install; npm run dev (puerto 3402).
+Pagina integrada: desde la raiz del repositorio, npm run setup; npm run build; npm run preview.
+Ruta integrada: /laboratorio/pinguino/. Salida estatica en dist/ en la raiz.
+Pruebas: npm test. Requiere Node.js >=22.7.
+
+La carpeta es independiente del visor: no carga DEMs, agua ni bases.
+Modelo de Polyfork, CC BY 4.0; se conserva el GLB y su atribucion.
+Materiales: copia del shader y texturas de nieve de Antaris; sin desplazamiento
+kilometrico ni rampas costeras. Plataforma artistica sintetica, no relieve REMA.
+Huellas: adaptacion MIT de Oguzhan Tufenk / Codrops. Las licencias se conservan.
+En esta maquina node_modules reutiliza un enlace local; no se versiona ni se necesita
+en otra computadora: npm ci instala las dependencias indicadas por el lockfile.

@@ -1,0 +1,7 @@
+Adaptation of Dynamic Terrain Deformation by Oguzhan Tufenk / Codrops.
+https://github.com/oguzhantufenk/dynamic-terrain-deformation
+Source: src/components/InfiniteSnowGround.jsx, deformMesh and foot-bone contact.
+MIT license in LICENSE.txt. Retrieved 2026-11-10.
+Changes: vanilla Three.js, local bounded height field, elliptical foot stamps,
+contact events instead of repeated per-frame erosion, spatial vertex buckets,
+existing Antaris snow material. No React, world recycling, audio or new packages.
