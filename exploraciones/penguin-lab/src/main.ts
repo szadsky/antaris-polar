@@ -1,3 +1,4 @@
+import {FootstepAudio} from './footstep-audio';
 import {SnowFootprints} from './snow-footprints';
 import {PenguinMotion,GAIT_SPEED} from './penguin-motion';
 import * as THREE from 'three';
@@ -84,6 +85,10 @@ async function main(){
  const mixer=new THREE.AnimationMixer(penguin);
  const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip)]));
  let active=actions.get('idle');active?.play();
+ const stepAudio=new FootstepAudio(import.meta.env.BASE_URL+'assets/audio/footstepOnSnow1Medium.ogg');
+ const soundButton=document.getElementById('step-sound')!;
+ soundButton.onclick=()=>{stepAudio.setEnabled(!stepAudio.enabled);soundButton.textContent=stepAudio.enabled?'Sonido activado':'Sonido silenciado';soundButton.setAttribute('aria-pressed',String(stepAudio.enabled));};
+ const unlockAudio=()=>stepAudio.unlock();renderer.domElement.addEventListener('pointerdown',unlockAudio);
  const motion=new PenguinMotion(radius-.4),keys=new Set<string>();
  const feet=['LeftHindToe','RightHindToe'].map(name=>({bone:penguin.getObjectByName(name)!,point:new THREE.Vector3(),contact:false,last:new THREE.Vector2(Infinity,Infinity)}));
  let wasAirborne=false;
@@ -94,8 +99,8 @@ async function main(){
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
  const relevant=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Space','KeyR']);
  const editable=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable="true"]');
- const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();keys.add(event.code);if(event.repeat)return;if(event.code==='Space')motion.jump();if(event.code==='KeyR'){keys.clear();motion.reset();character.quaternion.identity();}};
- const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>keys.clear();
+ const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space')motion.jump();if(event.code==='KeyR'){keys.clear();motion.reset();character.quaternion.identity();}};
+ const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();stepAudio.stop();};
  window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
  function move(dt:number){
   camera.getWorldDirection(forward);forward.y=0;forward.normalize();right.crossVectors(forward,up).normalize();
@@ -126,7 +131,7 @@ async function main(){
    const contact=!airborne&&gap<(foot.contact?.045:.028);
    const distance=foot.last.distanceTo(new THREE.Vector2(foot.point.x,foot.point.z));
    if(contact&&((!foot.contact&&motion.moving)||landed)&&distance>.12){
-    stampFoot(foot.point.x,foot.point.z,character.rotation.y);foot.last.set(foot.point.x,foot.point.z);
+    stampFoot(foot.point.x,foot.point.z,character.rotation.y);stepAudio.play(motion.running,landed);foot.last.set(foot.point.x,foot.point.z);
    }
    foot.contact=contact;
   }
@@ -139,6 +144,6 @@ async function main(){
  fadeElapsed+=dt;if(fadeElapsed>=.1){const start=performance.now(),dirty=footprints.fade(fadeElapsed);footprintCpuMs+=performance.now()-start;fadeElapsed=0;if(dirty)applyFootprintRegion(dirty);if(footprints.active.size===0){footprintCount=0;counter.textContent='Nieve sin huellas';}}
  move(dt);renderer.render(scene,camera);
  perfFrames++;const elapsed=performance.now()-perfStarted;if(elapsed>=2000){perfLabel.textContent=Math.round(perfFrames*1000/elapsed)+' FPS · huellas CPU '+(footprintCpuMs/perfFrames).toFixed(2)+' ms/cuadro';perfStarted=performance.now();perfFrames=0;footprintCpuMs=0;}});status.hidden=true;
- window.addEventListener('pagehide',()=>{if(disposed)return;disposed=true;renderer.setAnimationLoop(null);window.removeEventListener('resize',resize);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);controls.dispose();mixer.stopAllAction();mixer.uncacheRoot(penguin);const materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>();scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textures.add(value);m.dispose();}for(const u of Object.values(uniforms))if(u.value instanceof THREE.Texture)textures.add(u.value);for(const t of textures)t.dispose();sun.shadow.map?.dispose();renderer.dispose();},{once:true});
+ window.addEventListener('pagehide',()=>{if(disposed)return;disposed=true;stepAudio.dispose();renderer.domElement.removeEventListener('pointerdown',unlockAudio);renderer.setAnimationLoop(null);window.removeEventListener('resize',resize);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);controls.dispose();mixer.stopAllAction();mixer.uncacheRoot(penguin);const materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>();scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textures.add(value);m.dispose();}for(const u of Object.values(uniforms))if(u.value instanceof THREE.Texture)textures.add(u.value);for(const t of textures)t.dispose();sun.shadow.map?.dispose();renderer.dispose();},{once:true});
 }
 main().catch(error=>{status.hidden=false;status.textContent='No se pudo preparar la prueba: '+String(error);console.error(error);});
