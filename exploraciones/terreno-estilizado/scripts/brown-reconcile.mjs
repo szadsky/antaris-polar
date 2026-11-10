@@ -48,6 +48,13 @@ export function reconcile({bytes,level,meta,nx,ny,cx,cy,step,stride,vertexLand,l
     if(i+w<z.length){visit(i+w);if(x)visit(i+w-1);}
   }
   return {
+    diagonal(x,y){
+      const a=y*stride*level.width+x*stride,b=a+stride*level.width;
+      const ids=[a,a+stride,b,b+stride,a+Math.floor(stride/2)*level.width+Math.floor(stride/2)];
+      if(ids.some(i=>!q[i]))return false;
+      const [tl,tr,bl,br,center]=ids.map(i=>q[i]);
+      return Math.abs((tl+br)*.5-center)+1<Math.abs((tr+bl)*.5-center);
+    },
     candidate(x,y){const i=y*w+x;return seen[i]||seen[i+1]||seen[i+w]||seen[i+w+1];},
     footprint(tri){
       const ids=tri.map(([x,y])=>y*w+x);

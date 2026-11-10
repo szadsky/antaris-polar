@@ -1,3 +1,4 @@
+import {heightfieldTemplate} from "./heightfield-template";
 import * as THREE from "three";
 
 /**
@@ -10,7 +11,7 @@ import * as THREE from "three";
  * - Un InstancedMesh por nivel: como máximo 4 draw calls para todo el terreno.
  * - En cada cambio de cámara: descarte por pirámide de visión con la caja de alturas real
  *   de cada bloque y elección de nivel por tamaño en pantalla de una celda.
- * - Faldones (bordes que bajan) tapan las uniones entre bloques de distinto nivel.
+ * - Perímetros nativos compartidos unen todos los niveles sin faldones.
  */
 
 import { TILE as CHUNK } from "./tile-size";
@@ -31,6 +32,8 @@ interface Chunk {
   /** Tiene tierra y mar: la costa se ve mal con triángulos grandes → un nivel más fino. */
   coast: boolean;
   lastLevel?: number;
+  width: number;
+  height: number;
   box: THREE.Box3;
   center: THREE.Vector3;
 }
@@ -48,6 +51,8 @@ export class ChunkedTerrain {
   private chunks: Chunk[] = [];
   private offsets: THREE.InstancedBufferAttribute[] = [];
   private trisPerInstance: number[] = [];
+  private batchLevels: number[] = [];
+  private batches = new Map<string,number>();
   private frustum = new THREE.Frustum();
   private m = new THREE.Matrix4();
   private tmp = new THREE.Vector3();
@@ -88,7 +93,7 @@ export class ChunkedTerrain {
         const x0 = col * cell - halfW, x1 = Math.min(col + CHUNK, mw - 1) * cell - halfW;
         const z0 = row * cell - halfD, z1 = Math.min(row + CHUNK, mh - 1) * cell - halfD;
         this.chunks.push({
-          col, row, minH, maxH,
+          col, row, minH, maxH, width:Math.min(CHUNK,mw-1-col),height:Math.min(CHUNK,mh-1-row),
           allSea: !exactCoast && landNear === 0,
           coast: landCount > 0 && landCount < total,
           box: new THREE.Box3(new THREE.Vector3(x0, 0, z0), new THREE.Vector3(x1, 0, z1)),
@@ -96,32 +101,34 @@ export class ChunkedTerrain {
         });
       }
     }
-    STEPS.forEach((step, li) => {
-      const geo = chunkTemplate(step, exactCoast);
-      const offs = new THREE.InstancedBufferAttribute(new Float32Array(this.chunks.length * 2), 2);
-      offs.setUsage(THREE.DynamicDrawUsage);
-      geo.setAttribute("chunk", offs);
-      const mesh = new THREE.InstancedMesh(geo, materials[li], this.chunks.length);
-      mesh.frustumCulled = false; // el descarte lo hacemos por bloque
-      mesh.count = 0;
-      mesh.name = `terreno-lod${li}`;
-      this.meshes.push(mesh);
-      this.offsets.push(offs);
-      this.trisPerInstance.push(geo.index!.count / 3);
-      this.group.add(mesh);
-    });
+    const dimensions=new Map<string,{width:number;height:number;count:number}>();
+    for(const c of this.chunks){const key=c.width+','+c.height,d=dimensions.get(key);if(d)d.count++;else dimensions.set(key,{width:c.width,height:c.height,count:1});}
+    const native=heightfieldTemplate(1),nativePosition=native.getAttribute('position');
+    const nativeIds=new Map<string,number>();for(let i=0;i<nativePosition.count;i++)nativeIds.set(nativePosition.getX(i)+','+nativePosition.getY(i),i);
+    for(const {width,height,count} of dimensions.values())for(let li=0;li<(width===CHUNK&&height===CHUNK?STEPS.length:1);li++){
+      const geo=heightfieldTemplate(STEPS[li],width,height);
+      if(li===0){
+        const p=geo.getAttribute('position'),old=geo.index!,index=new Uint16Array(old.count);
+        for(let i=0;i<index.length;i++){const v=old.getX(i);index[i]=nativeIds.get(p.getX(v)+','+p.getY(v))!;}
+        geo.setIndex(new THREE.BufferAttribute(index,1));geo.setAttribute('position',nativePosition);geo.setAttribute('normal',native.getAttribute('normal'));
+      }
+      const offs=new THREE.InstancedBufferAttribute(new Float32Array(count*2),2);offs.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('chunk',offs);
+      const mesh=new THREE.InstancedMesh(geo,materials[li],count);mesh.frustumCulled=false;mesh.count=0;mesh.name='terreno-lod'+li;
+      this.batches.set(li+':'+width+':'+height,this.meshes.length);this.batchLevels.push(li);
+      this.meshes.push(mesh);this.offsets.push(offs);this.trisPerInstance.push(geo.index!.count/3);this.group.add(mesh);
+    }
     this.setExaggeration(k);
   }
 
   setMaterials(materials: THREE.Material[]) {
-    this.meshes.forEach((m, i) => (m.material = materials[i]));
+    this.meshes.forEach((m, i) => (m.material = materials[this.batchLevels[i]]));
   }
 
   setExaggeration(k: number) {
     this.k = k;
     for (const c of this.chunks) {
       // margen para faldones y para el cierre del borde
-      c.box.min.y = c.minH * k - 200;
+      c.box.min.y = c.minH * k - 1;
       c.box.max.y = c.maxH * k + 5;
       c.center.y = ((c.minH + c.maxH) / 2) * k;
     }
@@ -133,7 +140,7 @@ export class ChunkedTerrain {
     this.m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.m);
     const pxPerRad = viewportHeightPx / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
-    const counts = [0, 0, 0, 0];
+    const counts = this.meshes.map(()=>0),levels=[0,0,0,0];
     let culled = 0;
     for (const c of this.chunks) {
       if ((this.skipSea && c.allSea) || !this.frustum.intersectsBox(c.box)) {
@@ -150,9 +157,9 @@ export class ChunkedTerrain {
       }
       if (c.col + CHUNK > this.mw - 1 || c.row + CHUNK > this.mh - 1) li = 0;
       c.lastLevel = li;
-      const a = this.offsets[li];
-      a.setXY(counts[li], c.col, c.row);
-      counts[li]++;
+      const batch=this.batches.get(li+":"+c.width+":"+c.height)!;
+      this.offsets[batch].setXY(counts[batch], c.col, c.row);
+      counts[batch]++;levels[li]++;
     }
     let tris = 0;
     this.meshes.forEach((m, i) => {
@@ -160,17 +167,17 @@ export class ChunkedTerrain {
       this.offsets[i].needsUpdate = true;
       tris += counts[i] * this.trisPerInstance[i];
     });
-    this.stats = { visibles: this.chunks.length - culled, descartados: culled, porNivel: counts, triangulos: tris };
+    this.stats = { visibles: this.chunks.length - culled, descartados: culled, porNivel: levels, triangulos: tris };
     void this.tmp;
   }
 
   /** Bytes en GPU de la geometría (plantillas + desplazamientos de instancia). */
   geometryBytes() {
-    let b = 0;
+    let b = 0;const seen=new Set<unknown>();
     for (const m of this.meshes) {
       const g = m.geometry;
-      b += g.index!.array.byteLength;
-      for (const a of Object.values(g.attributes)) b += (a as THREE.BufferAttribute).array.byteLength;
+      b += g.index!.array.byteLength+m.instanceMatrix.array.byteLength;
+      for (const a of Object.values(g.attributes)) if(!seen.has(a)){b += (a as THREE.BufferAttribute).array.byteLength;seen.add(a);}
     }
     return b;
   }
@@ -180,64 +187,7 @@ export class ChunkedTerrain {
   }
 
   dispose() {
-    for (const m of this.meshes) m.geometry.dispose();
+    for (const m of this.meshes){m.geometry.dispose();m.dispose();}
   }
 }
 
-/**
- * Plantilla de bloque: (n+1)² vértices de grilla con paso `step` + un anillo de faldón.
- * `position` = (celda x, celda z, esFaldón). Índices de 16 bits.
- */
-function chunkTemplate(step: number, fixedBoundary: boolean) {
-  const n = CHUNK / step;
-  const verts = (n + 1) * (n + 1);
-  const pos: number[] = [];
-  for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) pos.push(i * step, j * step, 0);
-  const idx: number[] = [];
-  const v = (i: number, j: number) => j * (n + 1) + i;
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) {
-      const a = v(i, j), b = v(i, j + 1), c = v(i + 1, j + 1), d = v(i + 1, j);
-      if (fixedBoundary && step > 1 && (i===0 || j===0 || i===n-1 || j===n-1)) {
-        // El perímetro conserva todos sus vértices aunque cambie el LOD vecino.
-        const x=i*step, y=j*step;
-        const center=pos.length/3;
-        pos.push(x+step/2,y+step/2,0);
-        const ring: number[]=[];
-        const side=(sx:number,sy:number,dx:number,dy:number,split:boolean) => {
-          const count=split ? step : 1;
-          for(let t=0;t<count;t++) {
-            ring.push(pos.length/3); pos.push(sx+dx*t/count,sy+dy*t/count,0);
-          }
-        };
-        side(x,y,0,step,i===0);
-        side(x,y+step,step,0,j===n-1);
-        side(x+step,y+step,0,-step,i===n-1);
-        side(x+step,y,-step,0,j===0);
-        for(let t=0;t<ring.length;t++) idx.push(center,ring[t],ring[(t+1)%ring.length]);
-      } else idx.push(a, b, d, b, c, d);
-    }
-  }
-  // Faldón: copia de cada vértice del borde, bajada en el shader (position.z = 1).
-  if (!fixedBoundary) {
-  const ring: number[] = [];
-  for (let i = 0; i <= n; i++) ring.push(v(i, 0));
-  for (let j = 1; j <= n; j++) ring.push(v(n, j));
-  for (let i = n - 1; i >= 0; i--) ring.push(v(i, n));
-  for (let j = n - 1; j >= 1; j--) ring.push(v(0, j));
-  const skirtStart = verts;
-  ring.forEach((src) => pos.push(pos[src * 3], pos[src * 3 + 1], 1));
-  for (let r = 0; r < ring.length; r++) {
-    const a = ring[r], b = ring[(r + 1) % ring.length];
-    const a2 = skirtStart + r, b2 = skirtStart + ((r + 1) % ring.length);
-    // doble cara: el faldón puede verse desde cualquier lado
-    idx.push(a, a2, b, b, a2, b2, a, b, a2, b, b2, a2);
-  }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  // normal constante: la iluminación usa la normal de la textura de superficie
-  g.setAttribute("normal", new THREE.Float32BufferAttribute(new Float32Array(pos.length).map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
-  g.setIndex(new THREE.Uint16BufferAttribute(idx, 1));
-  return g;
-}

@@ -15,7 +15,8 @@ const {features} = JSON.parse(await fs.readFile(new URL(`../../../data/costa/${i
 const lines=JSON.parse(await fs.readFile(new URL(`../../../data/costa/${id}-lines.json`,import.meta.url)));
 if(lines.spatialReference.wkid!==3031 || lines.exceededTransferLimit)throw Error("Referencia de líneas inválida");
 const stride = 2, tile = 32;
-for (const level of meta.levels) {
+let reference;
+for (const level of [...meta.levels].sort((a,b)=>a.cellSizeM-b.cellSizeM)) {
   const step = level.cellSizeM * stride;
   const nx = Math.floor((level.width-1)/stride), ny = Math.floor((level.height-1)/stride);
   const cx = meta.origin[0]+level.cellSizeM/2, cy = meta.origin[1]-level.cellSizeM/2;
@@ -43,16 +44,49 @@ for (const level of meta.levels) {
   const hydro=reconcile({bytes:await fs.readFile(new URL(level.file,dir)),level,meta,nx,ny,cx,cy,step,stride,vertexLand,lines});
   for(let y=0;y<ny;y++)for(let x=0;x<nx;x++)if(!mask[y*nx+x]&&hydro.candidate(x,y))cells.add(y*nx+x);
   const tiles=new Map(), cuts=[];
+  const referenceFaces=new Map();
+  function fromReference(triangle){
+    const ref=reference;
+    const convert=([x,y])=>[(cx-ref.cx+x*step)/ref.step,(ref.cy-cy+y*step)/ref.step];
+    const tri=triangle.map(convert);
+    const xs=tri.map(p=>p[0]), ys=tri.map(p=>p[1]);
+    const left=Math.floor(Math.min(...xs)),top=Math.floor(Math.min(...ys));
+    const right=Math.ceil(Math.max(...xs)),bottom=Math.ceil(Math.max(...ys));
+    if(left<0||top<0||right>ref.nx||bottom>ref.ny)return null;
+    const parts=[];
+    for(let j=top;j<bottom;j++)for(let i=left;i<right;i++){
+      const id=j*ref.nx+i;
+      const cut=ref.faces.get(id);
+      if(cut)parts.push(...cut);
+      else if(ref.mask[id])parts.push([[[i,j],[i+1,j],[i+1,j+1],[i,j+1],[i,j]]]);
+    }
+    if(!parts.length)return [];
+    const result=combinePolygons(parts,[tri],ClipperLib.ClipType.ctIntersection);
+    return result.map(poly=>poly.map(ring=>ring.map(([x,y])=>[(ref.cx-cx+x*ref.step)/step,(cy-ref.cy+y*ref.step)/step])));
+  }
+  if(reference){
+    for(const id of reference.faces.keys()){
+      const x=Math.floor((reference.cx-cx+(id%reference.nx)*reference.step)/step);
+      const y=Math.floor((cy-reference.cy+Math.floor(id/reference.nx)*reference.step)/step);
+      for(let j=y-1;j<=y+1;j++)for(let i=x-1;i<=x+1;i++)
+        if(i>=0&&j>=0&&i<nx&&j<ny)cells.add(j*nx+i);
+    }
+  }
   for(const id of cells) {
     const x=id%nx,y=Math.floor(id/nx),tx=x-x%tile,ty=y-y%tile,key=ty*nx+tx;
     if(!tiles.has(key)) tiles.set(key,clip.intersection(land,[[[tx,ty],[tx+tile,ty],[tx+tile,ty+tile],[tx,ty+tile],[tx,ty]]]));
     const shapes=tiles.get(key);
     const faces=[]; let area=0;
-    for(const [half,tri] of [[0,[[x,y],[x,y+1],[x+1,y]]],[1,[[x,y+1],[x+1,y+1],[x+1,y]]]]) {
+    const alternate=hydro.diagonal(x,y);
+    for(const [half,tri] of (alternate ? [[2,[[x,y],[x,y+1],[x+1,y+1]]],[3,[[x,y],[x+1,y+1],[x+1,y]]]] : [[0,[[x,y],[x,y+1],[x+1,y]]],[1,[[x,y+1],[x+1,y+1],[x+1,y]]]])) {
       const original=clip.intersection(shapes,[tri]);
       const measured=hydro.footprint(tri);
       const coversTriangle=measured && tri.every(([x,y])=>measured[0].some(([u,v])=>x===u && y===v));
-      const result=coversTriangle ? [[[...tri,tri[0]]]] : measured ? unionTriangle(original,measured) : original;
+      const result=(reference ? fromReference(tri) : null) ?? (coversTriangle ? [[[...tri,tri[0]]]] : measured ? combinePolygons(original,measured,ClipperLib.ClipType.ctUnion) : original);
+      if(!reference && result.length){
+        if(!referenceFaces.has(id))referenceFaces.set(id,[]);
+        referenceFaces.get(id).push(...result);
+      }
       for(const poly of result) {
         const xy=[],holes=[];
         for(const ring of poly) {
@@ -74,6 +108,10 @@ for (const level of meta.levels) {
     if (Math.abs(area-1)<1e-12) {mask[id]=1;continue;}
     if(!(mask[id] && Math.abs(area-1)<1e-12) && (mask[id] || faces.length)) cuts.push([id,faces]);
   }
+  if(!reference){
+    for(const id of cells)if(!referenceFaces.has(id))referenceFaces.set(id,[]);
+    reference={cx,cy,step,nx,ny,mask,faces:referenceFaces};
+  }
   const runs = [];
   for(let y=0;y<ny;y++) for(let x=0;x<nx;) {
     if(!mask[y*nx+x]) { x++; continue; }
@@ -81,12 +119,13 @@ for (const level of meta.levels) {
     runs.push([y*nx+first,x-first]);
   }
   const out=gzipSync(JSON.stringify({nx,ny,runs,cuts}));
+  await fs.writeFile(new URL("costa-vector-"+level.name+".json.gz",dir),out);
   await bake(dir,meta,level,out);
   console.log(level.name,cuts.length,"celdas",out.length,"bytes");
 }
 
 
-function unionTriangle(original, measured) {
+function combinePolygons(original, measured, operation) {
   const scale=1e7;
   const paths=poly=>poly.map((ring,i)=>{
     const path=ring.map(([x,y])=>({X:Math.round(x*scale),Y:Math.round(y*scale)}));
@@ -97,7 +136,7 @@ function unionTriangle(original, measured) {
   c.AddPaths(original.flatMap(paths),ClipperLib.PolyType.ptSubject,true);
   c.AddPaths(paths(measured),ClipperLib.PolyType.ptClip,true);
   const tree=new ClipperLib.PolyTree();
-  c.Execute(ClipperLib.ClipType.ctUnion,tree,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);
+  c.Execute(operation,tree,ClipperLib.PolyFillType.pftNonZero,ClipperLib.PolyFillType.pftNonZero);
   return ClipperLib.JS.PolyTreeToExPolygons(tree).map(p=>[p.outer,...p.holes].map(r=>{
     const ring=r.map(({X,Y})=>[X/scale,Y/scale]);ring.push(ring[0]);return ring;
   }));

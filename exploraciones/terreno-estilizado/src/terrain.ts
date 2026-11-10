@@ -9,6 +9,8 @@ export interface Level {
   name: string;
   file: string;
   maskFile: string | null;
+  /** Aligned measured coverage, same dimensions, encoding, origin and datum. */
+  coverageFile?: string;
   width: number;
   height: number;
   cellSizeM: number;
@@ -35,6 +37,9 @@ export interface Terrain {
   geo: GeoMode;
   level: Level;
   heightsM: Float32Array;
+  provenance: BuiltMsg["provenance"];
+  /** Stable source grid for future material/environment layers, separate from LOD. */
+  grid: {width:number;height:number;cellSizeM:number;origin:[number,number];heightOffsetM:number;crs:"EPSG:3031"};
   widthM: number;
   depthM: number;
   seaLevelM: number | null;
@@ -63,22 +68,23 @@ export const MESH_STRIDE = 2;
 
 export class TerrainLoader {
   private worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-  private waiting = new Map<string, (m: BuiltMsg | UpdatedMsg) => void>();
+  private waiting = new Map<number, {resolve:(m:BuiltMsg|UpdatedMsg)=>void;reject:(e:Error)=>void}>();
+  private nextKey=0;
+  private nextRequest=0;
 
   constructor(private sun: Vec3) {
-    this.worker.onmessage = (e: MessageEvent<BuiltMsg | UpdatedMsg | { type: "error"; message: string }>) => {
-      const m = e.data;
-      if (m.type === "error") return console.error("Worker:", m.message);
-      const k = `${m.type}:${m.key}`;
-      this.waiting.get(k)?.(m);
-      this.waiting.delete(k);
+    this.worker.onerror=(e)=>{for(const p of this.waiting.values())p.reject(new Error(e.message));this.waiting.clear();};
+    this.worker.onmessage = (e:MessageEvent<BuiltMsg|UpdatedMsg|{type:'error';key:string;requestId?:number;message:string}>)=>{
+      const m=e.data;if(m.requestId===undefined)return;const pending=this.waiting.get(m.requestId);this.waiting.delete(m.requestId);
+      if(m.type==='error')pending?.reject(new Error(m.message));else pending?.resolve(m);
     };
   }
 
   private call<T extends BuiltMsg | UpdatedMsg>(reply: T["type"], payload: { type: string; key: string; [k: string]: unknown }, transfer: Transferable[] = []) {
-    return new Promise<T>((resolve) => {
-      this.waiting.set(`${reply}:${payload.key}`, resolve as (m: BuiltMsg | UpdatedMsg) => void);
-      this.worker.postMessage(payload, transfer);
+    const requestId=++this.nextRequest;
+    return new Promise<T>((resolve,reject) => {
+      this.waiting.set(requestId, {resolve:resolve as (m: BuiltMsg | UpdatedMsg) => void,reject});
+      this.worker.postMessage({...payload,requestId}, transfer);
     });
   }
 
@@ -90,13 +96,13 @@ export class TerrainLoader {
       if (r.ok) return { sdf: await r.arrayBuffer(), mask: null };
       return { sdf: null, mask: level.maskFile ? await get(`${dir}/${level.maskFile}`) : null };
     };
-    const [bin, { sdf, mask }, vector] = await Promise.all([get(`${dir}/${level.file}`), coast(), get(`${dir}/malla-${level.name}-${geo}.bin.gz`)]);
+    const [bin, { sdf, mask }, vector,coverage] = await Promise.all([get(`${dir}/${level.file}`), coast(), get(`${dir}/malla-${level.name}-${geo}.bin.gz`),level.coverageFile?get(`${dir}/${level.coverageFile}`):Promise.resolve(null)]);
     const fetchMs = performance.now() - t0;
-    const key = `${dir}/${level.file}`;
+    const key = `${dir}/${level.file}:${++this.nextKey}`;
     const b = await this.call<BuiltMsg>(
       "built",
-      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", sdf },
-      [bin, ...(vector ? [vector] : []), ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
+      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, coverage, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", sdf },
+      [bin,...(coverage?[coverage]:[]), ...(vector ? [vector] : []), ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
     );
 
     const dataTex = (data: Uint8Array, w: number, h: number) => {
@@ -147,7 +153,7 @@ export class TerrainLoader {
       if (geo === "completa") {
       const water = seaPlaneMaterial(su, waterGrid);
       return {
-        object: mesh, geo, level, heightsM: b.heightsM, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
+        object: mesh, geo, level, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
         meshSize: b.mesh, seaMaterial: water, ms: { fetch: fetchMs, ...b.ms },
         gpuBytes: () => ({ geometry: geomBytes, textures: Math.round((b.surface.byteLength + b.light.byteLength) * (4 / 3)) }),
         lodStats: () => null,
@@ -168,6 +174,7 @@ export class TerrainLoader {
           return { lightMs: r.ms.light };
         },
         dispose: () => {
+          this.worker.postMessage({type:"release",key});
           water.dispose();
           geometry.dispose();
           baseMat.dispose();
@@ -202,7 +209,7 @@ export class TerrainLoader {
     chunked.skipSea = style === "estilizado";
     const seaMat = seaPlaneMaterial(su, grid);
     return {
-      object: chunked.group, geo, level, heightsM: b.heightsM, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
+      object: chunked.group, geo, level, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
       meshSize: b.mesh, seaMaterial: seaMat, ms: { fetch: fetchMs, ...b.ms },
       gpuBytes: () => ({
         geometry: geomBytes + chunked.geometryBytes(),
@@ -240,6 +247,7 @@ export class TerrainLoader {
         return { lightMs: r.ms.light };
       },
       dispose: () => {
+          this.worker.postMessage({type:"release",key});
         geometry.dispose();
         baseMat.dispose();
         Object.values(styl).forEach(m => m.dispose());

@@ -1,0 +1,101 @@
+{
+  "zone": "Orcadas 8m",
+  "results": [
+    {
+      "label": "before",
+      "geometryBytes": 85392,
+      "views": [
+        {
+          "visibles": 36,
+          "descartados": 6,
+          "porNivel": [
+            13,
+            23,
+            0,
+            0
+          ],
+          "triangulos": 42632,
+          "degenerate": 2496,
+          "drawCalls": 2
+        },
+        {
+          "visibles": 32,
+          "descartados": 10,
+          "porNivel": [
+            12,
+            20,
+            0,
+            0
+          ],
+          "triangulos": 38496,
+          "degenerate": 0,
+          "drawCalls": 2
+        },
+        {
+          "visibles": 32,
+          "descartados": 10,
+          "porNivel": [
+            17,
+            15,
+            0,
+            0
+          ],
+          "triangulos": 45256,
+          "degenerate": 832,
+          "drawCalls": 2
+        }
+      ],
+      "totalTerrainGeometryBytes": 4508060,
+      "demTextureBytes": 7666667
+    },
+    {
+      "label": "after",
+      "geometryBytes": 82440,
+      "views": [
+        {
+          "visibles": 36,
+          "descartados": 6,
+          "porNivel": [
+            13,
+            23,
+            0,
+            0
+          ],
+          "triangulos": 40136,
+          "degenerate": 0,
+          "drawCalls": 3
+        },
+        {
+          "visibles": 32,
+          "descartados": 10,
+          "porNivel": [
+            12,
+            20,
+            0,
+            0
+          ],
+          "triangulos": 38496,
+          "degenerate": 0,
+          "drawCalls": 2
+        },
+        {
+          "visibles": 32,
+          "descartados": 10,
+          "porNivel": [
+            17,
+            15,
+            0,
+            0
+          ],
+          "triangulos": 44424,
+          "degenerate": 0,
+          "drawCalls": 3
+        }
+      ],
+      "totalTerrainGeometryBytes": 4505108,
+      "demTextureBytes": 7666667
+    }
+  ],
+  "scope": "Fixed camera CPU geometry accounting; artistic textures/ocean excluded; FPS/GPU time not measured.",
+  "networkLoading": "Whole level files remain; no per-chunk network streaming in this minimal pilot."
+}

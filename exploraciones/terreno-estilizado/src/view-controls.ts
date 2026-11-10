@@ -1,4 +1,4 @@
-import { SelectControl, SegmentedControl } from "dialkit/vanilla";
+import { ButtonGroup, SelectControl, SegmentedControl, Slider } from "dialkit/vanilla";
 import "dialkit/vanilla/styles.css";
 
 export function mountViewControls(style:()=>string, setStyle:(value:"base"|"estilizado")=>void) {
@@ -14,6 +14,31 @@ export function mountViewControls(style:()=>string, setStyle:(value:"base"|"esti
     source.addEventListener("change",sync);
     return sync;
   }
+  const date=host("solar-date") as HTMLInputElement;
+  const time=host("solar-time") as HTMLInputElement;
+  function setInstant(instant:Date) {
+    if(!Number.isFinite(instant.getTime())) return;
+    const utc=instant.toISOString();
+    date.value=utc.slice(0,10);
+    time.value=utc.slice(11,16);
+    time.dispatchEvent(new Event("change"));
+  }
+  // Hora del día como deslizador (UTC, pasos de 15 min = 0,25 h): mueve el sol en continuo.
+  const hourOf=()=>{const [h,m]=time.value.split(":").map(Number);return Math.round(((h||0)+(m||0)/60)*4)/4;};
+  const hourProps={label:"Hora (UTC)",value:hourOf(),min:0,max:23.75,step:0.25,unit:"h",
+    onChange(v:number){
+      const mins=Math.round(v*60), hh=String(Math.floor(mins/60)%24).padStart(2,"0"), mm=String(mins%60).padStart(2,"0");
+      if(time.value===hh+":"+mm) return;
+      time.value=hh+":"+mm;
+      time.dispatchEvent(new Event("change"));
+    }};
+  const hourSlider=Slider(host("dial-solar-hour"),hourProps);
+  const syncHour=()=>hourSlider.update({...hourProps,value:hourOf()});
+  time.addEventListener("change",syncHour);
+  date.addEventListener("change",syncHour);
+  ButtonGroup(host("dial-solar"),{buttons:[
+    {label:"Ahora",onClick:()=>setInstant(new Date())}
+  ]});
   select("base","Base");
   select("exaggeration","Altura del relieve");
   select("quality","Calidad gráfica");

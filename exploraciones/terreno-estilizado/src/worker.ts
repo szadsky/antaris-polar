@@ -1,3 +1,5 @@
+import {repairHeightfield,type HeightfieldRepair} from "./heightfield-repair";
+import { coastalNormals } from "./coastal-normals";
 import { TILE } from "./tile-size";
 /**
  * Web Worker del terreno estilizado. A partir de UNA grilla de alturas REMA arma:
@@ -17,7 +19,10 @@ export interface BuildMsg {
   seaDatum: number | null;
   vector?: ArrayBuffer;
   baked?: ArrayBuffer;
+  /** Optional measured coverage on exactly the same grid and vertical datum. */
+  coverage?: ArrayBuffer;
   key: string;
+  requestId?:number;
   bin: ArrayBuffer;
   mask: ArrayBuffer | null;
   /**
@@ -38,12 +43,14 @@ export interface BuildMsg {
 export interface UpdateMsg {
   type: "update";
   key: string;
+  requestId?:number;
   exaggeration: number;
   sun: Vec3;
 }
 export interface BuiltMsg {
   type: "built";
   key: string;
+  requestId?:number;
   positions: Float32Array;
   normals: Float32Array;
   uvs: Float32Array;
@@ -51,6 +58,7 @@ export interface BuiltMsg {
   surface: Uint8Array;
   light: Uint8Array;
   heightsM: Float32Array;
+  provenance: HeightfieldRepair;
   /** Alturas (m, sin exagerar) a resolución de malla; NaN → 0. Textura de alturas del LOD. */
   meshHeights: Float32Array;
   /** 1 = la celda de malla es tierra/hielo (costa ADD), 0 = mar. */
@@ -63,6 +71,7 @@ export interface BuiltMsg {
 export interface UpdatedMsg {
   type: "updated";
   key: string;
+  requestId?:number;
   positions: Float32Array;
   normals: Float32Array;
   surface: Uint8Array;
@@ -89,12 +98,18 @@ interface Grid {
 }
 
 const SHORE_M = 160;
+/** Fondo bajo el agua cerca de la costa (reconstrucción artística, no batimetría medida). */
+const SEABED = true;
+const SEABED_APRON_M = 100; // franja de fondo dibujada (más allá, el piso plano del océano)
+const SEABED_MAX_M = 30; // = profundidad del piso en ocean.ts
+const SEABED_SLOPE = (SEABED_MAX_M - 1.5) / SEABED_APRON_M; // llega al piso justo al final de la franja
 const grids = new Map<string, Grid>();
 const post = (m: unknown, t: Transferable[]) => (self as unknown as Worker).postMessage(m, t);
 
-self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
+self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg | {type:"release";key:string}>) => {
   try {
     const msg = e.data;
+    if(msg.type === "release"){grids.delete(msg.key);return;}
     if (msg.type === "build") {
       const t0 = performance.now();
       const raw = await gunzipMaybe(msg.bin);
@@ -108,7 +123,10 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
       const q = decodeDeltaPlanar(raw, msg.width);
       const heights = new Float32Array(q.length);
       for (let i = 0; i < q.length; i++) heights[i] = q[i] === 0 ? NaN : (q[i] - 1) * msg.stepM;
-      if (!msg.vector && !msg.baked) dequantize(heights, msg.width, msg.height, msg.stepM, 12);
+      let coverage:Float32Array|undefined;
+      if(msg.coverage){const cq=decodeDeltaPlanar(await gunzipMaybe(msg.coverage),msg.width);if(cq.length!==heights.length)throw Error('Coverage dimensions mismatch');coverage=Float32Array.from(cq,q=>q?(q-1)*msg.stepM:NaN);}
+      const provenance=repairHeightfield(heights,msg.width,msg.height,land,coverage);
+      // All geometry paths consume the same repaired heightfield and provenance.
       const seaM = msg.seaDatum ?? seaLevel(heights, land);
       const t1 = performance.now();
 
@@ -121,16 +139,17 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const t3 = performance.now();
       const vector: VectorCoast | undefined = msg.vector ? JSON.parse(new TextDecoder().decode(await gunzipMaybe(msg.vector))) : undefined;
-      const m = msg.baked ? readBaked(await gunzipMaybe(msg.baked),g) : meshFrom(g, vector);
+      const m = msg.baked && provenance.indices.length===0 ? readBaked(await gunzipMaybe(msg.baked),g) : meshFrom(g, vector);
       const { meshHeights, meshLand } = meshResolution(g);
       const heightsCopy = heights.slice();
       const out: BuiltMsg = {
         type: "built",
-        key: msg.key,
+        key: msg.key,requestId:msg.requestId,
         ...m,
         surface,
         light,
         heightsM: heightsCopy,
+        provenance,
         meshHeights,
         meshLand,
         seaLevelM: seaM,
@@ -138,22 +157,23 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg>) => {
       };
       post(out, [
         m.positions.buffer, m.normals.buffer, m.uvs.buffer, m.index.buffer,
-        surface.buffer, light.buffer, heightsCopy.buffer, meshHeights.buffer, meshLand.buffer,
+        surface.buffer, light.buffer, heightsCopy.buffer, meshHeights.buffer, meshLand.buffer,provenance.indices.buffer,provenance.sources.buffer,
       ]);
     } else {
       const g = grids.get(msg.key);
-      if (!g) return;
+      if (!g) throw Error("Terrain has been released");
       const surface = surfaceTexture(g, msg.exaggeration);
       const t0 = performance.now();
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const ms = { light: performance.now() - t0 };
       // Con LOD la exageración es un uniform del shader: no hace falta rehacer vértices.
       const { positions, normals } = emptyMesh(g);
-      const out: UpdatedMsg = { type: "updated", key: msg.key, positions, normals, surface, light, ms };
+      const out: UpdatedMsg = { type: "updated", key: msg.key,requestId:msg.requestId, positions, normals, surface, light, ms };
       post(out, [positions.buffer, normals.buffer, surface.buffer, light.buffer]);
     }
   } catch (err) {
-    post({ type: "error", message: err instanceof Error ? err.message : String(err) }, []);
+    if(e.data.type==="build")grids.delete(e.data.key);
+    post({ type: "error", key:e.data.key, requestId:"requestId" in e.data?e.data.requestId:undefined, message: err instanceof Error ? err.message : String(err) }, []);
   }
 };
 
@@ -167,7 +187,7 @@ function surfaceTexture(g: Grid, k: number): Uint8Array {
       const isSea = land ? land[i] === 0 : false;
       let nx = 0;
       let nz = 0;
-      if (!isSea || heights[i] > g.sea || (sdf && sdf[i] >= -cell)) [nx, nz] = sobelNormalXZ(heights, w, h, x, y, cell, k);
+      if (!isSea || heights[i] > g.sea || (sdf && sdf[i] >= -cell)) [nx, nz] = sobelNormalXZ(heights, w, h, x, y, cell, k, land, g.sea);
       out[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
       out[i * 4 + 1] = Math.round((nz * 0.5 + 0.5) * 255);
       out[i * 4 + 2] = cavity[i];
@@ -185,12 +205,22 @@ function surfaceTexture(g: Grid, k: number): Uint8Array {
  * Frente a las diferencias centrales simples, atenúa el ruido residual de la
  * cuantización, que la exageración vertical amplificaba en franjas.
  */
-function sobelNormalXZ(hs: Float32Array, w: number, h: number, x: number, y: number, cell: number, k: number) {
+function sobelNormalXZ(hs: Float32Array, w: number, h: number, x: number, y: number, cell: number, k: number, land: Uint8Array | null, sea: number) {
   const c = hs[y * w + x];
   const at = (xx: number, yy: number) => {
     xx = xx < 0 ? 0 : xx >= w ? w - 1 : xx;
     yy = yy < 0 ? 0 : yy >= h ? h - 1 : yy;
-    const v = hs[yy * w + xx];
+    const idx=yy*w+xx;
+    const v=hs[idx];
+    // Marine fill is not a measured hillside. Use a one-sided derivative on land.
+    if(land && Number.isFinite(c) && c>sea && !land[idx] && v<=sea){
+      const ox=2*x-xx, oy=2*y-yy;
+      if(ox>=0 && ox<w && oy>=0 && oy<h){
+        const opposite=oy*w+ox;
+        if(land[opposite] && Number.isFinite(hs[opposite]))return 2*c-hs[opposite];
+      }
+      return c;
+    }
     return v === v ? v : c === c ? c : 0;
   };
   const a = at(x - 1, y - 1), b = at(x, y - 1), cc = at(x + 1, y - 1);
@@ -435,12 +465,12 @@ function readBaked(bytes: Uint8Array, g: Grid) {
      width!==Math.floor((g.w-1)/g.stride)+1 || height!==Math.floor((g.h-1)/g.stride)+1)
     throw Error("Malla costera incompatible con el relieve");
   const posOffset=bytes.byteOffset+24;
-  const positions=new Float32Array(bytes.buffer,posOffset,n*3).slice();
-  const index=new Uint32Array(bytes.buffer,posOffset+n*12,ni).slice();
+  const source=new Float32Array(bytes.buffer,posOffset,n*3);
+  const sourceIndex=new Uint32Array(bytes.buffer,posOffset+n*12,ni);
+  const {positions,index,normals}=coastalNormals(source,sourceIndex);
   const tileKinds=bytes.slice(24+n*12+ni*4);
-  const normals=new Float32Array(n*3),uvs=new Float32Array(n*2);
-  for(let i=0;i<n;i++) {
-    normals[i*3+1]=1;
+  const uvs=new Float32Array(positions.length/3*2);
+  for(let i=0;i<positions.length/3;i++) {
     uvs[i*2]=(positions[i*3]/g.cell+(width-1)*g.stride/2+0.5)/g.w;
     uvs[i*2+1]=(positions[i*3+2]/g.cell+(height-1)*g.stride/2+0.5)/g.h;
   }
@@ -464,6 +494,13 @@ function meshFrom(g: Grid, vector?: VectorCoast) {
   const addDistance = (i: number) => sdf ? sdf[i] : land && !land[i] ? -1 : 1;
   // Si ADD corta una ladera por encima del agua, seguir únicamente muestras REMA
   // emergidas y conectadas a esa tierra hasta la intersección real con el plano.
+  // Identify the dominant encoded ocean plateau, without changing the source DEM.
+  const oceanCodes=new Map<number,number>();let oceanSamples=0,oceanMode=g.sea,modeCount=0;
+  if(land)for(let i=0;i<heights.length;i+=17)if(!land[i]&&Number.isFinite(heights[i])){
+    const v=heights[i],n=(oceanCodes.get(v)??0)+1;oceanCodes.set(v,n);oceanSamples++;
+    if(n>modeCount){modeCount=n;oceanMode=v;}
+  }
+  const oceanCeiling=Math.max(g.sea,modeCount>oceanSamples*.5?oceanMode+.5:g.sea);
   const shore = new Uint8Array(heights.length);
   if (land && !vector) {
     const queue = new Int32Array(heights.length);
@@ -471,7 +508,7 @@ function meshFrom(g: Grid, vector?: VectorCoast) {
     function visit(i: number) {
       if (shore[i] || land![i] || !Number.isFinite(heights[i])) return;
       shore[i] = 1;
-      if (heights[i] > g.sea) queue[tail++] = i;
+      if (heights[i] > oceanCeiling) queue[tail++] = i;
     }
     function neighbors(i: number) {
       if (i % w) visit(i - 1);
@@ -549,26 +586,153 @@ function meshFrom(g: Grid, vector?: VectorCoast) {
       if (cellLand![id]) indices.push(sample(a),sample(b),sample(a+stride),sample(b),sample(b+stride),sample(a+stride));
       return;
     }
-    for(let j=0;j<faces.length;j+=7) {
-      const lower=faces[j]===0;
-      for(let n=1;n<7;n+=2) {
-        const u=faces[j+n], v=faces[j+n+1];
-        const px=x+stride*u, py=y+stride*v;
-        if(Number.isInteger(px/stride) && Number.isInteger(py/stride)) {
-          indices.push(sample(py*w+px)); continue;
-        }
+    for(let j=0;j<faces.length;j+=7){
+      const ids:number[]=[];
+      for(let k=1;k<7;k+=2){
+        const u=faces[j+k],v=faces[j+k+1],px=x+stride*u,py=y+stride*v;
         const key=Math.round(px*1e7)+","+Math.round(py*1e7);
-        let k=shared.get(key);
-        if(k===undefined) {
-          const z=lower ? heights[a]*(1-u-v)+heights[a+stride]*u+heights[b]*v
-            : heights[b]*(1-u)+heights[a+stride]*(1-v)+heights[b+stride]*(u+v-1);
-          k=vertex(px,py,z); shared.set(key,k);
+        let id=shared.get(key);
+        if(id===undefined){
+          // Both sides of an edge use the original two mesh endpoints.
+          const h=faces[j]===2 ? heights[a]*(1-v)+heights[b]*(v-u)+heights[b+stride]*u :
+            faces[j]===3 ? heights[a]*(1-u)+heights[b+stride]*v+heights[a+stride]*(u-v) :
+            faces[j]===0 ? heights[a]*(1-u-v)+heights[a+stride]*u+heights[b]*v :
+            heights[b]*(1-u)+heights[a+stride]*(1-v)+heights[b+stride]*(u+v-1);
+          id=vertex(px,py,h);shared.set(key,id);
         }
-        indices.push(k);
+        ids.push(id);
       }
+      indices.push(...ids);
     }
   }
   const tileKinds: number[] = [];
+  if (SEABED && !vector) {
+    // Costa por intersección con el plano del mar, sin recortar triángulos (el recorte dejaba
+    // "dientes": bordes a la altura de la cresta y vértices de mar en el relleno de REMA).
+    // Las celdas de costa y las de mar a menos de SEABED_APRON_M se dibujan enteras: la tierra queda
+    // sobre el mar y el fondo baja con la distancia a la costa. El fondo es una reconstrucción
+    // artística (no hay batimetría en este recorte); se ve a través del agua cerca de la orilla.
+    const z = new Float32Array(mw * mh), isLand = new Uint8Array(mw * mh), near = new Uint8Array(mw * mh), hole = new Uint8Array(mw * mh);
+    for (let my = 0; my < mh; my++) for (let mx = 0; mx < mw; mx++) {
+      const m = my * mw + mx, i = my * stride * w + mx * stride, v = heights[i];
+      const ground = land ? land[i] === 1 || (shore[i] !== 0 && v > oceanCeiling) : true;
+      if (!Number.isFinite(v)) { hole[m] = 1; continue; } // hueco sin dato tierra adentro
+      if (ground) { isLand[m] = 1; near[m] = 1; z[m] = v; continue; }
+      const d = (1 - g.shore[m] / 255) * SHORE_M;
+      near[m] = d < SEABED_APRON_M ? 1 : 0;
+      z[m] = g.sea - Math.min(SEABED_MAX_M, 1.5 + d * SEABED_SLOPE);
+      if (Number.isFinite(v) && v < z[m]) z[m] = v;
+    }
+    // Costa sin escalones: los vértices de costa (tierra o mar) se corren en horizontal hasta la línea
+    // de costa ADD (distancia con signo sub-celda, gradiente por diferencias centrales). Como mucho 0,45 de
+    // celda para no plegar triángulos; la altura no cambia y no se agregan vértices. Los vértices del
+    // borde de un bloque se dejan fijos (el bloque vecino puede ser del LOD instanciado).
+    const offX = new Float32Array(mw * mh), offZ = new Float32Array(mw * mh);
+    // Keep native XY coordinates so baked cells and LOD blocks share identical edges.
+    const ids = new Int32Array(mw * mh).fill(-1);
+    const moved = new Map<number, number>(); // id de vértice desplazado → índice de grilla
+    const corner = (m: number) => {
+      if (ids[m] >= 0) return ids[m];
+      ids[m] = vertex((m % mw) * stride + offX[m], Math.floor(m / mw) * stride + offZ[m], z[m]);
+      if (offX[m] || offZ[m]) moved.set(ids[m], m);
+      return ids[m];
+    };
+    const fineIds=new Map<number,number>();
+    const nativeVertex=(x:number,y:number)=>{
+      if(x%stride===0&&y%stride===0)return corner((y/stride)*mw+x/stride);
+      const i=y*w+x,cached=fineIds.get(i);if(cached!==undefined)return cached;
+      const v=heights[i];
+      const elevation=(!land||land[i]||v>oceanCeiling)?v:Math.min(v,g.sea-2);
+      const id=vertex(x,y,elevation);fineIds.set(i,id);return id;
+    };
+    const firstIndex = indices.length;
+    for (let row = 0; row < mh - 1; row += TILE) for (let col = 0; col < mw - 1; col += TILE) {
+      const r1 = Math.min(row + TILE, mh - 1), c1 = Math.min(col + TILE, mw - 1);
+      let inside = false, outside = false, apron = false;
+      for (let y = row; y <= r1; y++) for (let x = col; x <= c1; x++) {
+        const m = y * mw + x;
+        if (isLand[m] && z[m] > g.sea) inside = true; else { outside = true; if (near[m]) apron = true; }
+      }
+      for(let y=row*stride;y<=r1*stride && !outside;y++)for(let x=col*stride;x<=c1*stride;x++)
+        if(!Number.isFinite(heights[y*w+x]))outside=true;
+      const kind = !inside && !apron ? 0 : inside && !outside ? 1 : 2;
+      tileKinds.push(kind);
+      if (!(kind === 2 || (g.full && kind === 1))) continue;
+      const cellQuad = (x: number, y: number, s: number) => {
+        const a = y * mw + x, b = a + s * mw, c = b + s, d = a + s;
+
+        if (!(near[a] || near[b] || near[c] || near[d])) return;
+        // Refine only crossing cells with native DEM samples. Split a shared edge
+        // iff its endpoints straddle water, so the adjacent cell makes the same split.
+        if(s===1 && stride===2 && !hole[a]&&!hole[b]&&!hole[c]&&!hole[d]){
+          const grid=[a,b,c,d],wet=grid.map(i=>z[i]<=g.sea);
+          const sx=x*stride,sy=y*stride,mid=(sy+1)*w+sx+1;
+          if(wet.some(Boolean)&&wet.some(v=>!v)&&Number.isFinite(heights[mid])){
+            const xy=[[sx,sy],[sx,sy+2],[sx+2,sy+2],[sx+2,sy]],ring:number[]=[];
+            let valid=true;
+            for(let k=0;k<4;k++)if(wet[k]!==wet[(k+1)%4]){
+              const next=xy[(k+1)%4],cur=xy[k];
+              if(!Number.isFinite(heights[((cur[1]+next[1])/2)*w+(cur[0]+next[0])/2]))valid=false;
+            }
+            if(valid){
+              for(let k=0;k<4;k++){
+                const cur=xy[k],next=xy[(k+1)%4];ring.push(corner(grid[k]));
+                if(wet[k]!==wet[(k+1)%4])ring.push(nativeVertex((cur[0]+next[0])/2,(cur[1]+next[1])/2));
+              }
+              const center=nativeVertex(sx+1,sy+1);
+              for(let k=0;k<ring.length;k++)indices.push(ring[k],ring[(k+1)%ring.length],center);
+              return;
+            }
+          }
+          // Pick the diagonal supported by the measured cell centre.
+          if(Number.isFinite(heights[mid]) && Math.abs((z[a]+z[c])/2-heights[mid])+.5<Math.abs((z[b]+z[d])/2-heights[mid])){
+            indices.push(corner(a),corner(b),corner(c),corner(a),corner(c),corner(d));return;
+          }
+        }
+        if(hole[b] || hole[d]){
+          if(!hole[a] && !hole[b] && !hole[c])indices.push(corner(a),corner(b),corner(c));
+          if(!hole[a] && !hole[c] && !hole[d])indices.push(corner(a),corner(c),corner(d));
+        }else{
+          if(!hole[a])indices.push(corner(a),corner(b),corner(d));
+          if(!hole[c])indices.push(corner(b),corner(c),corner(d));
+        }
+      };
+      // Fondo enteramente bajo el agua: bloques de 2×2 celdas (16 m). La costa sigue a 8 m.
+      for (let y = row; y < r1; y += 2) for (let x = col; x < c1; x += 2) {
+        let seaBlock = y + 2 <= r1 && x + 2 <= c1;
+        for (let dy = 0; dy <= 2 && seaBlock; dy++) for (let dx = 0; dx <= 2; dx++) {
+          const m = (y + dy) * mw + x + dx;
+          // un vértice desplazado en el medio de un lado abriría una grieta con las celdas finas vecinas
+          if (isLand[m] || hole[m] || offX[m] || offZ[m]) { seaBlock = false; break; }
+        }
+        if (seaBlock) { cellQuad(x, y, 2); continue; }
+        for (let yy = y; yy < Math.min(y + 2, r1); yy++) for (let xx = x; xx < Math.min(x + 2, c1); xx++) cellQuad(xx, yy, 1);
+      }
+    }
+    // Sin pliegues: si un triángulo quedó invertido o casi sin área en planta por los desplazamientos,
+    // sus vértices vuelven a la grilla (pocas decenas por base).
+    const gridX = (id: number) => moved.has(id) ? (moved.get(id)! % mw) * stride * cell - halfW : positions[id * 3];
+    const gridZ = (id: number) => moved.has(id) ? Math.floor(moved.get(id)! / mw) * stride * cell - halfD : positions[id * 3 + 2];
+    for (let pass = 0; pass < 4 && moved.size; pass++) {
+      let reset = 0;
+      for (let k = firstIndex; k < indices.length; k += 3) {
+        const a = indices[k], b = indices[k + 1], c = indices[k + 2];
+        if (!moved.has(a) && !moved.has(b) && !moved.has(c)) continue;
+        const area = (positions[b * 3] - positions[a * 3]) * (positions[c * 3 + 2] - positions[a * 3 + 2]) - (positions[b * 3 + 2] - positions[a * 3 + 2]) * (positions[c * 3] - positions[a * 3]);
+        const before = (gridX(b) - gridX(a)) * (gridZ(c) - gridZ(a)) - (gridZ(b) - gridZ(a)) * (gridX(c) - gridX(a));
+        if (area * Math.sign(before) > 0.1 * Math.abs(before)) continue;
+        for (const v of [a, b, c]) {
+          const m = moved.get(v);
+          if (m === undefined) continue;
+          const x = (m % mw) * stride, y = Math.floor(m / mw) * stride;
+          positions[v * 3] = x * cell - halfW; positions[v * 3 + 2] = y * cell - halfD;
+          uvs[v * 2] = (x + 0.5) / w; uvs[v * 2 + 1] = (y + 0.5) / h;
+          moved.delete(v); reset++;
+        }
+      }
+      if (!reset) break;
+    }
+  } else
   for (let row=0; row<mh-1; row+=TILE) for (let col=0; col<mw-1; col+=TILE) {
     const x0 = col*stride, y0=row*stride;
     const x1=Math.min(col+TILE,mw-1)*stride, y1=Math.min(row+TILE,mh-1)*stride;

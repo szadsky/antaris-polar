@@ -1,3 +1,6 @@
+import { solarPosition } from "./solar";
+import { outerTerrain } from "./outer-terrain";
+import { createDiorama } from "./diorama";
 import { mountViewControls } from "./view-controls";
 import { createOcean } from "./ocean";
 import { loadTerrainTextures } from "./terrain-textures";
@@ -26,7 +29,7 @@ const materialEl = $<HTMLSelectElement>("material");
 const qualityNoteEl = $("quality-note");
 
 /** Sol de la interpretación: bajo (≈20°) y de costado respecto de la vista inicial. Fijo. */
-const SUN: Vec3 = normalize([-0.8, 0.36, 0.5]);
+
 
 const showStatus = (msg: string) => ((statusEl.hidden = false), (statusEl.textContent = msg));
 
@@ -67,9 +70,23 @@ async function main() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
+  const dateInput=$<HTMLInputElement>("solar-date"), timeInput=$<HTMLInputElement>("solar-time");
+  const noon=new Date();
+  noon.setUTCHours(12,Math.round(-meta.base.lon*4),0,0);
+  dateInput.value=noon.toISOString().slice(0,10);
+  timeInput.value=noon.toISOString().slice(11,16);
+  const readSun=()=>solarPosition(new Date(dateInput.value+"T"+timeInput.value+"Z"),meta.base.lat,meta.base.lon);
+  let solar=readSun();
+  const SUN:Vec3=solar.direction.toArray();
   const L0 = plan[0];
   const size = Math.max((L0.width - 1) * L0.cellSizeM, (L0.height - 1) * L0.cellSizeM);
   const scene = new THREE.Scene();
+  const diorama=params.get("vista")==="diorama" ? createDiorama() : null;
+  const expanded = !diorama && baseId==="brown" && params.get("area")==="12";
+  // The preprocessed mesh closes the land perimeter.
+  const outerData = expanded ? await fetch(dir+"/exterior-60m.bin").then(async r=>{if(!r.ok) throw Error("Falta el relieve exterior"); return new Int16Array(await r.arrayBuffer());}) : null;
+  let outer: ReturnType<typeof outerTerrain> | undefined;
+  if(diorama) scene.add(diorama.group);
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 5, size * 8);
   const controls = new MapControls(camera, canvas);
   Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, screenSpacePanning: false, minDistance: 60, maxDistance: size * 2.2, keyPanSpeed: 20 });
@@ -82,9 +99,27 @@ async function main() {
   const hemi = new THREE.HemisphereLight();
   const sun = new THREE.DirectionalLight();
   scene.add(hemi, sun);
-  const ocean=createOcean(size,new THREE.Vector3(...SUN),device.mobile,initialTier);
+  const ocean=createOcean(size,new THREE.Vector3(...SUN),device.mobile,initialTier,expanded);
   const seaPlane=ocean.mesh;
   scene.add(seaPlane);
+  const disc=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),new THREE.MeshBasicMaterial({color:0xfff3d7,fog:false,toneMapped:false}));
+  disc.scale.setScalar(camera.far*.8*Math.tan(THREE.MathUtils.degToRad(.266)));
+  scene.add(disc);
+  function illuminate(){
+    const elevation=THREE.MathUtils.radToDeg(solar.altitude);
+    const daylight=THREE.MathUtils.smoothstep(elevation,-12,5);
+    const direct=THREE.MathUtils.smoothstep(elevation,0,12);
+    sun.position.copy(solar.direction).multiplyScalar(size);
+    sun.intensity=(style==="base"?2.2:3.3)*direct;
+    sun.color.set(0xffac72).lerp(new THREE.Color(0xfff3e0),direct);
+    hemi.intensity=.08+daylight;
+    const sky=scene.background as THREE.Color;
+    sky.set(0x101c34).lerp(new THREE.Color(style==="base"?0x9fb6c6:0xa6c8e6),daylight);
+    if(scene.fog) scene.fog.color.copy(sky);
+    disc.visible=elevation>0;
+    ocean.setSun(solar.direction,sun.color,direct,daylight);
+    $("solar-reading").textContent="Altura "+elevation.toFixed(1)+"° · Azimut "+((THREE.MathUtils.radToDeg(solar.bearing)+360)%360).toFixed(1)+"° desde el norte real";
+  }
   const LOOKS: Record<Style, () => void> = {
     base: () => {
       // Idéntico a terreno-nitidez.
@@ -163,6 +198,7 @@ async function main() {
     const moved = controls.update();
     keepCameraAboveSurface();
     const now = performance.now();
+    disc.position.copy(camera.position).addScaledVector(solar.direction,camera.far*.8);
     const waves = wavesOn();
     if (waves && terrain) { terrain.styleUniforms.uTime.value = now / 1000; ocean.time(now / 1000); }
     if (!moved && !dirty && waves) {
@@ -228,12 +264,14 @@ async function main() {
     baseBtn.setAttribute("aria-pressed", String(s === "base"));
     styBtn.setAttribute("aria-pressed", String(s === "estilizado"));
     LOOKS[s]();
+    if(diorama){scene.background=new THREE.Color("#c9d6d9");scene.fog=null;}
     ocean.refresh();
+    illuminate();
     terrain?.setStyle(s);
     noteEl.textContent =
       s === "base"
         ? "Base: sombreado de terreno-nitidez (luz y color por píxel, sin sombras, dos colores)."
-        : "Interpretación artística basada en REMA: relieve real; sombras de un sol fijo, materiales, hielo costero y bordes son estilización, no reconstrucción exacta.";
+        : "Interpretación artística basada en REMA: relieve real; sombras según fecha y hora, materiales, hielo costero y bordes son estilización, no reconstrucción exacta.";
     requestRender();
   };
   baseBtn.addEventListener("click", () => setStyle("base"));
@@ -298,17 +336,25 @@ async function main() {
     if (e.key.toLowerCase() === "d") setDetail(!detail);
     if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : variant === "c" ? "n" : "a");
   });
-  exaggerationEl.addEventListener("change", async () => {
+  let updating=false, pending=false;
+  async function updateLighting(){ 
+    pending=true;
+    if(updating) return;
+    updating=true;
+    try { while(pending){
+    pending=false;
     exaggeration = Number(exaggerationEl.value);
     const t = terrain;
     if (!t) return;
     await t.update(exaggeration);
-    if (terrain !== t) return;
+    if (terrain !== t) continue;
     placeSea(t);
     ocean.refresh();
     pin?.setExaggeration(exaggeration);
     requestRender();
-  });
+    }} finally {updating=false;}
+  }
+  exaggerationEl.addEventListener("change",updateLighting);
   $("copy-metrics").addEventListener("click", async () => {
     const json = JSON.stringify({ base: baseId, estilo: style, ...metrics.snapshot(), banco: benchResult }, null, 2);
     try {
@@ -330,7 +376,15 @@ async function main() {
   // ─── Carga progresiva ───
   const loader = new TerrainLoader(SUN);
   const t0 = performance.now();
-  const placeSea = (t: Terrain) => (seaPlane.position.y = (t.seaLevelM ?? 0) * exaggeration - 0.03);
+  const placeSea = (t: Terrain) => {
+    if(!expanded && !diorama) t.styleUniforms.uEdgeHaze.value=-1;
+    if(outer) outer.scale.y=exaggeration;
+    seaPlane.position.y=(t.seaLevelM??0)*exaggeration-.03;
+    if(diorama){
+      seaPlane.scale.set(t.widthM/(size*8),t.depthM/(size*8),1);
+      diorama.update(t,exaggeration);
+    }
+  };
   const show = (t: Terrain) => {
     if (terrain) {
       scene.remove(terrain.object);
@@ -342,6 +396,12 @@ async function main() {
     t.setStyle(style);
     t.setDetail(detail && TIERS[quality.tier].detail);
     t.setLodTarget(TIERS[quality.tier].lodPx);
+    if(outerData){
+      if(outer){scene.remove(outer); outer.geometry.dispose(); outer.material.dispose();}
+      outer=outerTerrain(t,outerData,meta.heights.minM);
+      scene.add(outer);
+      t.styleUniforms.uEdgeHaze.value=-1;
+    }
     scene.add(t.object);
     ocean.bind(t);
     placeSea(t);
@@ -353,7 +413,7 @@ async function main() {
       pinEl.textContent = meta.base.nombre.replace(/^Base (Antártica )?/, "Base ");
       pinEl.hidden = document.body.classList.contains("no-ui");
     }
-    sourceEl.textContent = describeSource(meta, t);
+    sourceEl.textContent = describeSource(meta, t) + (outerData ? " · 12 × 12 km · exterior REMA a 60 m" : "");
     requestRender();
   };
   const info = (t: Terrain, firstViewMs: number, fullMs: number | null) => ({
@@ -372,7 +432,17 @@ async function main() {
   const p0 = pin as ReturnType<typeof buildPin>;
   const origin = new THREE.Vector3(p0?.local.x ?? 0, 0, p0?.local.z ?? 0);
   const ctx: BenchCtx = { renderer, scene, camera, controls, origin, size, beforeRender: () => terrain?.beforeRender(camera, renderer.domElement.height), lodStats: () => terrain?.lodStats() ?? undefined };
-  applyPose(ctx, Number(params.get("pose") ?? 0));
+  if(diorama && !params.has("pose")){
+    const distance=size*1.75/Math.min(1,camera.aspect);
+    controls.maxDistance=Math.max(controls.maxDistance,distance*1.3);
+    controls.target.set(0,(first.seaLevelM??0)+size*.025,0);
+    camera.position.copy(new THREE.Vector3(.85,.77,1).normalize().multiplyScalar(distance)).add(controls.target);
+    controls.update();
+  }else if(expanded && !params.has("pose")){
+    controls.target.copy(origin);
+    camera.position.copy(origin).add(new THREE.Vector3(0, 5200, 8400));
+    controls.update();
+  }else applyPose(ctx, Number(params.get("pose") ?? 0));
   statusEl.hidden = true;
   metrics.load = info(first, firstViewMs, null);
   requestRender();
@@ -385,6 +455,19 @@ async function main() {
     metrics.load = info(detailed, firstViewMs, performance.now() - t0);
   }
 
+  function changeSun(){
+    if(!dateInput.value || !timeInput.value) return;
+    solar=readSun();
+    solar.direction.toArray(SUN);
+    illuminate();
+    requestRender();
+    void updateLighting();
+  }
+  dateInput.onchange=timeInput.onchange=changeSun;
+  changeSunIfEdited();
+  function changeSunIfEdited(){
+    if(dateInput.value!==noon.toISOString().slice(0,10) || timeInput.value!==noon.toISOString().slice(11,16)) changeSun();
+  }
   // ─── Banco de medición ───
   const bench = async (s?: Style) => {
     if (s) setStyle(s);
@@ -479,7 +562,3 @@ function describeSource(meta: TerrainMeta, t: Terrain) {
   ].join(" · ");
 }
 
-function normalize(v: Vec3): Vec3 {
-  const l = Math.hypot(...v);
-  return [v[0] / l, v[1] / l, v[2] / l];
-}
