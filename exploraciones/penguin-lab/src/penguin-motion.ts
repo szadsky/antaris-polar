@@ -1,6 +1,6 @@
 // Authored foot travel measured from penguin.glb at the lab height of 1.25 m.
 export const GAIT_SPEED = {walk:.346,run:.84};
-export const MOVE_SPEED = {walk:.48,run:1.1,slide:1.35};
+export const MOVE_SPEED = {walk:.48,run:1.1,slide:1.65};
 /** Local character motion, in metres and seconds; independent of rendering and the DEM. */
 export class PenguinMotion {
  x=0;z=0;y=0;verticalSpeed=0;yaw=0;moving=false;running=false;sliding=false;
