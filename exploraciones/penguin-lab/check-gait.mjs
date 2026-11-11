@@ -1,5 +1,5 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';import * as T from 'three';import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';import {GAIT_SPEED,MOVE_SPEED} from './src/penguin-motion.ts';
-const b=fs.readFileSync('public/assets/models/penguin.glb'),g=await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'');
+const b=fs.readFileSync('public/assets/models/penguin-custom-36cad2ea.glb'),g=await new GLTFLoader().parseAsync(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength),'');
 const box=new T.Box3().setFromObject(g.scene);g.scene.scale.setScalar(1.25/box.getSize(new T.Vector3()).y);box.setFromObject(g.scene);g.scene.position.y=-box.min.y;
 for(const gait of ['walk','run']){
  const clip=g.animations.find(c=>c.name.toLowerCase()===gait),m=new T.AnimationMixer(g.scene),a=m.clipAction(clip);a.play();
