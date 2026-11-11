@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {SnowFootprints} from './src/snow-footprints.ts';
+const snow=new SnowFootprints(2.7);
+for(let z=-1;z<1;z+=.07)snow.groove(0,z,0,Math.min(1,z+.07));
+for(let z=-1;z<=1;z+=.01)assert(snow.sample(0,z)>.025,'Gap in slide trail');
+assert.equal(snow.sample(.4,0),0,'Deformation must remain localized');
+for(let i=0;i<20;i++)snow.groove(0,-1,0,1);
+assert(Math.max(...snow.depths)<=.030001,'Overlapping slides must not dig deeper');
+snow.fade(8);assert(snow.sample(0,0)>.025);snow.fade(6);assert.equal(snow.active.size,0);assert.equal(snow.sample(0,0),0);
+snow.groove(2.6,0,3,0);assert.equal(snow.depths[95*snow.size+snow.size-1],0,'Outer rim must remain intact');
+snow.clear();assert.equal(snow.active.size,0);
+console.log('PASS: continuous slide groove, local width, bounded depth, fading and rim protection.');

@@ -33,6 +33,22 @@ export class SnowFootprints {
   }
   return changed?{x0,x1,z0,z1,x,z,reach}:null;
  }
+ /** Swept belly contact: one continuous capsule, independent of frame rate. */
+ groove(ax:number,az:number,bx:number,bz:number){
+  const width=.22,depthLimit=Math.min(this.maxDepth,.03),r=this.radius,n=this.size;
+  const x0=Math.max(0,Math.floor((Math.min(ax,bx)-width+r)/this.cell)),x1=Math.min(n-1,Math.ceil((Math.max(ax,bx)+width+r)/this.cell));
+  const z0=Math.max(0,Math.floor((Math.min(az,bz)-width+r)/this.cell)),z1=Math.min(n-1,Math.ceil((Math.max(az,bz)+width+r)/this.cell));
+  const dx=bx-ax,dz=bz-az,length2=dx*dx+dz*dz;let changed=false;
+  for(let row=z0;row<=z1;row++)for(let col=x0;col<=x1;col++){
+   const x=col*this.cell-r,z=row*this.cell-r;if(Math.hypot(x,z)>r-.05)continue;
+   const t=length2>0?Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/length2)):0;
+   const q=((x-ax-t*dx)**2+(z-az-t*dz)**2)/(width*width);if(q>=1)continue;
+   const depth=depthLimit*(1-q)**2,i=row*n+col;
+   this.ages[i]=0;this.initial[i]=Math.max(depth,this.depths[i]);this.active.add(i);
+   if(depth>this.depths[i]+1e-7){this.depths[i]=depth;changed=true;}
+  }
+  return changed?{x0,x1,z0,z1}:null;
+ }
  fade(dt:number){
   let x0=this.size,x1=-1,z0=this.size,z1=-1;
   for(const i of this.active){

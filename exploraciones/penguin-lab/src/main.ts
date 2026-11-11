@@ -95,15 +95,16 @@ async function main(){
  const motion=new PenguinMotion(radius-.4),keys=new Set<string>();
  const feet=['LeftHindToe','RightHindToe'].map(name=>({bone:penguin.getObjectByName(name)!,point:new THREE.Vector3(),contact:false,last:new THREE.Vector2(Infinity,Infinity)}));
  let wasAirborne=false;
- document.getElementById('clear-snow')!.onclick=()=>{footprints.clear();for(let i=0;i<position.count;i++)position.setY(i,height(position.getX(i),position.getZ(i)));position.needsUpdate=true;geometry.computeVertexNormals();refreshSurface(0,n-1,0,n-1);footprintCount=0;counter.textContent='0 huellas';for(const foot of feet){foot.contact=false;foot.last.set(Infinity,Infinity);}};
+ let slideTrail:THREE.Vector2|null=null;
+ document.getElementById('clear-snow')!.onclick=()=>{slideTrail=null;footprints.clear();for(let i=0;i<position.count;i++)position.setY(i,height(position.getX(i),position.getZ(i)));position.needsUpdate=true;geometry.computeVertexNormals();refreshSurface(0,n-1,0,n-1);footprintCount=0;counter.textContent='0 huellas';for(const foot of feet){foot.contact=false;foot.last.set(Infinity,Infinity);}};
  const forward=new THREE.Vector3(),right=new THREE.Vector3(),direction=new THREE.Vector3(),rotation=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0);
  const movementStatus=document.getElementById('movement-status')!;let lastState='';
  let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
  const relevant=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Space','KeyR','KeyE']);
  const editable=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable="true"]');
- const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space'&&!keys.has('KeyE'))motion.jump();if(event.code==='KeyR'){keys.clear();motion.reset();character.quaternion.identity();}};
- const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();stepAudio.stop();};
+ const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space'&&!keys.has('KeyE'))motion.jump();if(event.code==='KeyR'){keys.clear();slideTrail=null;motion.reset();character.quaternion.identity();}};
+ const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();slideTrail=null;stepAudio.stop();};
  window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
  function move(dt:number){
   camera.getWorldDirection(forward);forward.y=0;forward.normalize();right.crossVectors(forward,up).normalize();
@@ -112,6 +113,15 @@ async function main(){
   direction.copy(right).multiplyScalar(x).addScaledVector(forward,z);
   const oldX=motion.x,oldZ=motion.z;
   motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight'),dt,keys.has('KeyE')&&!!swim);
+  if(motion.sliding&&motion.moving){
+   slideTrail??=new THREE.Vector2(oldX,oldZ);
+   // Update after 4 cm of travel, sweeping the entire interval without gaps.
+   if(Math.hypot(motion.x-slideTrail.x,motion.z-slideTrail.y)>=.04){
+    const dirty=footprints.groove(slideTrail.x,slideTrail.y,motion.x,motion.z);
+    if(dirty)applyFootprintRegion(dirty);
+    slideTrail.set(motion.x,motion.z);counter.textContent='Surco en la nieve · se borra en 14 s';
+   }
+  }else slideTrail=null;
   character.position.set(motion.x,deformedHeight(motion.x,motion.z)+motion.y,motion.z);
   rotation.setFromAxisAngle(up,motion.yaw);character.quaternion.slerp(rotation,1-Math.exp(-20*dt));
   const state=motion.y>0?'saltando':motion.sliding?'deslizándose':motion.running?'corriendo':motion.moving?'caminando':'en reposo';

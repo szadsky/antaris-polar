@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 3402 --strictPort",
     "build": "tsc --noEmit && vite build",
-    "test": "node --experimental-transform-types check-motion.mjs && node --experimental-transform-types check-gait.mjs && node --experimental-transform-types check-footprints.mjs && node --experimental-transform-types check-footprint-fade.mjs"
+    "test": "node --experimental-transform-types check-motion.mjs && node --experimental-transform-types check-gait.mjs && node --experimental-transform-types check-footprints.mjs && node --experimental-transform-types check-footprint-fade.mjs && node --experimental-transform-types check-slide-trail.mjs"
   },
   "dependencies": {
     "three": "^0.181.2"
