@@ -84,6 +84,9 @@ async function main(){
  const penguin=gltf.scene;const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);character.position.y=height(0,0);scene.add(character);
  const mixer=new THREE.AnimationMixer(penguin);
  const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip)]));
+ // Sample the authored Swim pose once to keep the belly on the snow, not floating.
+ const swim=actions.get('swim'),swimFloor:number[]=[],swimSamples=32;
+ if(swim){swim.play();const bounds=new THREE.Box3();for(let i=0;i<swimSamples;i++){mixer.setTime(i/swimSamples*swim.getClip().duration);character.updateMatrixWorld(true);bounds.setFromObject(penguin,true);swimFloor.push(bounds.min.y-character.position.y);}mixer.stopAllAction();mixer.setTime(0);}
  let active=actions.get('idle');active?.play();
  const stepAudio=new FootstepAudio(import.meta.env.BASE_URL+'assets/audio/footstepOnSnow1Medium.ogg');
  const soundButton=document.getElementById('step-sound')!;
@@ -97,9 +100,9 @@ async function main(){
  const movementStatus=document.getElementById('movement-status')!;let lastState='';
  let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
- const relevant=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Space','KeyR']);
+ const relevant=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Space','KeyR','KeyE']);
  const editable=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable="true"]');
- const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space')motion.jump();if(event.code==='KeyR'){keys.clear();motion.reset();character.quaternion.identity();}};
+ const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space'&&!keys.has('KeyE'))motion.jump();if(event.code==='KeyR'){keys.clear();motion.reset();character.quaternion.identity();}};
  const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();stepAudio.stop();};
  window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
  function move(dt:number){
@@ -108,27 +111,29 @@ async function main(){
   const z=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
   direction.copy(right).multiplyScalar(x).addScaledVector(forward,z);
   const oldX=motion.x,oldZ=motion.z;
-  motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight'),dt);
+  motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight'),dt,keys.has('KeyE')&&!!swim);
   character.position.set(motion.x,deformedHeight(motion.x,motion.z)+motion.y,motion.z);
   rotation.setFromAxisAngle(up,motion.yaw);character.quaternion.slerp(rotation,1-Math.exp(-20*dt));
-  const state=motion.y>0?'saltando':motion.running?'corriendo':motion.moving?'caminando':'en reposo';
+  const state=motion.y>0?'saltando':motion.sliding?'deslizándose':motion.running?'corriendo':motion.moving?'caminando':'en reposo';
   const groundSpeed=dt>0?Math.hypot(motion.x-oldX,motion.z-oldZ)/dt:0;
-  const next=actions.get(motion.running?'run':motion.moving?'walk':'idle');
+  const next=actions.get(motion.sliding?'swim':motion.running?'run':motion.moving?'walk':'idle');
   if(next&&next!==active){
-   const oldPhase=active&&active!==actions.get('idle')?active.time/active.getClip().duration:0;
+   const oldPhase=active&&active!==swim&&next!==swim&&active!==actions.get('idle')?active.time/active.getClip().duration:0;
    next.reset();if(next!==actions.get('idle'))next.time=oldPhase*next.getClip().duration;
-   next.fadeIn(.06).play();active?.fadeOut(.06);active=next;
+   const transition=(next===swim||active===swim) ? .18 : .06;next.fadeIn(transition).play();active?.fadeOut(transition);active=next;
   }
   // Match backwards travel of the planted foot to actual forward travel of the body.
-  if(next&&motion.moving)next.setEffectiveTimeScale(groundSpeed/(motion.running?GAIT_SPEED.run:GAIT_SPEED.walk));
+  if(next===swim&&next)next.setEffectiveTimeScale(motion.moving?.8:0);
+  else if(next&&motion.moving)next.setEffectiveTimeScale(groundSpeed/(motion.running?GAIT_SPEED.run:GAIT_SPEED.walk));
   else if(next)next.setEffectiveTimeScale(1);
-  if(animated||motion.moving||motion.y>0)mixer.update(dt);
+  if(animated||motion.moving||motion.sliding||motion.y>0||swim?.isRunning())mixer.update(dt);
+  if(swim&&swim.isRunning()&&swimFloor.length){const phase=swim.time/swim.getClip().duration*swimSamples,i=Math.floor(phase)%swimSamples;const floor=THREE.MathUtils.lerp(swimFloor[i],swimFloor[(i+1)%swimSamples],phase-Math.floor(phase));character.position.y-=floor*swim.getEffectiveWeight();}
   character.updateMatrixWorld(true);
   const airborne=motion.y>0||motion.verticalSpeed>0,landed=wasAirborne&&!airborne;
   for(const foot of feet){
    foot.bone.getWorldPosition(foot.point);
    const gap=foot.point.y-deformedHeight(foot.point.x,foot.point.z);
-   const contact=!airborne&&gap<(foot.contact?.045:.028);
+   const contact=!motion.sliding&&!(swim&&swim.getEffectiveWeight()>.01&&swim.isRunning())&&!airborne&&gap<(foot.contact?.045:.028);
    const distance=foot.last.distanceTo(new THREE.Vector2(foot.point.x,foot.point.z));
    if(contact&&((!foot.contact&&motion.moving)||landed)&&distance>.12){
     stampFoot(foot.point.x,foot.point.z,character.rotation.y);stepAudio.play(motion.running,landed);foot.last.set(foot.point.x,foot.point.z);
