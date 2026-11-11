@@ -33,7 +33,7 @@ export class FootstepAudio {
   const source = ctx.createBufferSource(), gain = ctx.createGain();
   source.buffer = this.buffer;
   source.playbackRate.value = .97 + Math.random() * .06;
-  gain.gain.value = landing ? .42 : running ? .32 : .25;
+  gain.gain.value = .7 * (landing ? .42 : running ? .32 : .25);
   source.connect(gain); gain.connect(ctx.destination);
   this.voices.add(source);
   source.onended = () => { this.voices.delete(source); source.disconnect(); gain.disconnect(); };
