@@ -1,4 +1,4 @@
-import {AnimationClip,PropertyBinding} from 'three';
+import {AnimationAction,AnimationClip,PropertyBinding} from 'three';
 /** Keep the swimming belly pose grounded; retain flipper/head/foot movement. */
 export function groundedSlideClip(source:AnimationClip){
  const clip=source.clone();
@@ -8,4 +8,9 @@ export function groundedSlideClip(source:AnimationClip){
   for(let i=stride;i<track.values.length;i++)track.values[i]=track.values[i%stride];
  }
  return clip;
+}
+
+/** A paused slide still owns the pose and must retain its ground offset. */
+export function slideSupportWeight(action:AnimationAction|undefined){
+ return action?.isScheduled()?action.getEffectiveWeight():0;
 }

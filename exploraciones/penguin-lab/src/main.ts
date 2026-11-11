@@ -1,4 +1,4 @@
-import {groundedSlideClip} from './slide-animation';
+import {groundedSlideClip,slideSupportWeight} from './slide-animation';
 import {FootstepAudio} from './footstep-audio';
 import {SnowFootprints} from './snow-footprints';
 import {PenguinMotion,GAIT_SPEED} from './penguin-motion';
@@ -137,14 +137,14 @@ async function main(){
   if(next===swim&&next)next.setEffectiveTimeScale(motion.moving?.8:0);
   else if(next&&motion.moving)next.setEffectiveTimeScale(groundSpeed/(motion.running?GAIT_SPEED.run:GAIT_SPEED.walk));
   else if(next)next.setEffectiveTimeScale(1);
-  if(animated||motion.moving||motion.sliding||motion.y>0||swim?.isRunning())mixer.update(dt);
-  if(swim&&swim.isRunning())character.position.y-=swimFloor*swim.getEffectiveWeight();
+  if(animated||motion.moving||motion.sliding||motion.y>0||swim?.isScheduled())mixer.update(dt);
+  character.position.y-=swimFloor*slideSupportWeight(swim);
   character.updateMatrixWorld(true);
   const airborne=motion.y>0||motion.verticalSpeed>0,landed=wasAirborne&&!airborne;
   for(const foot of feet){
    foot.bone.getWorldPosition(foot.point);
    const gap=foot.point.y-deformedHeight(foot.point.x,foot.point.z);
-   const contact=!motion.sliding&&!(swim&&swim.getEffectiveWeight()>.01&&swim.isRunning())&&!airborne&&gap<(foot.contact?.045:.028);
+   const contact=!motion.sliding&&!(slideSupportWeight(swim)>.01)&&!airborne&&gap<(foot.contact?.045:.028);
    const distance=foot.last.distanceTo(new THREE.Vector2(foot.point.x,foot.point.z));
    if(contact&&((!foot.contact&&motion.moving)||landed)&&distance>.12){
     stampFoot(foot.point.x,foot.point.z,character.rotation.y);stepAudio.play(motion.running,landed);foot.last.set(foot.point.x,foot.point.z);
