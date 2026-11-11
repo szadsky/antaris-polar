@@ -1,3 +1,4 @@
+import {groundedSlideClip} from './slide-animation';
 import {FootstepAudio} from './footstep-audio';
 import {SnowFootprints} from './snow-footprints';
 import {PenguinMotion,GAIT_SPEED} from './penguin-motion';
@@ -83,10 +84,10 @@ async function main(){
  const [gltf]=await Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy())]);
  const penguin=gltf.scene;const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);character.position.y=height(0,0);scene.add(character);
  const mixer=new THREE.AnimationMixer(penguin);
- const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip)]));
- // Sample the authored Swim pose once to keep the belly on the snow, not floating.
- const swim=actions.get('swim'),swimFloor:number[]=[],swimSamples=32;
- if(swim){swim.play();const bounds=new THREE.Box3();for(let i=0;i<swimSamples;i++){mixer.setTime(i/swimSamples*swim.getClip().duration);character.updateMatrixWorld(true);bounds.setFromObject(penguin,true);swimFloor.push(bounds.min.y-character.position.y);}mixer.stopAllAction();mixer.setTime(0);}
+ const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip.name.toLowerCase()==='swim'?groundedSlideClip(clip):clip)]));
+ // Fixed belly support: moving flippers must not lift the whole character.
+ const swim=actions.get('swim');let swimFloor=0;
+ if(swim){swim.play();mixer.setTime(0);character.updateMatrixWorld(true);swimFloor=new THREE.Box3().setFromObject(penguin,true).min.y-character.position.y;mixer.stopAllAction();mixer.setTime(0);}
  let active=actions.get('idle');active?.play();
  const stepAudio=new FootstepAudio(import.meta.env.BASE_URL+'assets/audio/footstepOnSnow1Medium.ogg');
  const soundButton=document.getElementById('step-sound')!;
@@ -137,7 +138,7 @@ async function main(){
   else if(next&&motion.moving)next.setEffectiveTimeScale(groundSpeed/(motion.running?GAIT_SPEED.run:GAIT_SPEED.walk));
   else if(next)next.setEffectiveTimeScale(1);
   if(animated||motion.moving||motion.sliding||motion.y>0||swim?.isRunning())mixer.update(dt);
-  if(swim&&swim.isRunning()&&swimFloor.length){const phase=swim.time/swim.getClip().duration*swimSamples,i=Math.floor(phase)%swimSamples;const floor=THREE.MathUtils.lerp(swimFloor[i],swimFloor[(i+1)%swimSamples],phase-Math.floor(phase));character.position.y-=floor*swim.getEffectiveWeight();}
+  if(swim&&swim.isRunning())character.position.y-=swimFloor*swim.getEffectiveWeight();
   character.updateMatrixWorld(true);
   const airborne=motion.y>0||motion.verticalSpeed>0,landed=wasAirborne&&!airborne;
   for(const foot of feet){
