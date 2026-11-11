@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-11",
+  "environment": "Local Vite dev server, AMD Radeon 0x1636, 1600x900 DPR1.25 MSAA4, desktop high quality, REMA4m, solid buildings, pixel effect off",
+  "method": "Existing benchmark: five poses, 20 synchronized frames per pose; six-second orbit. FPS valid flag true. Not a mobile or network-loading benchmark.",
+  "tests": [
+    {
+      "base": "brown",
+      "fps": 59.8,
+      "frameP95Ms": 16.8,
+      "gpuMedianMs": 8.9,
+      "gpuP95Ms": 10.17,
+      "drawCallsRange": [
+        37,
+        76
+      ],
+      "terrainOnlyGeometryMiB": 6.68,
+      "terrainOnlyTexturesMiB": 29.2
+    },
+    {
+      "base": "marambio",
+      "fps": 47,
+      "frameP95Ms": 33.4,
+      "gpuMedianMs": 8.19,
+      "gpuP95Ms": 17.97,
+      "drawCallsRange": [
+        218,
+        472
+      ],
+      "terrainOnlyGeometryMiB": 3.62,
+      "terrainOnlyTexturesMiB": 29.2
+    }
+  ],
+  "limitations": [
+    "No real mobile device tested",
+    "GPU memory values exclude buildings, water and renderer targets",
+    "Historical baseline uses different settings; not a controlled before/after comparison"
+  ]
+}

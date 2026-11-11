@@ -62,3 +62,26 @@ export function mountMarineControls(o:{visible:boolean;floating:boolean;onVisibl
  ButtonGroup(host('dial-berg-view'),{buttons:[{label:'Ver siguiente iceberg',onClick:o.onView}]});
  return {sync(v:boolean,f:boolean){visible.update({...visibleProps,value:v?'on':'off'});motion.update({...motionProps,value:f?'on':'off'});},setAvailable(available:boolean){host('iceberg-settings').hidden=!available;}};
 }
+
+/** Shares the existing Dialkit styling and keyboard controls with the ocean sliders. */
+export function mountPixelControls(o:{onSize:(v:number)=>void;onLevels:(v:number)=>void;onDither:(v:number)=>void}){
+ const host=(id:string)=>document.getElementById(id)!;
+ const controls=[
+  Slider(host('dial-pixel-size'),{label:'Tamaño del píxel',value:4,min:2,max:8,step:1,unit:'px',onChange:o.onSize}),
+  Slider(host('dial-pixel-levels'),{label:'Niveles de color',value:14,min:4,max:32,step:1,onChange:o.onLevels}),
+  Slider(host('dial-pixel-dither'),{label:'Tramado',value:.45,min:0,max:1,step:.05,onChange:o.onDither})
+ ];
+ return ()=>controls.forEach(control=>control.destroy());
+}
+
+/** Building controls share the same Dialkit components as terrain and ocean. */
+export function mountBuildingControls(host:HTMLElement,o:{onMode:(v:string)=>void;onHeight:(v:number)=>void;onFocus:()=>void}) {
+  const modeHost=document.createElement('div'),heightHost=document.createElement('div'),focusHost=document.createElement('div');
+  host.append(modeHost,heightHost,focusHost);heightHost.hidden=false;
+  const controls=[
+    SelectControl(modeHost,{label:'Vista',value:'solid',options:[{value:'contours',label:'Contornos'},{value:'solid',label:'Volúmenes 3D'},{value:'off',label:'Ocultos'}],onChange(v:string){heightHost.hidden=v!=='solid';o.onMode(v);}}),
+    Slider(heightHost,{label:'Altura aproximada',value:3,min:1,max:12,step:.5,unit:'m',onChange:o.onHeight}),
+    ButtonGroup(focusHost,{buttons:[{label:'Acercar a edificios',onClick:o.onFocus}]})
+  ];
+  return ()=>controls.forEach(control=>control.destroy());
+}

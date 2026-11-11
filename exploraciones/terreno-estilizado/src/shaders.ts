@@ -638,7 +638,11 @@ diffuseColor.rgb = mix(land, sea, isSea);
 // hacia el azul del mar con la profundidad; se ve a través del agua semitransparente de la orilla.
 // La franja a la altura del agua (isSea) también va con el color del fondo de la orilla: con el color del
 // mar profundo dibujaba un borde oscuro en toda la costa (el agua del océano ya la cubre).
-float underW = max(1.0 - smoothstep(-0.8, 0.1, vWorld.y - uSeaY), isSea * uShoreBand);
+// Elevation alone does not classify ocean: ADD land can lie below the datum.
+// Keep terrestrial depressions on the land material, including baked coast meshes.
+// Filter only the coastline pixel footprint; do not blur a band across the terrain.
+float oceanCoverage = 1.0 - smoothstep(-aaW, aaW, sdfM);
+float underW = oceanCoverage * max(1.0 - smoothstep(-0.8, 0.1, vWorld.y - uSeaY), isSea * uShoreBand);
 if (underW > 0.0) {
   float depthW = max(uSeaY - vWorld.y, 0.0);
   // orilla clara (grava y arena húmedas vistas a través de poca agua) → turquesa → azul profundo

@@ -24,7 +24,13 @@
       </details>
       <details class="polar-details"><summary>Ajustes de vista</summary><div class="panel-content">
         <section class="control-section"><h2 class="view-section">Terreno y calidad</h2><div id="dial-exaggeration"></div><div id="dial-quality"></div><div id="dial-material"></div></section>
-        <section class="control-section"><h2 class="view-section">Océano</h2><div id="dial-water-speed"></div><div id="dial-water-strength"></div></section>
+<section class="control-section"><h2 class="view-section">Pixel art · Prueba</h2>
+<label class="pixel-toggle">Activar efecto Noxe<input id="pixel-toggle" type="checkbox"></label>
+<div id="dial-pixel-size"></div>
+<div id="dial-pixel-levels"></div>
+<div id="dial-pixel-dither"></div>
+<p class="hud__help">Adaptación de <a href="https://github.com/danieljan-design/noxe-pixel-engine" target="_blank" rel="noopener noreferrer">Noxe Pixel Engine</a> · MIT. Desactivá el efecto para volver al original.</p></section>
+<section class="control-section"><h2 class="view-section">Océano</h2><div id="dial-water-speed"></div><div id="dial-water-strength"></div></section>
         <section id="iceberg-settings" class="control-section" hidden><h2 class="view-section">Icebergs</h2><div id="dial-berg-visible"></div><div id="dial-berg-motion"></div><div id="dial-berg-strength"></div><div id="dial-berg-view"></div><p class="hud__help">Tocá un iceberg para inclinarlo y hacerlo rebotar.</p></section></div>
       </details>
       <div hidden>
@@ -66,15 +72,34 @@
         </select>
       </label>
       </div>
-      <details class="polar-details"><summary>Datos y navegación</summary><div class="panel-content">
-      <p id="quality-note" class="hud__source"></p>
-      <p id="style-note" class="hud__note"></p>
-      <p id="source" class="hud__source"></p>
-      <p class="hud__help">Tecla <kbd>A</kbd>: alternar estilo · <kbd>H</kbd>: ocultar interfaz · Arrastrar: mover · Clic derecho o dos dedos: girar · Rueda: zoom</p>
-    </div></details></aside>
+      <details class="polar-details data-panel"><summary>Datos y navegación</summary>
+        <div class="panel-content data-panel__content">
+          <section class="data-section" aria-labelledby="navigation-title">
+            <h2 id="navigation-title">Cómo navegar</h2>
+            <dl class="navigation-list">
+              <div><dt>Mover</dt><dd>Arrastrá con el mouse o un dedo</dd></div>
+              <div><dt>Girar</dt><dd>Clic derecho y arrastrar, o dos dedos</dd></div>
+              <div><dt>Zoom</dt><dd>Rueda del mouse o pellizco</dd></div>
+            </dl>
+            <div class="navigation-shortcuts" aria-label="Atajos de teclado">
+              <span><kbd>A</kbd> Cambiar estilo</span><span><kbd>H</kbd> Ocultar interfaz</span>
+            </div>
+          </section>
+          <section class="data-section" aria-labelledby="data-title">
+            <h2 id="data-title">Datos del terreno</h2>
+            <div id="source" class="source-list"></div>
+          </section>
+          <section class="data-section" aria-labelledby="view-info-title">
+            <h2 id="view-info-title">Vista actual</h2>
+            <p id="quality-note" class="hud__source data-quality"></p>
+            <p id="style-note" class="hud__note"></p>
+          </section>
+        </div>
+      </details></aside>
 
     <details class="metrics"><summary>Rendimiento</summary>
       <pre id="metrics"></pre>
+      <pre id="bench-report" hidden></pre>
       <div class="metrics__actions">
         <button id="bench" type="button">Medir</button>
         <button id="copy-metrics" type="button">Copiar métricas</button>

@@ -1,0 +1,9 @@
+Noxe Pixel Engine — adapted pixel rendering
+https://github.com/danieljan-design/noxe-pixel-engine
+Upstream: engine/shaders.js (Bayer 4x4, levels quantisation, nearest pixel upscale).
+Copyright (c) 2026 Daniel Jankulovski. MIT license included in LICENSE.
+Retrieved 2026-11-10.
+Antaris adaptation: src/pixel-look.ts. Uses existing Three.js colour management,
+perspective camera and materials. Omits upstream MRT normals, outline, bloom,
+procedural sky, audio, weather and camera snapping. This is a subset of the effect,
+not the full engine or an exact reproduction of the authored scenes.

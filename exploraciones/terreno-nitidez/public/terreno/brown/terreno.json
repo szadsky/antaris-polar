@@ -39,7 +39,8 @@
       "width": 2000,
       "height": 2000,
       "cellSizeM": 4,
-      "transferBytes": 880172
+      "transferBytes": 880172,
+      "oceanFile": "oceano-4m.json"
     },
     {
       "name": "8m",
@@ -48,7 +49,8 @@
       "width": 1000,
       "height": 1000,
       "cellSizeM": 8,
-      "transferBytes": 303414
+      "transferBytes": 303414,
+      "oceanFile": "oceano-8m.json"
     }
   ],
   "fuentes": {

@@ -1,8 +1,10 @@
+import {projectedToTerrain} from "./terrain-coordinates";
+import {createPixelLook} from "./pixel-look";
 import {createIcebergs} from './icebergs';
 import { solarPosition } from "./solar";
 import { outerTerrain } from "./outer-terrain";
 import { createDiorama } from "./diorama";
-import { mountViewControls, mountMarineControls } from "./view-controls";
+import { mountViewControls, mountMarineControls, mountPixelControls } from "./view-controls";
 import { createOcean } from "./ocean";
 import { loadTerrainTextures } from "./terrain-textures";
 import * as THREE from "three";
@@ -206,7 +208,24 @@ async function main() {
       dirty=true;
     }
   }
+  const pixelLook=createPixelLook(renderer);
+  const pixelToggle=$<HTMLInputElement>("pixel-toggle");
+  pixelToggle.checked=params.get("pixel")==="1";pixelLook.setEnabled(pixelToggle.checked);
+  pixelToggle.addEventListener("change",()=>{pixelLook.setEnabled(pixelToggle.checked);ocean.refresh();requestRender();});
+  const disposePixelControls=mountPixelControls({
+    onSize:value=>{pixelLook.setSize(value);requestRender();},
+    onLevels:value=>{pixelLook.setLevels(value);requestRender();},
+    onDither:value=>{pixelLook.setDither(value);requestRender();}
+  });
+  window.addEventListener("pagehide",()=>{disposePixelControls();pixelLook.dispose();},{once:true});
+  let benchmarking = false;
+  renderer.info.autoReset = false;
+  const drawScene = () => {
+    renderer.info.reset();
+    pixelLook.render(scene,camera);
+  };
   const frame = () => {
+    if(benchmarking)return;
     const moved = controls.update();
     keepCameraAboveSurface();
     // More depth precision in the distant diorama, retaining the original near plane up close.
@@ -227,7 +246,7 @@ async function main() {
       lastWaveMs = now;
       terrain?.beforeRender(camera, renderer.domElement.height);
       qualityRef?.begin();
-      renderer.render(scene, camera);
+      drawScene();
       qualityRef?.end(false);
       if(metrics.tick())metricsEl.textContent=metrics.format();
       return;
@@ -245,17 +264,19 @@ async function main() {
     dirty = false;
     terrain?.beforeRender(camera, renderer.domElement.height);
     qualityRef?.begin();
-    renderer.render(scene, camera);
+    drawScene();
     qualityRef?.end(moved);
     if (pin) {
       v.copy(pin.top).project(camera);
       pinEl.style.opacity = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 ? "1" : "0";
-      pinEl.style.transform = `translate(${((v.x + 1) / 2) * innerWidth}px, ${((1 - v.y) / 2) * innerHeight}px) translate(-50%, -130%)`;
+      pinEl.dataset.side=((v.x+1)/2)*innerWidth>innerWidth-190?'left':'right';
+      pinEl.style.transform = `translate(${((v.x + 1) / 2) * innerWidth}px, ${((1 - v.y) / 2) * innerHeight}px) translate(0, 0)`;
     }
     if (metrics.tick()) metricsEl.textContent = metrics.format();
   };
   const requestRender = () => {
     dirty = true;
+    if(benchmarking)return;
     if (!running) {
       running = true;
       metrics.wake();
@@ -279,6 +300,8 @@ async function main() {
   const geo: GeoMode = params.get("geo") === "completa" ? "completa" : "lod";
   let exaggeration = 1;
   let terrain: Terrain | null = null;
+  const buildings=(await import('./base-buildings')).createBaseBuildings(baseId,meta.base.nombre,scene,camera,controls,requestRender);
+  window.addEventListener('pagehide',()=>buildings?.dispose(),{once:true});
   const icebergs=createIcebergs();scene.add(icebergs.group);let bergsOn=true;icebergs.group.visible=bergsOn;
   let bergViewIndex=0;
   const marineControls=mountMarineControls({visible:bergsOn,floating:icebergMotionEnabled,
@@ -329,7 +352,7 @@ async function main() {
     terrain?.setStyle(s);
     noteEl.textContent =
       s === "base"
-        ? "Base: sombreado de terreno-nitidez (luz y color por píxel, sin sombras, dos colores)."
+        ? "Relieve base: representación simplificada con dos colores y sombreado del terreno."
         : "Interpretación artística basada en REMA: relieve real; sombras según fecha y hora, materiales, hielo costero y bordes son estilización, no reconstrucción exacta.";
     requestRender();
   };
@@ -410,6 +433,7 @@ async function main() {
     placeSea(t);
     ocean.refresh();
     pin?.setExaggeration(exaggeration);
+    buildings?.setExaggeration(exaggeration);
     requestRender();
     }} finally {updating=false;}
   }
@@ -463,18 +487,29 @@ async function main() {
       t.styleUniforms.uEdgeHaze.value=-1;
     }
     scene.add(t.object);
+    buildings?.setTerrain(t,meta,exaggeration);
     ocean.bind(t);
     placeSea(t);
     ocean.refresh();
-    pin = buildPin(meta, t, size);
+    pin = buildPin(meta, t);
     if (pin) {
       pin.setExaggeration(exaggeration);
       scene.add(pin.group);
-      pinEl.textContent = meta.base.nombre.replace(/^Base (Antártica )?/, "Base ");
+      const label=document.createElement("span");label.textContent=meta.base.nombre.replace(/^Base (Antártica )?/, "Base ");pinEl.replaceChildren(label);
       pinEl.hidden = document.body.classList.contains("no-ui");
     }
     const count=icebergs.bind(t,pin?.local??new THREE.Vector3());marineControls.setAvailable(count>0);
-    sourceEl.textContent = describeSource(meta, t) + (count?` · ${count} icebergs decorativos`:"") + (outerData ? " · 12 × 12 km · exterior REMA a 60 m" : "");
+    const sourceRows = [...describeSource(meta, t), ...(count ? [`Escena: ${count} icebergs decorativos`] : []), ...(outerData ? ["Extensión: 12 × 12 km · exterior REMA a 60 m"] : [])];
+    sourceEl.replaceChildren(...sourceRows.map(text => {
+      const row = document.createElement("p");
+      const colon = text.indexOf(":");
+      if (colon >= 0) {
+        const label = document.createElement("strong"); label.textContent = text.slice(0, colon);
+        const value = document.createElement("span"); value.textContent = text.slice(colon + 1).trim();
+        row.append(label, value);
+      } else row.textContent = text;
+      return row;
+    }));
     requestRender();
   };
   const info = (t: Terrain, firstViewMs: number, fullMs: number | null) => ({
@@ -492,7 +527,13 @@ async function main() {
   const firstViewMs = performance.now() - t0;
   const p0 = pin as ReturnType<typeof buildPin>;
   const origin = new THREE.Vector3(p0?.local.x ?? 0, 0, p0?.local.z ?? 0);
-  const ctx: BenchCtx = { renderer, scene, camera, controls, origin, size, beforeRender: () => terrain?.beforeRender(camera, renderer.domElement.height), lodStats: () => terrain?.lodStats() ?? undefined };
+  const ctx: BenchCtx = { renderer, scene, camera, controls, origin, size, beforeRender: () => terrain?.beforeRender(camera, renderer.domElement.height), lodStats: () => terrain?.lodStats() ?? undefined, render: () => {
+    const now=performance.now(),dt=Math.min(.1,Math.max(0,(now-lastMotionMs)/1000));lastMotionMs=now;
+    if(icebergMotionEnabled){icebergSeconds+=dt;icebergs.animate(icebergSeconds,dt);}
+    waterSeconds+=dt;ocean.time(waterSeconds,icebergMotionEnabled);ocean.stepRipples(dt);
+    disc.position.copy(camera.position).addScaledVector(solar.direction,camera.far*.8);
+    drawScene();
+  } };
   if(diorama && !params.has("pose")){
     const distance=size*1.75/Math.min(1,camera.aspect);
     controls.maxDistance=Math.max(controls.maxDistance,distance*1.3);
@@ -531,9 +572,16 @@ async function main() {
   }
   // ─── Banco de medición ───
   const bench = async (s?: Style) => {
+    if(benchmarking)return benchResult;
     if (s) setStyle(s);
     const t = terrain!;
+    const savedPosition=camera.position.clone(),savedTarget=controls.target.clone(),savedAuto=quality.auto,savedDamping=controls.enableDamping;
+    benchmarking=true;quality.auto=false;controls.enableDamping=false;
+    const button=$<HTMLButtonElement>("bench");button.disabled=true;
+    const report=$("bench-report");report.hidden=false;report.textContent="Midiendo cinco vistas y una órbita de 6 segundos…";
+    try {
     const r = await runBench(ctx);
+    const orbit=await runFpsTest(ctx,6);
     benchResult = {
       estilo: style,
       material: variant,
@@ -543,22 +591,34 @@ async function main() {
       base: baseId,
       nivel: metrics.load?.level,
       ...r,
-      memoriaGpuMB: {
+      orbita: orbit,
+      contorno: false,
+      pixelArt: pixelToggle.checked,
+      memoriaGpuParcialTerrenoMB: {
         geometria: +(t.gpuBytes().geometry / 1048576).toFixed(2),
         texturas: +(t.gpuBytes().textures / 1048576).toFixed(1),
       },
-      descargaKB: Math.round(t.level.transferBytes / 1024),
+      recursos: performance.getEntriesByType("resource").map(e=>{const r=e as PerformanceResourceTiming;return {archivo:new URL(r.name).pathname,bytes:r.encodedBodySize,transferidos:r.transferSize,ms:Math.round(r.duration)};}),
+      descargaDEMyMascaraKB: Math.round(t.level.transferBytes / 1024),
       texturas: texInfo ? { descargaKB: +(texInfo.bytes / 1024).toFixed(1), cargaMs: Math.round(texInfo.ms) } : null,
       cargaMs: { primeraVista: Math.round(firstViewMs), worker: Math.round(t.ms.decode + t.ms.surface + t.ms.light + t.ms.mesh), sombras: Math.round(t.ms.light) },
       antialias: antialiasInfo,
       pantalla: `${renderer.domElement.width}×${renderer.domElement.height} (dpr ${renderer.getPixelRatio()})`,
       gpu: metrics.snapshot().gpu,
     };
-    metricsEl.textContent = JSON.stringify(benchResult, null, 1);
-    requestRender();
+    report.textContent = JSON.stringify(benchResult, null, 1);
     return benchResult;
+    } finally {
+      camera.position.copy(savedPosition);controls.target.copy(savedTarget);controls.update();controls.enableDamping=savedDamping;
+      quality.auto=savedAuto;benchmarking=false;button.disabled=false;metrics.wake();requestRender();
+    }
   };
   $("bench").addEventListener("click", () => void bench());
+  if(params.get("medir")==="1"){
+    document.body.classList.remove("no-ui");
+    const panel=metricsEl.closest("details")!;panel.style.display="block";panel.open=true;
+    await bench();
+  }
   Object.assign(window, {
     __terreno: { scene, camera, controls, renderer, antialiasInfo, metrics, meta, icebergStats:()=>icebergs.stats(), requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
     __bench: bench,
@@ -585,28 +645,20 @@ function levelPlan(levels: Level[], forced: string | null, max: "4m" | "8m"): Le
   return max === "8m" ? [by("8m")] : [by("8m"), by("4m")];
 }
 
-function buildPin(meta: TerrainMeta, t: Terrain, size: number) {
+function buildPin(meta: TerrainMeta, t: Terrain) {
   const L = t.level;
   const [X, Y] = meta.base.projected;
-  const [ox, oy] = meta.origin;
-  const col = (X - ox) / L.cellSizeM - 0.5;
-  const row = (oy - Y) / L.cellSizeM - 0.5;
+  const {col,row,x,z}=projectedToTerrain(X,Y,meta.origin,L.cellSizeM,t.widthM,t.depthM);
   if (col < 0 || row < 0 || col > L.width - 1 || row > L.height - 1) return null;
-  const local = new THREE.Vector3(col * L.cellSizeM - t.widthM / 2, 0, row * L.cellSizeM - t.depthM / 2);
+  const local = new THREE.Vector3(x,0,z);
   const g = t.heightsM[Math.round(row) * L.width + Math.round(col)];
   const ground = Number.isNaN(g) ? 0 : g;
-  const stem = size * 0.03;
+  // Screen-space marker: never grows into a column when approaching the base.
   const group = new THREE.Group();
-  const mat = new THREE.MeshBasicMaterial({ color: "#74acdf" });
-  const line = new THREE.Mesh(new THREE.CylinderGeometry(size * 0.0012, size * 0.0012, stem, 8), mat);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(size * 0.005, 16, 12), mat);
-  group.add(line, head);
   const top = new THREE.Vector3();
   const setExaggeration = (k: number) => {
     group.position.set(local.x, ground * k, local.z);
-    line.position.y = stem / 2;
-    head.position.y = stem;
-    top.set(local.x, ground * k + stem, local.z);
+    top.set(local.x, ground * k + .5, local.z);
   };
   setExaggeration(1);
   group.visible = !document.body.classList.contains("no-ui");
@@ -618,9 +670,9 @@ function describeSource(meta: TerrainMeta, t: Terrain) {
   const alt = N != null ? `≈ ${(meta.heights.minM - N).toFixed(0)}–${(meta.heights.maxM - N).toFixed(0)} m s. n. m.` : `${meta.heights.minM.toFixed(0)}–${meta.heights.maxM.toFixed(0)} m elipsoidales`;
   return [
     `Relieve: ${meta.fuentes.relieve} (dato), ${t.level.cellSizeM} m, malla ${t.level.cellSizeM * MESH_STRIDE} m`,
-    `Alturas ${alt}`,
+    `Alturas: ${alt}`,
     meta.fuentes.costa ? `Costa: ${meta.fuentes.costa}` : "Sin costa",
     `Base: ${meta.fuentes.base}`,
-  ].join(" · ");
+  ];
 }
 

@@ -36,6 +36,8 @@ export interface BenchCtx {
   beforeRender?: () => void;
   /** Estadísticas del LOD tras beforeRender. */
   lodStats?: () => unknown;
+  /** Same complete render path as the viewer, including reflections and outline. */
+  render?: () => void;
 }
 
 export function applyPose(ctx: BenchCtx, i: number) {
@@ -60,7 +62,7 @@ export async function runBench(ctx: BenchCtx, framesPerPose = 20) {
 
   for (let i = 0; i < POSES.length; i++) {
     applyPose(ctx, i);
-    for (let w = 0; w < 3; w++) renderer.render(scene, camera); // calentamiento (compila shaders)
+    for (let w = 0; w < 3; w++) (ctx.render ?? (() => renderer.render(scene, camera)))(); // calentamiento (compila shaders)
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
     const g: number[] = [];
     const sy: number[] = [];
@@ -71,7 +73,7 @@ export async function runBench(ctx: BenchCtx, framesPerPose = 20) {
         q = gl.createQuery()!;
         gl.beginQuery(tq.TIME_ELAPSED_EXT, q);
       }
-      renderer.render(scene, camera);
+      (ctx.render ?? (() => renderer.render(scene, camera)))();
       if (tq && q) gl.endQuery(tq.TIME_ELAPSED_EXT);
       gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
       sy.push(performance.now() - t0);
@@ -132,7 +134,7 @@ export function runFpsTest(ctx: BenchCtx, seconds = 6): Promise<{
       camera.position.set(origin.x + Math.sin(a) * size * 0.35, size * 0.16, origin.z + Math.cos(a) * size * 0.35);
       camera.lookAt(controls.target);
       ctx.beforeRender?.();
-      renderer.render(scene, camera);
+      (ctx.render ?? (() => renderer.render(scene, camera)))();
       if (last) intervals.push(now - last);
       last = now;
       if (t < seconds) requestAnimationFrame(step);
