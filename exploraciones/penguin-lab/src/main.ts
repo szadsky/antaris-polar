@@ -1,3 +1,4 @@
+import {applyKingPenguinColors} from './king-penguin-colors';
 import {groundedSlideClip,slideSupportWeight} from './slide-animation';
 import {FootstepAudio} from './footstep-audio';
 import {SnowFootprints} from './snow-footprints';
@@ -82,7 +83,7 @@ async function main(){
  const side=new THREE.Mesh(sideGeo,new THREE.MeshStandardMaterial({color:'#a8c7d8',roughness:.85}));side.castShadow=true;side.receiveShadow=true;scene.add(side);
  const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:'#e1e9ed',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.025;floor.receiveShadow=true;scene.add(floor);
  const [gltf]=await Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy())]);
- const penguin=gltf.scene;const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);character.position.y=height(0,0);scene.add(character);
+ const penguin=gltf.scene;applyKingPenguinColors(penguin);const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);character.position.y=height(0,0);scene.add(character);
  const mixer=new THREE.AnimationMixer(penguin);
  const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip.name.toLowerCase()==='swim'?groundedSlideClip(clip):clip)]));
  // Fixed belly support: moving flippers must not lift the whole character.
