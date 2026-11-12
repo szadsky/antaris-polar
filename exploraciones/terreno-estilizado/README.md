@@ -648,9 +648,61 @@ Es una reconstrucción artística: las acumulaciones no son elevaciones medidas.
   - El arreglo: el corte se corre hacia afuera `max(1 m, 0,04 % del ancho)` (≈ 3 m en 8 km), así que siempre queda adelante. A la distancia del diorama el escalón no se ve. Sin costo.
   - Revisado en Esperanza, San Martín, Carlini y Belgrano II.
 - **Rampa de costa solo donde ADD y REMA coinciden** (`agreeC` en `COAST_RAMP_VERTEX`): si un vértice está en el mar según ADD pero REMA lo pone sobre el agua (o al revés), la rampa ya no lo hunde ni lo levanta. Es una protección para islas bajas y frentes de hielo; en San Martín no cambió la imagen visible.
+- **Base más alta** (`capturas/diorama-base-antes.jpg` → `diorama-base-despues.jpg`, Brown, misma cámara): el corte lateral baja el 4,8 % del ancho bajo el agua (384 m en 8 km; antes 2,2 %, 176 m) y el zócalo mide el 2,5 % (200 m; antes 1,8 %, 144 m). Desde la vista general el bloque se veía como una lámina fina. Constantes `SECTION_DEPTH` y `FOOTING_HEIGHT` en `src/diorama.ts`. Sin costo.
+- **Corte con el material de las montañas** (`capturas/diorama-corte-antes.jpg` → `diorama-corte-general.jpg`, `diorama-corte-material-lejos.jpg`, `diorama-corte-material-cerca.jpg`; Brown):
+  - La roca del corte usa el mismo material de la malla costera del relieve (`terreno-rema`), no uno aparte: sus caras con normal horizontal entran por el camino de "caras de cierre" del shader (roca, sin nieve ni hielo, luz del sol y del cielo). Sigue al estilo y la variante elegidos. Se probó antes una textura de piedra propia y se descartó: el pedido era el material de las montañas.
+  - Ajustes para las caras de cierre en `shaders.ts`: normal de iluminación inclinada ~24° hacia arriba (la pared exactamente vertical del lado sin sol quedaba casi negra); sin tinte de fondo marino ni de mar (la distancia a la costa interpolada la pintaba de mar bajo cada orilla); ruido y muestreo aperiódico leídos sobre la pared y no en planta (en planta eran constantes en vertical: franjas verticales repetidas), con dos lecturas giradas (una sola dejaba ver celdas cuadradas); capa de roca de 140 m y fracturas angulosas encendidas, solo en el corte (en una pared plana, el mosaico de 12,66 m se leía como un tejido parejo).
+  - `snow-volume.ts`: la rampa de costa ya no mueve los vértices profundos del corte. Subía al nivel del mar el fondo del corte junto a cada orilla y abría surcos en diagonal.
+  - El lado sin sol del bloque queda oscuro, como las laderas de las montañas en sombra.
+- **Fondo curvo bajo el agua** (`capturas/diorama-corte-fondo-curvo.jpg`; reconstrucción artística, **no es batimetría medida**): en los tramos de mar, la roca sube en curva hasta la orilla y el agua turquesa queda arriba. La profundidad sale de la distancia en planta a la tierra más cercana: empalma con el fondo que ya dibuja el terreno (1,5 m en la orilla, 30 m a 100 m) y sigue bajando hasta ~85 % del corte (escala de 700 m), con ondulaciones suaves a lo largo del borde (rellanos y escalones). Antes el corte de mar era una columna de agua recta hasta abajo.
 - **Fondo**: gris azulado claro (#dbe5ea). La iluminación por hora del día lo pisaba con el celeste del paisaje; ahora lo respeta.
 - **Agua**: la misma del océano (oleaje, Fresnel, reflejo), recortada al bloque. Se probó el mar estilizado del terreno, más barato y sin reflejo, y se veía como una superficie plana sin agua (`capturas/diorama-mar-plano-descartado.jpg`).
 - **Rendimiento**: en Brown (5 poses, lienzo 1243×787) el diorama da 5,54 ms de GPU contra 5,61–5,67 ms del paisaje: prácticamente igual. El bloque sigue teniendo los mismos 8×8 km de terreno y de agua. Para que sea más rápido habría que recortarlo (por ejemplo, 3×3 km alrededor de la base), lo que implica volver a procesar los datos de cada base.
+
+### Costas sin dientes de sierra y frentes de acantilado enteros
+
+Pedido: orillas y bordes "con dientes de sierra y cuadrados", y frentes de acantilado "con cortes abruptos" (Brown, el frente de ~100 m al sudeste de la base, `capturas/costa-pliegues-antes-brown.jpg` → `costa-pliegues-despues-brown.jpg`, misma cámara −256, 225, 410 → −201, 202, 412).
+
+- **Hecho verificado (REMA 2 m original, `data/rema/brown_2m.tif`)**: en ese frente el relieve pasa de 92–97 m al relleno de mar en el píxel siguiente. REMA v2 enmascara el océano con una costa ADD y rellena con la altura del mar, así que la ladera por debajo de la cima no existe en la fuente: el corte es un dato, no un error del visor, y no hay ladera que reconstruir. Lo que sí era del visor: la línea de agua seguía la grilla (escalera de 4 m) y los 6–12 m más bajos del frente se pintaban de nieve, de modo que cada cinta vertical asomaba como un diente blanco sobre el agua (`capturas/costa-pliegues-sin-agua-brown.jpg`, con el océano oculto).
+- **Una sola costa para la malla y para la textura** (`groundField` en `src/worker.ts`): las muestras emergidas son la tierra ADD más el REMA emergido y conectado a tierra (en ese frente la costa ADD queda más de 12 m tierra adentro de la cima). Su borde con el relleno de mar es la línea de agua real. De ese borde salen ahora la distancia con signo de la textura (`uSurface.a`, antes la distancia ADD), el fondo bajo el agua (antes la distancia a la costa ADD: junto al frente alternaban esquinas a −28 m con muestras a −2 m) y el ajuste de vértices. La normal REMA de los texeles de relleno es plana (antes, junto a la costa ADD se calculaba con el salto al acantilado vecino y el frente no se reconocía como pared).
+- **Vértices de costa sobre la línea** (horneado, sin vértices nuevos): el borde emergido/relleno es una escalera de la grilla; suavizado con dos pasadas de caja 3×3, su curva de cero pasa por el medio de los escalones. Los vértices de la primera fila a cada lado (esquinas de 8 m y muestras nativas de 4 m de las celdas que cruzan el agua) se corren en horizontal hasta 0,3 m de esa curva (emergido +0,3, mar −0,3), con desvanecimiento hacia la segunda fila. La altura no cambia (REMA intacto; `check-continuous-coast.mjs` ahora admite el corrimiento y exige que la altura sea la de una muestra REMA a ≤ 1 celda), la uv sigue al vértice, el perímetro del recorte y los vértices de borde de bloque junto a un bloque del LOD instanciado quedan fijos, y una pasada final devuelve a la grilla los triángulos invertidos o sin área en planta.
+- **Pared hasta el agua**: cada triángulo costero lleva último su vértice más alto y el vertex shader lo pasa sin interpolar (`flat varying vTopY`). La detección de paredes (`wallK`) exige ahora que la **cima de la cara** supere 3–7 m sobre el agua (antes el píxel, 6–12 m): el frente es roca entero. Con 6–12 m, en un frente de 7–16 m las caras con cima de 7 m quedaban de nieve entre caras de roca (arcos blancos al pie, `capturas/costa-arcos-antes-brown.jpg` → `costa-arcos-despues-brown.jpg`, cámara 60, 14, 360 → 125, 8, 320). En orillas bajas (cima por debajo de 3 m) nada cambia.
+- **Costo**: sin costo por cuadro (geometría horneada; el `flat` es un varying más). Las mallas costeras LOD pesan más porque las posiciones corridas comprimen peor y hay menos bloques de fondo de 2×2: 13 bases, 15,9 → 19,8 MB (+24 %); triángulos de las mallas de 4 m, 2,32 → 2,47 M (+6 %); Brown 4 m: 1,07 → 1,40 MB, 218 → 244 k triángulos. No se midió GPU.
+- **Mismas cámaras, otras bases**: `capturas/costa-snap-antes-carlini.jpg` → `costa-snap-despues-carlini.jpg` (−250, 200, −1140 → −290, 10, −1250) y `costa-snap-antes-san-martin.jpg` → `costa-snap-despues-san-martin.jpg` (260, 120, 330 → 60, 0, 160): las islas bajas de San Martín siguen iguales (ahí manda la rampa de costa).
+- **Pendiente**: en Carlini la costa rocosa al sur de la base tiene bolsones de relleno de mar dentro de la tierra ADD (REMA a 0 m junto a muestras de 30 m): la geometría sale astillada; es un problema de la fuente, no del ajuste.
+- **De paso**: `main.ts` creaba los icebergs después del `await` de los edificios; si un render se disparaba en esa espera, `frame` tiraba "Cannot access 'icebergs' before initialization" y moría el bucle de animación (pantalla vacía hasta el siguiente evento). Ahora se crean antes.
+
+### Cámara: acercarse hasta el suelo y moverse libre
+
+Pedido: "cuando me acerco anda lenta y no me deja moverme libremente".
+
+- **Causa** (`src/main.ts`): el pivote de `MapControls` (centro de órbita, zoom y paneo) quedaba en el centro del diorama, a ~200 m sobre el mar (`size × 0,025`), y el paneo lo movía en ese plano horizontal. Al acercarse, la cámara no pasaba de 60 m de ese punto en el aire (`minDistance`), nunca llegaba al suelo, y zoom y paneo, proporcionales a la distancia al pivote, se volvían lentos. No era rendimiento: la GPU mide lo mismo cerca que lejos (~11 ms en las 5 poses del banco, Brown).
+- **Pivote en el suelo**: al empezar cada gesto (arrastre, rueda, táctil) el pivote pasa al punto del terreno en el centro de la pantalla (`anchorTargetToGround`: marcha del rayo sobre las alturas REMA de la malla con bisección, `pickGround`). Está sobre el mismo rayo de la vista, así que la imagen no salta. Mirando al horizonte se limita a 8 veces la altura sobre el suelo (al menos 400 m), para que orbitar no barra el paisaje desde kilómetros.
+- **Zoom hacia el cursor** (`zoomToCursor`), más rápido (`zoomSpeed` 1,8: de la vista general a ~250 m en unos 40 pasos de rueda, antes ~90) y hasta 8 m del pivote (antes 60).
+- **Paneo adaptativo**: por debajo de 150 m del pivote se acelera hasta ×4 (a 24 m, 200 px movían 8 m).
+- **Altura mínima**: 2 m sobre el suelo (antes 1,5 × plano cercano, 7,5 m) y ángulo hasta 88° (antes 84°) para mirar el paisaje desde abajo. El plano cercano depende de la altura sobre el suelo y de la distancia al pivote (1–50 m; antes 5–50 m): a ras del suelo el terreno cercano no se recorta.
+- **Verificado** (Brown, rueda y arrastres reales y sintéticos): de 14 km a 2 m sobre la nieve sin trabas; el pivote queda en el suelo (agua o nieve) tras cada gesto; sin errores de consola. **Pendiente**: no se probó en táctil real; con el plano cercano en 1 m a ras del suelo podría verse algún parpadeo de profundidad muy lejos (no observado).
+
+### Motor de píxeles: más parámetros
+
+Panel «Ajustes de vista → Pixel art · Prueba» (`src/pixel-look.ts`, adaptación de Noxe Pixel Engine, MIT). Con los valores por defecto la imagen es la misma que antes (`capturas/pixel-defecto.jpg`): la saturación 1,08 y el contraste 1,04 eran fijos en el shader.
+
+| Parámetro | Rango | Por defecto | Qué hace |
+|---|---|---|---|
+| Tamaño del píxel | 1–16 px (antes 2–8) | 4 | Lado del bloque. Con 1 no pixela y solo aplica color, tramado y contornos. |
+| Niveles de color | 2–32 (antes 4–32) | 14 | Pasos por canal, o pasos de la rampa en las paletas. |
+| Paleta | Color libre, Escala de grises, Hielo, Cálida | Color libre | Hielo y Cálida mapean la luminancia a una rampa de cuatro colores (`capturas/pixel-paleta-hielo.jpg`, `pixel-paleta-calida.jpg`). |
+| Patrón de tramado | Bayer 2×2, 4×4, 8×8, sin tramado | Bayer 4×4 | 8×8 da degradés más suaves; 2×2, más gruesos. |
+| Tramado | 0–1 | 0,45 | Intensidad del tramado. |
+| Saturación | 0–2 | 1,08 | 0 = gris. |
+| Contraste | 0,5–2 | 1,04 | |
+| Brillo | −0,3…0,3 | 0 | Suma en sRGB antes de cuantizar. |
+| Contornos | 0–1 | 0 (apagados) | Oscurece el píxel cercano junto a otro bastante más lejos (`capturas/pixel-contornos.jpg`): silueta de montañas, bordes del bloque, edificios. |
+| Sensibilidad del contorno | 0,002–0,2 | 0,02 | Salto relativo de profundidad que cuenta como borde: más bajo, más líneas. |
+
+- **Contornos sin otra pasada**: leen la textura de profundidad de la misma imagen de baja resolución que ya se dibujaba (4 lecturas más por píxel, solo con contornos encendidos). Sin normales: no marcan pliegues dentro de una misma superficie.
+- **Costo**: el pase final sigue siendo uno, a resolución de pantalla, sobre una imagen ya reducida. La textura de profundidad suma unos 4 bytes por píxel reducido (≈ 0,25 MB a 1243×787 con píxel de 4). No se midió GPU.
+- **Depuración**: `__terreno.pixelLook.set(nombre, valor)` y `__terreno.pixelLook.params`. Los valores no se guardan al recargar.
 
 ### Peso de la descarga y del repositorio
 

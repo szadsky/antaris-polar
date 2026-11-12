@@ -1,5 +1,5 @@
 import {projectedToTerrain} from "./terrain-coordinates";
-import {createPixelLook} from "./pixel-look";
+import {createPixelLook,type PixelParams} from "./pixel-look";
 import {createIcebergs} from './icebergs';
 import { solarPosition } from "./solar";
 import { outerTerrain } from "./outer-terrain";
@@ -97,10 +97,14 @@ async function main() {
   const outerData = expanded ? await fetch(dir+"/exterior-60m.bin").then(async r=>{if(!r.ok) throw Error("Falta el relieve exterior"); return new Int16Array(await r.arrayBuffer());}) : null;
   let outer: ReturnType<typeof outerTerrain> | undefined;
   if(diorama) scene.add(diorama.group);
-  const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 5, size * 8);
+  // Con la pestaña oculta o el panel sin tamaño al cargar, innerWidth/innerHeight da 0/0 = NaN: la distancia
+  // inicial del diorama salía NaN y la cámara quedaba en NaN para siempre (pantalla vacía). El resize la corrige.
+  const camera = new THREE.PerspectiveCamera(45, innerHeight > 0 ? innerWidth / innerHeight : 16 / 9, 5, size * 8);
   const controls = new MapControls(camera, canvas);
-  Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, screenSpacePanning: false, minDistance: 60, maxDistance: size * 2.2, keyPanSpeed: 20 });
-  controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
+  // De cerca: hasta 8 m del pivote (antes 60), zoom hacia el cursor y casi horizontal (88°) para mirar el paisaje
+  // desde el suelo. El pivote se ancla al terreno al empezar cada gesto (anchorTargetToGround).
+  Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, screenSpacePanning: false, minDistance: 8, maxDistance: size * 2.2, keyPanSpeed: 20, zoomToCursor: true, zoomSpeed: 1.8 });
+  controls.maxPolarAngle = THREE.MathUtils.degToRad(88);
   controls.listenToKeyEvents(window);
   // Movimiento reducido (preferencia del sistema): sin inercia de cámara.
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) controls.enableDamping = false;
@@ -180,27 +184,71 @@ async function main() {
   const wavesOn = () => style === "estilizado" && motionEnabled && seaPlane.visible && document.visibilityState === "visible";
   // Se asigna más abajo; el bucle puede correr antes (p. ej. por un resize temprano).
   let qualityRef: AdaptiveQuality | null = null;
-  // Protect the eye and near plane when orbiting or panning across a cliff.
-  function keepCameraAboveSurface() {
-    if (!terrain) return;
+  /** Altura del suelo (m de mundo, con exageración; nunca bajo el agua) en x, z: los dos triángulos REMA de la
+   *  celda de malla, así una cima vecina no empuja la cámara al cruzar el borde de una celda. */
+  function groundY(x:number,z:number) {
+    if (!terrain) return 0;
     const t=terrain, {cellSizeM,width}=t.level;
     const step=cellSizeM*MESH_STRIDE;
     let floor=t.seaLevelM ?? 0;
-    const gx=(camera.position.x+t.widthM/2)/step;
-    const gz=(camera.position.z+t.depthM/2)/step;
+    const gx=(x+t.widthM/2)/step;
+    const gz=(z+t.depthM/2)/step;
     if (gx>=0 && gz>=0 && gx<=t.meshSize.width-1 && gz<=t.meshSize.height-1) {
-      // Sample the two REMA triangles in this cell, so a nearby summit
-      // cannot push the camera up when crossing a grid boundary.
-      const x=Math.min(Math.floor(gx),t.meshSize.width-2);
-      const z=Math.min(Math.floor(gz),t.meshSize.height-2);
-      const u=gx-x, v=gz-z;
-      const sample=(dx:number,dz:number)=>t.heightsM[(z+dz)*MESH_STRIDE*width+(x+dx)*MESH_STRIDE];
+      const cx=Math.min(Math.floor(gx),t.meshSize.width-2);
+      const cz=Math.min(Math.floor(gz),t.meshSize.height-2);
+      const u=gx-cx, v=gz-cz;
+      const sample=(dx:number,dz:number)=>t.heightsM[(cz+dz)*MESH_STRIDE*width+(cx+dx)*MESH_STRIDE];
       const h=u+v<=1
         ? sample(0,0)*(1-u-v)+sample(1,0)*u+sample(0,1)*v
         : sample(1,1)*(u+v-1)+sample(1,0)*(1-v)+sample(0,1)*(1-u);
       if(Number.isFinite(h)) floor=Math.max(floor,h);
     }
-    const minY=floor*exaggeration+camera.near*1.5;
+    return floor*exaggeration;
+  }
+  /** Punto del terreno (o del agua) bajo un punto de la pantalla (NDC); null si el rayo va al cielo. */
+  const pickRay=new THREE.Raycaster();
+  function pickGround(ndcX:number,ndcY:number) {
+    if (!terrain) return null;
+    pickRay.setFromCamera(new THREE.Vector2(ndcX,ndcY),camera);
+    const {origin,direction}=pickRay.ray;
+    const above=(d:number)=>origin.y+direction.y*d-groundY(origin.x+direction.x*d,origin.z+direction.z*d);
+    const far=size*3;
+    let prev=0,d=Math.max(1,camera.near);
+    if(above(0)<=0)return null;
+    // marcha con paso creciente (≈ 1 % de la distancia, al menos medio paso de malla) y bisección al cruzar
+    while(d<far){
+      if(above(d)<=0){
+        let a=prev,b=d;
+        for(let i=0;i<12;i++){const m=(a+b)/2;if(above(m)>0)a=m;else b=m;}
+        return origin.clone().addScaledVector(direction,b);
+      }
+      prev=d;d+=Math.max(terrain.level.cellSizeM,d*.01);
+    }
+    return null;
+  }
+  // Pivote en el suelo: al empezar cada gesto (arrastre, rueda, táctil), el centro de órbita, zoom y paneo pasa
+  // al punto del terreno que está en el centro de la pantalla (sobre el mismo rayo de la vista: la imagen no
+  // salta). Antes el pivote quedaba flotando a ~200 m sobre el mar (centro del diorama): de cerca la cámara no
+  // pasaba de 60 m de ese punto en el aire, no llegaba al suelo, y zoom y paneo (proporcionales a la distancia
+  // al pivote) se volvían lentos.
+  function anchorTargetToGround() {
+    const hit=pickGround(0,0);
+    if(!hit)return;
+    const d=hit.distanceTo(camera.position);
+    if(d<controls.minDistance*1.05)return;
+    // Mirando al horizonte desde abajo, el suelo del centro puede estar a kilómetros: con el pivote tan lejos,
+    // orbitar barre el paisaje y el paneo salta. Tope: 8 veces la altura sobre el suelo (al menos 400 m),
+    // sobre el mismo rayo (pivote en el aire, sin salto de imagen).
+    const clearance=camera.position.y-groundY(camera.position.x,camera.position.z);
+    const maxD=Math.max(400,clearance*8);
+    if(d>maxD)controls.target.copy(camera.position).addScaledVector(hit.sub(camera.position).normalize(),maxD);
+    else controls.target.copy(hit);
+  }
+  // Protect the eye and near plane when orbiting or panning across a cliff.
+  function keepCameraAboveSurface() {
+    if (!terrain) return;
+    // mínimo 2 m sobre el suelo (antes 1,5 × plano cercano: 7,5 m)
+    const minY=groundY(camera.position.x,camera.position.z)+2;
     if(camera.position.y<minY-0.001){
       camera.position.y=minY;
       camera.lookAt(controls.target);
@@ -212,10 +260,8 @@ async function main() {
   const pixelToggle=$<HTMLInputElement>("pixel-toggle");
   pixelToggle.checked=params.get("pixel")==="1";pixelLook.setEnabled(pixelToggle.checked);
   pixelToggle.addEventListener("change",()=>{pixelLook.setEnabled(pixelToggle.checked);ocean.refresh();requestRender();});
-  const disposePixelControls=mountPixelControls({
-    onSize:value=>{pixelLook.setSize(value);requestRender();},
-    onLevels:value=>{pixelLook.setLevels(value);requestRender();},
-    onDither:value=>{pixelLook.setDither(value);requestRender();}
+  const disposePixelControls=mountPixelControls({...pixelLook.params},(key,value)=>{
+    pixelLook.set(key as keyof PixelParams,value as never);requestRender();
   });
   window.addEventListener("pagehide",()=>{disposePixelControls();pixelLook.dispose();},{once:true});
   let benchmarking = false;
@@ -228,9 +274,14 @@ async function main() {
     if(benchmarking)return;
     const moved = controls.update();
     keepCameraAboveSurface();
-    // More depth precision in the distant diorama, retaining the original near plane up close.
-    const nextNear=Math.max(5,Math.min(50,camera.position.distanceTo(controls.target)*.002));
-    if(Math.abs(nextNear-camera.near)>.05){camera.near=nextNear;camera.updateProjectionMatrix();dirty=true;}
+    // Plano cercano según la altura sobre el suelo y la distancia al pivote: lejos (diorama) hasta 50 m, más
+    // precisión de profundidad; a ras del suelo hasta 1 m, para que el terreno cercano no se recorte.
+    const clearance=terrain?camera.position.y-groundY(camera.position.x,camera.position.z):Infinity;
+    const nextNear=THREE.MathUtils.clamp(Math.min(clearance,camera.position.distanceTo(controls.target))*.2,1,50);
+    if(Math.abs(nextNear-camera.near)>Math.max(.05,camera.near*.1)){camera.near=nextNear;camera.updateProjectionMatrix();dirty=true;}
+    // Paneo: MapControls mueve el suelo a la par del cursor (proporcional a la distancia al pivote); de cerca eso
+    // es muy lento (a 24 m, 200 px = 8 m). Por debajo de 150 m se acelera, hasta ×4.
+    controls.panSpeed=THREE.MathUtils.clamp(150/Math.max(1,camera.position.distanceTo(controls.target)),1,4);
     const now = performance.now();
     disc.position.copy(camera.position).addScaledVector(solar.direction,camera.far*.8);
     const waves = wavesOn();
@@ -286,9 +337,9 @@ async function main() {
   controls.addEventListener("change", requestRender);
   // al volver a la pestaña, retomar el movimiento del agua (el bucle se detiene cuando está oculta)
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && requestRender());
-  controls.addEventListener("start", requestRender);
+  controls.addEventListener("start", () => { anchorTargetToGround(); requestRender(); });
   addEventListener("resize", () => {
-    camera.aspect = innerWidth / innerHeight;
+    if (innerHeight > 0) camera.aspect = innerWidth / innerHeight; // panel oculto: 0/0
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(renderPixelRatio(devicePixelRatio, qualityRef?.tier ?? initialTier, device.mobile));
     renderer.setSize(innerWidth, innerHeight, false);
@@ -300,9 +351,11 @@ async function main() {
   const geo: GeoMode = params.get("geo") === "completa" ? "completa" : "lod";
   let exaggeration = 1;
   let terrain: Terrain | null = null;
+  // Los icebergs van antes del `await` de los edificios: `frame` los usa, y si un render se disparaba durante
+  // esa espera (resize, controles) tiraba "Cannot access 'icebergs' before initialization" y moría el bucle.
+  const icebergs=createIcebergs();scene.add(icebergs.group);let bergsOn=true;icebergs.group.visible=bergsOn;
   const buildings=(await import('./base-buildings')).createBaseBuildings(baseId,meta.base.nombre,scene,camera,controls,requestRender);
   window.addEventListener('pagehide',()=>buildings?.dispose(),{once:true});
-  const icebergs=createIcebergs();scene.add(icebergs.group);let bergsOn=true;icebergs.group.visible=bergsOn;
   let bergViewIndex=0;
   const marineControls=mountMarineControls({visible:bergsOn,floating:icebergMotionEnabled,
     onVisible(v){bergsOn=v;icebergs.group.visible=v;canvas.style.cursor='';marineControls.sync(v,icebergMotionEnabled);ocean.refresh();requestRender();},
@@ -498,8 +551,7 @@ async function main() {
       const label=document.createElement("span");label.textContent=meta.base.nombre.replace(/^Base (Antártica )?/, "Base ");pinEl.replaceChildren(label);
       pinEl.hidden = document.body.classList.contains("no-ui");
     }
-    const count=icebergs.bind(t,pin?.local??new THREE.Vector3());marineControls.setAvailable(count>0);
-    const sourceRows = [...describeSource(meta, t), ...(count ? [`Escena: ${count} icebergs decorativos`] : []), ...(outerData ? ["Extensión: 12 × 12 km · exterior REMA a 60 m"] : [])];
+    const count=icebergs.bind(t,pin?.local??new THREE.Vector3());marineControls.setAvailable(count>0);    const sourceRows = [...describeSource(meta, t), ...(count ? [`Escena: ${count} icebergs decorativos`] : []), ...(outerData ? ["Extensión: 12 × 12 km · exterior REMA a 60 m"] : [])];
     sourceEl.replaceChildren(...sourceRows.map(text => {
       const row = document.createElement("p");
       const colon = text.indexOf(":");
@@ -535,7 +587,7 @@ async function main() {
     drawScene();
   } };
   if(diorama && !params.has("pose")){
-    const distance=size*1.75/Math.min(1,camera.aspect);
+    const distance=size*1.75/Math.min(1,Number.isFinite(camera.aspect)&&camera.aspect>0?camera.aspect:16/9);
     controls.maxDistance=Math.max(controls.maxDistance,distance*1.3);
     controls.target.set(0,(first.seaLevelM??0)+size*.025,0);
     camera.position.copy(new THREE.Vector3(.85,.77,1).normalize().multiplyScalar(distance)).add(controls.target);
@@ -620,7 +672,7 @@ async function main() {
     await bench();
   }
   Object.assign(window, {
-    __terreno: { scene, camera, controls, renderer, antialiasInfo, metrics, meta, icebergStats:()=>icebergs.stats(), requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
+    __terreno: { scene, camera, controls, renderer, antialiasInfo, metrics, meta, pixelLook, icebergStats:()=>icebergs.stats(), requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
     __bench: bench,
     // Diagnóstico por capas sobre el material estilizado: a = colores base, b = + variación de color,
     // c = + detalle al 15 %, d = material completo.

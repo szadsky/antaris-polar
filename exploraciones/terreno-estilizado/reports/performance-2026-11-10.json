@@ -1,0 +1,155 @@
+{
+  "date": "2026-11-10",
+  "hardware": "AMD Radeon(TM) Graphics (0x1636), ANGLE D3D11; browser reports 12 logical cores, 16 GB",
+  "environment": "Local Vite production preview port 3410, WebGL2, MSAA4, live water and icebergs, fixed quality during measurement",
+  "method": "100 synchronized frames over five fixed poses, three warmup frames per pose, followed by a visible 6-second camera orbit. Complete scene + reflection when scheduled + silhouette + overlay. Normal animation loop suppressed during benchmark. GPU query medians and p95; FPS from requestAnimationFrame.",
+  "tests": [
+    {
+      "base": "brown",
+      "dem": "8m",
+      "quality": "alta",
+      "drawingBuffer": "1600x900",
+      "dpr": 1.25,
+      "outline": true,
+      "orbitFps": 45.5,
+      "orbitP95Ms": 33.5,
+      "gpuMedianMs": 11.28,
+      "gpuP95Ms": 12.46,
+      "firstTerrainLocalMs": 930,
+      "terrainGeometryMiB": 2.73,
+      "terrainTexturesMiB": 7.3,
+      "minSubmittedTriangles": 282698,
+      "maxSubmittedTriangles": 371082,
+      "minDrawCalls": 29,
+      "maxDrawCalls": 37
+    },
+    {
+      "base": "brown",
+      "dem": "8m",
+      "quality": "alta",
+      "drawingBuffer": "1600x900",
+      "dpr": 1.25,
+      "outline": false,
+      "orbitFps": 56.6,
+      "orbitP95Ms": 33.3,
+      "gpuMedianMs": 7.66,
+      "gpuP95Ms": 8.8,
+      "firstTerrainLocalMs": 930,
+      "terrainGeometryMiB": 2.73,
+      "terrainTexturesMiB": 7.3,
+      "minSubmittedTriangles": 141540,
+      "maxSubmittedTriangles": 185732,
+      "minDrawCalls": 15,
+      "maxDrawCalls": 19
+    },
+    {
+      "base": "brown",
+      "dem": "8m",
+      "quality": "media",
+      "drawingBuffer": "390x844",
+      "dpr": 1,
+      "outline": false,
+      "orbitFps": 59.9,
+      "orbitP95Ms": 16.9,
+      "gpuMedianMs": 1.96,
+      "gpuP95Ms": 2.62,
+      "firstTerrainLocalMs": 879,
+      "terrainGeometryMiB": 2.73,
+      "terrainTexturesMiB": 7.3,
+      "minSubmittedTriangles": 99460,
+      "maxSubmittedTriangles": 115988,
+      "minDrawCalls": 8,
+      "maxDrawCalls": 13
+    },
+    {
+      "base": "orcadas",
+      "dem": "8m",
+      "quality": "media",
+      "drawingBuffer": "390x844",
+      "dpr": 1,
+      "outline": true,
+      "orbitFps": 59.9,
+      "orbitP95Ms": 16.9,
+      "gpuMedianMs": 3.47,
+      "gpuP95Ms": 5.03,
+      "firstTerrainLocalMs": 982,
+      "terrainGeometryMiB": 4.3,
+      "terrainTexturesMiB": 7.3,
+      "minSubmittedTriangles": 371624,
+      "maxSubmittedTriangles": 390680,
+      "minDrawCalls": 17,
+      "maxDrawCalls": 21
+    },
+    {
+      "base": "brown",
+      "dem": "4m",
+      "quality": "alta",
+      "drawingBuffer": "1600x900",
+      "dpr": 1.25,
+      "outline": true,
+      "orbitFps": 44.2,
+      "orbitP95Ms": 33.5,
+      "gpuMedianMs": 12.61,
+      "gpuP95Ms": 13.87,
+      "firstTerrainLocalMs": 2561,
+      "terrainGeometryMiB": 6.68,
+      "terrainTexturesMiB": 29.2,
+      "minSubmittedTriangles": 684818,
+      "maxSubmittedTriangles": 928670,
+      "minDrawCalls": 33,
+      "maxDrawCalls": 41
+    }
+  ],
+  "payloadModel": {
+    "compression": "gzip for JS/CSS/HTML/JSON; WASM served uncompressed in this preview. Binary .gz and KTX2 unchanged. Estimates exclude HTTP headers. First load modeled from observed requested assets; not total dist folder.",
+    "commonBytes": 1252430,
+    "loads": [
+      {
+        "base": "brown",
+        "level": "4m",
+        "terrainBytes": 1972248,
+        "estimatedColdPageBytes": 3225899
+      },
+      {
+        "base": "brown",
+        "level": "8m",
+        "terrainBytes": 744982,
+        "estimatedColdPageBytes": 1998633
+      },
+      {
+        "base": "orcadas",
+        "level": "4m",
+        "terrainBytes": 3157409,
+        "estimatedColdPageBytes": 4411063
+      },
+      {
+        "base": "orcadas",
+        "level": "8m",
+        "terrainBytes": 1634122,
+        "estimatedColdPageBytes": 2887776
+      }
+    ]
+  },
+  "limits": [
+    "Single desktop machine; mobile viewport uses the same AMD GPU, DPR1. Not validation on a real phone or DPR2/3.",
+    "Each condition measured once; FPS is not a cross-device guarantee. Other user applications remained open.",
+    "Local cached loading is not WAN or slow-network timing. Default desktop progressive loading also requests 8m before 4m; add both terrain payloads.",
+    "GPU memory is partial terrain allocation only; excludes render targets, framebuffer, icebergs, material textures and driver overhead.",
+    "Triangle and draw-call counts include multiple render passes in the sampled frame, not unique terrain polygons; reflection passes vary across frames.",
+    "No WebGL warning/error logs captured during the last production test."
+  ],
+  "findings": [
+    "Outline increases measured GPU median 47.3% in Brown8m: 7.66 to 11.28ms. Disable/optimize this optional pass first.",
+    "Brown4m terrain allocation ~35.88MiB vs ~10.03MiB at8m; first local terrain ~2.56s vs0.93s.",
+    "Current live counter previously reported only overlay triangles; corrected to sum a complete frame. Old bench bypassed outline; corrected.",
+    "Viewer mounts immediately after WebGL check; no offscreen IntersectionObserver suspension.",
+    "No complete destroy lifecycle for host-site unmount: renderer, controls, worker, observer, shared textures and window listeners need coordinated cleanup.",
+    "WASM compression and long-term caching should be configured in production hosting."
+  ],
+  "priorities": [
+    "Integrate lazy mounting near viewport or on user interaction, offscreen pause, explicit destroy lifecycle.",
+    "Prefer 8m mobile with adaptive resolution. Keep 4m desktop optional/progressive after real-device validation.",
+    "Optimize or disable optional outline on constrained devices; preserve materials and geometry.",
+    "Test a real mid-range phone and a throttled mobile connection before publication."
+  ]
+}

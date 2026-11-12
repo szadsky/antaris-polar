@@ -1,0 +1,52 @@
+{
+  "title": "Cobertura observada · prueba Brown",
+  "warning": "Clasificación automática de nieve/hielo y roca; no mide espesor. Dos observaciones, no un modelo estacional.",
+  "commonPixels": 33861,
+  "changedPixels": 59,
+  "entries": [
+    {
+      "id": "S2B_20DNP_20240818_0_L2A",
+      "date": "2024-08-18",
+      "file": "snow-2024-08-18.rg.gz",
+      "width": 512,
+      "height": 512,
+      "format": "RG8: snow-times-validity, validity",
+      "crs": "EPSG:3031",
+      "bounds": [
+        -2469602,
+        1259318,
+        -2461602,
+        1267318
+      ],
+      "observedLandFraction": 0.48527922267428886,
+      "snowPixels": 56401,
+      "rockPixels": 135,
+      "landPixels": 116502,
+      "downloadBytes": 7174,
+      "source": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/20/D/NP/2024/8/S2B_20DNP_20240818_0_L2A/SCL.tif",
+      "method": "SCL 11 + NDSI > 0.4; SCL 5 + NDSI < 0.2. Clouds, shadows, water and uncertain pixels retain the original material. Nearest source sampling; 20 m SWIR/SCL information. Not snow depth."
+    },
+    {
+      "id": "S2B_20DNP_20250323_0_L2A",
+      "date": "2025-03-23",
+      "file": "snow-2025-03-23.rg.gz",
+      "width": 512,
+      "height": 512,
+      "format": "RG8: snow-times-validity, validity",
+      "crs": "EPSG:3031",
+      "bounds": [
+        -2469602,
+        1259318,
+        -2461602,
+        1267318
+      ],
+      "observedLandFraction": 0.6391392422447684,
+      "snowPixels": 74359,
+      "rockPixels": 102,
+      "landPixels": 116502,
+      "downloadBytes": 7884,
+      "source": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/20/D/NP/2025/3/S2B_20DNP_20250323_0_L2A/SCL.tif",
+      "method": "SCL 11 + NDSI > 0.4; SCL 5 + NDSI < 0.2. Clouds, shadows, water and uncertain pixels retain the original material. Nearest source sampling; 20 m SWIR/SCL information. Not snow depth."
+    }
+  ]
+}

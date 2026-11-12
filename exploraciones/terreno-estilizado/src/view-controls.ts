@@ -64,12 +64,23 @@ export function mountMarineControls(o:{visible:boolean;floating:boolean;onVisibl
 }
 
 /** Shares the existing Dialkit styling and keyboard controls with the ocean sliders. */
-export function mountPixelControls(o:{onSize:(v:number)=>void;onLevels:(v:number)=>void;onDither:(v:number)=>void}){
+/** Parámetros del motor de píxeles. `set(nombre, valor)` recibe la clave de PixelParams (pixel-look.ts). */
+export function mountPixelControls(initial:Record<string,number|string>,set:(key:string,value:number|string)=>void){
  const host=(id:string)=>document.getElementById(id)!;
+ const n=(k:string)=>initial[k] as number,s=(k:string)=>initial[k] as string;
+ const slider=(id:string,key:string,label:string,min:number,max:number,step:number,unit?:string)=>
+  Slider(host(id),{label,value:n(key),min,max,step,...(unit?{unit}:{}),onChange:(v:number)=>set(key,v)});
  const controls=[
-  Slider(host('dial-pixel-size'),{label:'Tamaño del píxel',value:4,min:2,max:8,step:1,unit:'px',onChange:o.onSize}),
-  Slider(host('dial-pixel-levels'),{label:'Niveles de color',value:14,min:4,max:32,step:1,onChange:o.onLevels}),
-  Slider(host('dial-pixel-dither'),{label:'Tramado',value:.45,min:0,max:1,step:.05,onChange:o.onDither})
+  slider('dial-pixel-size','size','Tamaño del píxel',1,16,1,'px'),
+  slider('dial-pixel-levels','levels','Niveles de color',2,32,1),
+  SelectControl(host('dial-pixel-palette'),{label:'Paleta',value:s('palette'),options:[{value:'libre',label:'Color libre'},{value:'gris',label:'Escala de grises'},{value:'hielo',label:'Hielo'},{value:'calido',label:'Cálida'}],onChange:(v:string)=>set('palette',v)}),
+  SelectControl(host('dial-pixel-pattern'),{label:'Patrón de tramado',value:s('pattern'),options:[{value:'bayer2',label:'Bayer 2×2'},{value:'bayer4',label:'Bayer 4×4'},{value:'bayer8',label:'Bayer 8×8'},{value:'none',label:'Sin tramado'}],onChange:(v:string)=>set('pattern',v)}),
+  slider('dial-pixel-dither','dither','Tramado',0,1,.05),
+  slider('dial-pixel-saturation','saturation','Saturación',0,2,.02),
+  slider('dial-pixel-contrast','contrast','Contraste',.5,2,.02),
+  slider('dial-pixel-brightness','brightness','Brillo',-.3,.3,.01),
+  slider('dial-pixel-outline','outline','Contornos',0,1,.05),
+  slider('dial-pixel-outline-threshold','outlineThreshold','Sensibilidad del contorno',.002,.2,.002)
  ];
  return ()=>controls.forEach(control=>control.destroy());
 }

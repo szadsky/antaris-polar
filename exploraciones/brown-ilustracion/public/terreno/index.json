@@ -1,0 +1,15 @@
+{
+  "generado": "2026-11-09T03:11:54.002Z",
+  "stepM": 0.5,
+  "bases": [
+    {
+      "id": "brown",
+      "nombre": "Base Antártica Brown",
+      "permanente": false,
+      "kb": [
+        860,
+        296
+      ]
+    }
+  ]
+}

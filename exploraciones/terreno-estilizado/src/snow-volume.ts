@@ -216,6 +216,9 @@ if (uCoastRamp.w > 0.0) {
   // islas bajas), la rampa los hundía y la orilla quedaba como un contorno con huecos.
   float agreeC = (sdfC < 0.0 && wpC.y > uSeaY + 0.2) || (sdfC > 0.0 && wpC.y < uSeaY - 0.2) ? 0.0 : 1.0;
   float kC = bandC * lowC * agreeC * uCoastRamp.w;
+  // Caras de cierre (corte del diorama): solo la parte de arriba sigue a la orilla. Sin esto, el fondo del corte
+  // (cientos de metros bajo el agua) junto a cada orilla subía al nivel del mar y abría una ranura en diagonal.
+  if (dot(vClosureNormal, vClosureNormal) > 0.5 && wpC.y < uSeaY - 5.0) kC = 0.0;
   if (kC > 0.0) {
     float yC = uSeaY + clamp(sdfC * uCoastRamp.x, -3.0, uCoastRamp.y);
     transformed.y += (yC - wpC.y) * kC;

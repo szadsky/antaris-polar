@@ -46,8 +46,10 @@ export interface VertexPath {
 }
 
 function vertexPath(s: THREE.WebGLProgramParametersWithUniforms, v: VertexPath, extraPars = "") {
-  extraPars += "\nvarying vec3 vClosureNormal;";
-  s.fragmentShader = s.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vClosureNormal;");
+  // vTopY: altura (mundo) del último vértice del triángulo, sin interpolar. En la malla costera horneada ese
+  // vértice es el más alto de la cara: el frente de un acantilado sabe hasta dónde llega su cima.
+  extraPars += "\nvarying vec3 vClosureNormal;\nflat varying float vTopY;";
+  s.fragmentShader = s.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vClosureNormal;\nflat varying float vTopY;");
   if (v.grid) {
     Object.assign(s.uniforms, v.grid, { uSkirt: v.skirt ?? { value: 0 } });
     s.vertexShader = s.vertexShader
@@ -362,7 +364,12 @@ if (uStylize.y > 0.0) {
 n.y = sqrt(max(0.0, 1.0 - dot(n.xz, n.xz)));
 // Vertical closure faces need their geometric normal, not the overhead DEM normal.
 bool closureFace = dot(vClosureNormal, vClosureNormal) > 0.5;
-if (closureFace) n = normalize(vClosureNormal);
+// Normal de iluminación algo inclinada hacia arriba (~24°), como la de un frente de acantilado del relieve: con la
+// cara exactamente vertical, el corte del diorama del lado sin sol quedaba casi negro (sin luz del cielo).
+if (closureFace) n = normalize(normalize(vClosureNormal) + vec3(0.0, 0.45, 0.0));
+// El corte es roca de arriba abajo: la distancia a la costa (interpolada entre una columna de tierra y una de
+// mar) lo pintaba de mar en una cuña fina bajo cada orilla (líneas claras verticales).
+if (closureFace) isSea = 0.0;
 #ifdef SNOW_VOL_FRAG
 // Paredes de la malla (el frente de un acantilado costero entre la cima y el fondo): la normal REMA cenital
 // dice "plano" y las pintaba de nieve, con vetas verticales de la proyección desde arriba. Donde la cara es
@@ -376,9 +383,13 @@ if (dot(nGeo, cameraPosition - vWorld) < 0.0) nGeo = -nGeo;
 if (coastK > 0.0) {
   vec2 nF0 = surf.rg * 2.0 - 1.0;
   wallK = coastK * smoothstep(0.15, 0.35, (1.0 - abs(nGeo.y)) - (1.0 - sqrt(max(0.0, 1.0 - dot(nF0, nF0)))));
-  // Solo por encima de 6–12 m sobre el agua: en orillas bajas y medianas, las caras hacia el fondo se pasaban
-  // a roca y la silueta salía en dientes. (Con el relieve REMA suavizado no se distinguía: REMA rellena el mar.)
-  wallK *= smoothstep(6.0, 12.0, vWorld.y - uSeaY);
+  // Solo en caras cuya cima está a más de 6–12 m sobre el agua (vTopY: altura del vértice más alto de la cara,
+  // sin interpolar): en orillas bajas y medianas, las caras hacia el fondo se pasaban a roca y la silueta salía
+  // en dientes. Con la altura del píxel (antes), el pie de un acantilado de 75 m quedaba de nieve y cada cinta
+  // vertical asomaba como un diente blanco sobre el agua.
+  // Con la cima de la cara el umbral baja a 3–7 m: en un frente de 7–16 m, las caras con cima de 7 m quedaban de
+  // nieve entre caras de roca (arcos blancos al pie).
+  wallK *= smoothstep(3.0, 7.0, max(vWorld.y, vTopY) - uSeaY);
   if (wallK > 0.0) {
     // Dirección horizontal suave: gradiente de la distancia con signo a la costa (continua a lo largo del
     // frente); la cara triangular solo aporta la inclinación. Con la normal de la cara sola, columnas facetadas.
@@ -449,6 +460,14 @@ gSun = mix(gSun, 1.0, wallK);
 // R = manchas suaves (~240 m), G = vetas fbm (~30–120 m).
 vec2 mac = texture2D(uNoise, vWorld.xz * (1.0 / 1900.0)).rg;
 float big = mac.r;
+// Caras de cierre (corte del diorama): el ruido se lee sobre la pared (a lo largo del borde y en altura), no en
+// planta: con x/z era constante en vertical y la roca salía en franjas verticales repetidas. Escala de ~420 m.
+vec2 wallP = vec2(vWorld.x + vWorld.z, vWorld.y);
+// Dos lecturas giradas y a escalas distintas (como la nieve venteada): con una sola se veían las celdas cuadradas.
+if (closureFace) {
+  mac = 0.5 * (texture2D(uNoise, wallP * (1.0 / 420.0) + 0.53).rg + texture2D(uNoise, mat2(0.6, 0.8, -0.8, 0.6) * wallP * (1.0 / 270.0) + 0.21).rg);
+  big = mac.r;
+}
 float fine = mac.g;
 #ifdef SNOW_VOL_FRAG
 // Volumen de la nieve: normal del mismo relieve que desplaza la geometría (misma máscara de pendiente,
@@ -483,7 +502,7 @@ gBw /= max(gBw.x + gBw.y + gBw.z, 1e-4);
 gBw /= max(gBw.x + gBw.y + gBw.z, 1e-4);
 gUvX = vWorld.zy; gUvY = vWorld.xz; gUvZ = vWorld.xy;
 gGXx = dFdx(gUvX); gGXy = dFdy(gUvX); gGYx = dFdx(gUvY); gGYy = dFdy(gUvY); gGZx = dFdx(gUvZ); gGZy = dFdy(gUvZ);
-gK = texture2D(uNoise, vWorld.xz * (1.0 / 37.0)).g;
+gK = texture2D(uNoise, (closureFace ? wallP : vWorld.xz) * (1.0 / 37.0)).g; // en la pared: muestreo aperiódico en 2D
 float dDet = uDetailOn * (1.0 - smoothstep(uDetailFade.x, uDetailFade.y, length(cameraPosition - vWorld))) * (1.0 - isSea);
 // Borde nieve-roca: umbral de pendiente REMA (~47°), corrido por las cavidades del relieve (la nieve
 // queda en hondonadas) y la variación de baja frecuencia; transición de ±0,02 de pendiente
@@ -521,13 +540,17 @@ if (rockT > 0.003) {
 #ifndef FAR
   if (dDet > 0.001) rockNw = normalize(mix(n, biNormal(uRockNor, n, S_ROCK, uRockLook.x), dDet));
 #endif
-  if (uRockMacro.y > 0.0) {
-    float SM = 1.0 / uRockMacro.x;
+  // En el corte del diorama (pared plana, sin relieve que quiebre la textura) la capa grande va encendida, a 140 m,
+  // con su relieve en la luz: si no, el mosaico de 12,66 m se leía como un tejido parejo.
+  float macroW = closureFace ? 0.7 : uRockMacro.y;
+  if (macroW > 0.0) {
+    float SM = 1.0 / (closureFace ? 140.0 : uRockMacro.x);
     vec3 macroAlb = biColor(uRockCol, SM);
     // la capa media modula el tono (fracturas grandes) sin cambiar el color medio
-    rockAlb = mix(rockAlb, rockAlb * macroAlb / max(dot(macroAlb, vec3(0.333)), 0.03), uRockMacro.y);
+    rockAlb = mix(rockAlb, rockAlb * macroAlb / max(dot(macroAlb, vec3(0.333)), 0.03), macroW);
 #ifndef FAR
-    if (dDet > 0.001 && uRockRelief.y > 0.0) rockNw = normalize(rockNw + (biNormal(uRockNor, n, SM, uRockLook.x) - n) * uRockMacro.y * uRockRelief.y * dDet);
+    float reliefW = closureFace ? 0.9 : uRockRelief.y;
+    if (dDet > 0.001 && reliefW > 0.0) rockNw = normalize(rockNw + (biNormal(uRockNor, n, SM, uRockLook.x) - n) * macroW * reliefW * dDet);
 #endif
   }
   gGrad = 1.0;
@@ -535,8 +558,9 @@ if (rockT > 0.003) {
 #ifndef FAR
 // Fracturas de la roca: relieve de detalle generado en el navegador (el mismo de la prueba C: caras
 // angulosas de 2–15 m, mosaico de 97 m, aperiódico), solo sobre la roca y solo de cerca. Proyección por
-// eje dominante (2 lecturas). Interpretación artística: no son fracturas medidas.
-if (!closureFace && rockT > 0.003 && dDet > 0.001 && uRockFrac > 0.0) {
+// eje dominante (2 lecturas). Interpretación artística: no son fracturas medidas. También en el corte del
+// diorama: le da caras angulosas a la pared plana.
+if (rockT > 0.003 && dDet > 0.001 && uRockFrac > 0.0) {
   vec3 an = abs(n);
   vec2 puv;
   int ax;
@@ -643,6 +667,9 @@ diffuseColor.rgb = mix(land, sea, isSea);
 // Filter only the coastline pixel footprint; do not blur a band across the terrain.
 float oceanCoverage = 1.0 - smoothstep(-aaW, aaW, sdfM);
 float underW = oceanCoverage * max(1.0 - smoothstep(-0.8, 0.1, vWorld.y - uSeaY), isSea * uShoreBand);
+// Las caras de cierre (el corte del diorama) muestran la roca por dentro, no el fondo visto a través del agua:
+// sin esto, la roca bajo el mar del corte se pintaba del azul profundo del fondo y no se distinguía del agua.
+if (closureFace) underW = 0.0;
 if (underW > 0.0) {
   float depthW = max(uSeaY - vWorld.y, 0.0);
   // orilla clara (grava y arena húmedas vistas a través de poca agua) → turquesa → azul profundo
@@ -793,6 +820,7 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
         SNOW_VOL_VERTEX,
         COAST_RAMP_VERTEX,
         "vWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;",
+        "vTopY = vWorld.y;",
       ].join("\n")
     );
     s.fragmentShader = s.fragmentShader
