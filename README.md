@@ -54,8 +54,8 @@ npm run build
 npm run preview
 ```
 
-Publicar el contenido de `dist/` en la raíz del alojamiento estático. El visor queda en `/` y la prueba del pingüino en `/laboratorio/pinguino/`. No requieren reescrituras SPA. El laboratorio tiene entrada HTML, código, modelo, texturas y licencias independientes; no se precarga desde el visor. `npm run preview` permite verificar ambas rutas en http://127.0.0.1:3410/.
+Publicar el contenido de `dist/` en la raíz del alojamiento estático. El visor queda en `/`, la prueba del pingüino en `/laboratorio/pinguino/` y **Pingüino · menú** (islas de práctica para recorrer con el pingüino, Sendero por defecto, botón «Ocultar interfaz» o tecla H) en `/pinguino-menu/`. No requieren reescrituras SPA. El laboratorio tiene entrada HTML, código, modelo, texturas y licencias independientes; no se precarga desde el visor. `npm run preview` permite verificar las tres rutas en http://127.0.0.1:3410/.
 
-La plataforma del laboratorio es sintética, no una medición REMA. Incluye WASD, Shift para correr, Espacio para saltar, R para centrar y huellas geométricas que se rellenan tras 8 + 6 segundos. Modelo: Polyfork, CC BY 4.0. Deformación: adaptación de Oguzhan Tufenk / Codrops, MIT. Los créditos y licencias acompañan la página.
+La plataforma del laboratorio es sintética, no una medición REMA. Incluye WASD, Shift para correr, Espacio para saltar, R para centrar y huellas geométricas que se rellenan tras 8 + 6 segundos. Modelo: Polyfork, CC BY 4.0. Deformación: adaptación de Oguzhan Tufenk / Codrops, MIT. Los créditos y licencias acompañan la página. Las islas de Pingüino · menú también son **relieve sintético** (ruido y erosión), no geografía real ni datos REMA; ver `exploraciones/penguin-lab/LEEME.txt`.
 
 Esta compilación no configura ni activa por sí sola un servicio de hosting.

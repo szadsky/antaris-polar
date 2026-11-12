@@ -7,7 +7,7 @@
   },
   "scripts": {
     "setup": "npm --prefix exploraciones/terreno-estilizado ci && npm --prefix exploraciones/penguin-lab ci",
-    "build": "npm --prefix exploraciones/terreno-estilizado run build && node scripts/assemble-site.mjs",
+    "build": "npm --prefix exploraciones/terreno-estilizado run build && npm --prefix exploraciones/penguin-lab run build && node scripts/assemble-site.mjs",
     "preview": "node scripts/preview-site.mjs",
     "test:penguin": "npm --prefix exploraciones/penguin-lab test"
   }

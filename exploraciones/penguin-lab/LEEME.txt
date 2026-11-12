@@ -1,13 +1,153 @@
 LABORATORIO DEL PINGUINO
 Desarrollo independiente: npm install; npm run dev (puerto 3402).
 Pagina integrada: desde la raiz del repositorio, npm run setup; npm run build; npm run preview.
-Ruta integrada: /laboratorio/pinguino/. Salida estatica en dist/ en la raiz.
+Rutas integradas: /laboratorio/pinguino/ (plataforma original, index.html + src/main.ts) y /pinguino-menu/
+(islas de practica: pinguino-menu/index.html + src/menu-main.ts + src/menu.css). Comparten codigo y recursos
+(/laboratorio/pinguino/assets/). En desarrollo: http://127.0.0.1:3402/ y http://127.0.0.1:3402/pinguino-menu/.
+Salida estatica en dist/ en la raiz.
 Pruebas: npm test. Requiere Node.js >=22.7.
 
-La carpeta es independiente del visor: no carga DEMs, agua ni bases.
+La carpeta es independiente del visor: no carga DEMs, agua ni bases del visor.
 Modelo de Polyfork, CC BY 4.0; se conserva el GLB y su atribucion.
-Materiales: copia del shader y texturas de nieve de Antaris; sin desplazamiento
-kilometrico ni rampas costeras. Plataforma artistica sintetica, no relieve REMA.
 Huellas: adaptacion MIT de Oguzhan Tufenk / Codrops. Las licencias se conservan.
 En esta maquina node_modules reutiliza un enlace local; no se versiona ni se necesita
 en otra computadora: npm ci instala las dependencias indicadas por el lockfile.
+
+PINGUINO · MENU (/pinguino-menu/)
+Boton "Ocultar interfaz" (o tecla H): deja solo el paisaje, el pinguino y el boton para volver a mostrarla;
+la preferencia se recuerda en el navegador (localStorage, si esta disponible). src/ui-toggle.ts.
+En el movil los botones bajan a dos filas para no salirse de la pantalla.
+
+TERRENOS DE PRACTICA (?terreno=sendero, ?terreno=macizo o ?terreno=valle, o botones del encabezado)
+  Sendero se abre por defecto (DEFAULT_TERRAIN_ID).
+  Macizo: isla de ~300 m2, llanura costera al frente, cordon erosionado con glaciares
+    al fondo. Dominio de 28 m, celdas de 2,7 cm.
+  Valle encerrado (zona de navegacion): valle amplio para caminar libre (~930 m2 caminables
+    conectados), con una laguna helada en el centro, rodeado por un anillo de montañas de hasta
+    ~9,5 m; una abertura angosta hacia la camara baja al mar. Dominio de 51 m, celdas de 4 cm.
+  Sendero: isla alargada (~55 m en diagonal, no es un circulo) con un circuito para recorrer
+    (~1250 m2 caminables conectados). Desde la playa de inicio sube por el norte en terrazas a
+    distintas alturas (~1, 2,2, 3,4 y 4,4 m) hasta una cumbre-mirador (~5,1 m); de ahi un tobogan
+    de hielo de ~13 m baja cruzando el cordon central hasta una laguna helada, y la vuelta sigue
+    por un valle bajo al sur. Un paso a media altura une la ida y la vuelta; dos salidas a playas
+    (norte y sur). Montañas irregulares a los costados y en el centro (cumbres hasta ~8,6 m).
+    Rampas caminables (pendientes 0,05–0,54; limite 0,67). Bajando el tobogan con E acelera de 2,8
+    a ~6,7 m/s en ~3 s. Dominio de 60 m, celdas de 4,7 cm.
+    Tecnica: grafo de lugares y rampas (curvas Catmull-Rom); la costa sigue la red (tierra hasta
+    ~6–9 m afuera, suavizada); pisos a distinta altura por promedio ponderado suave, montaña
+    (ridged multifractal, masa variable) afuera de los pisos, erosion hidraulica; los pisos no se
+    erosionan. (Versiones anteriores descartadas: "Travesia" y "Pasadizos".)
+RELIEVE SINTETICO generado por procedimiento (ruido y erosion simulada). No es geografia real, no
+viene de REMA ni de ningun DEM y no debe presentarse como relieve real. La pagina lo dice en el
+encabezado.
+
+Como se genera (src/island/island-terrain.ts, modulo puro que se prueba en Node; semillas fijas):
+1. Forma: mascara radial con deformacion de dominio (domain warping) y fBm de 3 octavas: costa
+   irregular. (Una cuarta octava plegaba la costa en entradas de 0,4 m con puntas agudas.)
+2. Relieve base:
+   - Macizo: llanura con perfil exponencial (playa de ~20 grados), lomadas y afloramientos;
+     macizo = base ancha + ruido ridged multifractal (Musgrave), al norte, lejos de la camara.
+   - Valle: banda circular de radio irregular (ruido periodico sobre el angulo) con base continua
+     + ridged multifractal; cumbres mas altas al fondo; abertura de ~±18 grados hacia la camara;
+     piso del valle como cuenca suave y laguna plana. Se diseño a 12,2 m de radio y se agranda
+     x1,8 en horizontal y x1,6 en altura (las formas no cambian).
+3. Erosion hidraulica por gotas (H. T. Beyer 2015; referencia de S. Lague) sobre la grilla de
+   generacion (129 x 129 o 161 x 161): talla valles y canaletas y deposita sedimento al pie de las
+   laderas. Las gotas que llegan al mar se pierden; el cambio se suaviza y se apaga junto a la
+   costa, asi la linea de costa la define el relieve base, que es continuo.
+4. Hielo: glaciares donde la erosion acumula flujo (valles) en la zona montañosa; laguna del valle.
+5. Ampliacion con Catmull-Rom (pasa exacto por las muestras): x2 para la malla y x4 para la
+   grilla fina de normales y huellas.
+Tiempos en el navegador: macizo ~80 ms de relieve y ~0,75 s de preparacion total; valle ~180 ms de
+relieve (erosion ~100 ms) y ~0,9 s en total.
+
+Escala: metros. Pinguino de 1,25 m. Nivel del mar en y = 0.
+Camara: perspectiva 3/4 elevada (45 grados, 15 m) que sigue al pinguino con acimut fijo; se puede
+girar y acercar con el mouse o el pellizco. En pantallas verticales se abre el campo visual.
+R vuelve al punto de inicio y al encuadre inicial.
+Navegacion: el pinguino camina sobre la altura del terreno y no entra al agua (se detiene a 10 cm
+sobre el nivel del mar). Las laderas de mas de 34 grados (roca, frentes de hielo) son obstaculos:
+al chocar, bordea el obstaculo en vez de frenar en seco, salvo que lo enfrente de lleno.
+Se mantiene lo que ya existia: huellas, surco al deslizar (E), salto, sonido de pisadas y colores
+de pinguino rey. En hielo no quedan huellas ni surco (se oye el paso igual).
+Sonido de pisadas (src/snow-step-synth.ts, src/footstep-audio.ts): crujido de nieve sintetizado en el
+navegador. La grabacion anterior (Kenney, footstep_snow_000, CC0) medida: centro espectral 513 Hz, 63 %
+de la energia bajo 400 Hz, pico 0,91 y siempre la misma: sonaba a golpe sordo y repetido. Ahora: nube de
+granos de crujido segun la presion del pie, soplido de nieve compactandose y golpe grave leve (~10 % de
+la energia); ataque suave (12–20 ms) y caida de 85–130 ms; filtrado ~350 Hz – 3,1 kHz. Medido: centro
+~1,5 kHz, 88 % de la energia en 0,4–5 kHz, 1,9 % sobre 5 kHz, granulosidad 0,64 (siseo puro 0,06), pico
+0,5. 12 variantes de paso y 4 de aterrizaje (31 ms al habilitar el audio), sin repetir la anterior, tono
+0,86–0,96 (mas grave y lento), volumen ±10 %, paneo leve al azar. Volumen bajo: pico ~0,07 caminando
+(la mitad de la primera version, que se oia muy fuerte). Ritmo: la marcha apoya ~7 pies por segundo
+(9–10 corriendo); suenan como mucho cada 0,24 s caminando / 0,2 s corriendo (~3,5 pasos/s, parejo); el
+aterrizaje de un salto suena siempre. ?pisadas=muestra vuelve a la grabacion para comparar. Ejemplo:
+capturas/pisadas-nieve-caminar-correr.wav (caminar 4 s, correr, saltar). Pruebas: check-step-sound.mjs.
+Velocidades: caminar 0,85 m/s, correr 1,9 m/s, deslizar 2,8 m/s en plano (antes 0,48 / 1,1 / 1,65). Las
+animaciones se aceleran en la misma proporcion: los pies siguen apoyados sin patinar (check-gait).
+Deslizamiento con pendiente (src/penguin-motion.ts, SLIDE): acelera en bajada (6 m/s2 por unidad de
+pendiente, menos 0,6 m/s2 de rozamiento), tope 8 m/s; en plano frena hasta la base y en subida no baja de
+ella; al soltar E o chocar de frente vuelve a la base. Las aletas acompañan la velocidad. En el tobogan
+de Pasadizos baja de 2,8 a ~4,7 m/s. El movimiento se divide en pasos de 12 cm para no atravesar
+paredes finas a velocidad alta, y en un choque rasante contra una pared sigue deslizando junto a ella
+(antes, si los dos desvios inmediatos estaban libres, frenaba en seco). Pruebas: check-slide-speed.mjs.
+Hielo (src/penguin-motion.ts, ICE): el pinguino NO se tira de panza al pisar hielo; patina de pie con
+inercia, mas rapido que en nieve: 2,2 m/s caminando, 3,2 con Shift, 4,5 de panza solo con E (impulso
+4 m/s2). Rozamiento moderado (1,6 m/s2; de panza 0,8): al soltar planea ~1,5 m y frena en ~1,4 s (en el
+navegador, en la laguna de Sendero: 1,07 m). Giro gradual (4 rad/s como maximo). Entra al hielo con la
+velocidad que traia; al salir sin E sigue patinando sobre la nieve y frena (3 m/s2) hasta caminar, sin
+detenerse en seco. La pendiente acelera igual que el deslizamiento (tope 8 m/s); un choque de frente lo
+frena. Animacion: de pie, paso con impulso; quieto planeando. En hielo no suena la pisada.
+Pruebas: check-ice.mjs.
+Particulas de nieve (src/snow-particles.ts): un solo THREE.Points (1 llamada), hasta 600 granitos con
+fisica en CPU (gravedad 5,5 m/s2, arrastre del aire, se apagan al tocar el suelo). Salen hacia atras del
+paso en cada huella sobre nieve (8 caminando, 13 corriendo, 26 al aterrizar) y como rocio al deslizar de
+panza sobre nieve blanda; ninguna en hielo. Sin particulas vivas no se sube nada a la GPU.
+Pruebas: check-snow-particles.mjs.
+
+Materiales: el mismo shader y texturas de nieve copiados del visor (src/snow/), sin desplazamiento
+kilometrico ni rampas costeras. La escena (src/island/island-scene.ts) solo adapta escalas al tamano
+de un pinguino: espuma fina y continua junto a la orilla, ondas y fondo submarino a escala de metros,
+fondo de orilla oscuro, sin brillo de nieve bajo el agua, y una mascara de hielo propia (canal A de
+la textura de luz, libre en el visor). Roca y nieve las decide el shader por pendiente.
+
+Mapas (src/island/island-maps.ts): normales, distancia a la costa (transformada de distancia exacta),
+sombra del relieve horneada, orilla, curvatura y hielo (~14,5 cm por texel). En tiempo real solo el
+pinguino proyecta sombra, con un mapa chico que lo sigue.
+Costa sin dientes de sierra: la costa es la interseccion de la malla con el plano del agua; el fondo a
+mas de 2,4 m de la costa no se dibuja porque ahi el agua es opaca, asi el borde recortado nunca queda
+bajo agua translucida. check-island.mjs cuenta "dientes" (pares de giros consecutivos de mas de 20
+grados con signo opuesto) en la costa de la malla: 0 en los tres terrenos; con alturas binarizadas
+(costa en escalera) da 60.
+Huellas: actualizan solo las filas tocadas y los bloques de 16 x 16 celdas que se desvanecen. La
+textura de superficie se sube a la GPU por region, con sus niveles de mipmap recalculados en CPU solo
+en esa region (IslandGround.flush). Con needsUpdate, three.js regeneraba los mipmaps de la textura
+entera en cada pisada: en el valle (1281 x 1281) eso daba un tiron por paso.
+
+Mediciones en tiempo real (PC de desarrollo, AMD Radeon integrada, 1280 x 800, pixel ratio 1;
+teclas reales, frame time por requestAnimationFrame):
+  sendero en el sitio armado (npm run build + preview, /pinguino-menu/, 1367 x 787, pixel ratio 1,25,
+    12/11/2026): reposo 59,9 FPS (mediana 16,7 ms, p95 17,0 ms); corriendo 6 s 59,9 FPS (p95 17,0 ms,
+    max 17,4 ms, 0 cuadros de mas de 25 ms); caminando 4 s igual. 146.592 triangulos, 4 llamadas,
+    huellas CPU 0,03 ms/cuadro. Lista en ~1,7 s en local (incluye generar el terreno). Descarga sin
+    comprimir ~2,7 MB: modelo GLB 1,16 MB, JS 0,8 MB (~0,21 MB con gzip), transcodificador Basis 0,5 MB,
+    texturas KTX2 0,22 MB. Heap JS ~134 MB.
+  macizo caminando: 60 FPS, mediana 16,7 ms, p95 17,5 ms, 0 cuadros de mas de 25 ms en 4 s.
+  pasadizos (descartado) caminando: 60 FPS (mediana 16,7 ms, p95 17,5 ms). Sendero: ~146 mil triangulos,
+  3 llamadas; FPS en tiempo real no medido (el panel de pruebas estaba en segundo plano).
+  valle caminando: 60 FPS, mediana 16,7 ms, p95 20,8 ms, 1 cuadro de mas de 25 ms en 6 s
+    (antes de subir por region: p95 32,7 ms y 22 tirones). 146 mil triangulos, 3 llamadas.
+  CPU de huellas: 0,01 a 0,15 ms por cuadro.
+No se midio en un movil real. En el valle la memoria de CPU crece (~40 MB entre alturas, huellas,
+superficie y distancia a costa) por la grilla fina de 1281 x 1281.
+Repeticion de la nieve: con el microrelieve exagerado x8 y vista cenital, la autocorrelacion de la
+luminancia en el periodo del mosaico (2,5 m) es -0,01 (medido con el mismo material en la version de
+islas anterior).
+
+Capturas (capturas/): 00 plataforma original; v1-* islas de la primera version (descartadas);
+v2-* macizo (vista general, inicio, huellas al pie del glaciar, orilla, movil);
+v3-valle-* valle encerrado (vista general, inicio, huellas); v4-pasadizos-* pasadizos (vista general,
+entre macizos, tobogan de hielo, bajada acelerando; descartado); v5-sendero-* sendero (vista general, cumbre
+y tobogan, bajando el tobogan, 04 patinando de pie en la laguna helada); v6-menu-interfaz-oculta
+(Pinguino · menu con la interfaz oculta).
+Solo en desarrollo (npm run dev) existe window.antarisLab para pruebas en el navegador; el build no
+lo incluye.

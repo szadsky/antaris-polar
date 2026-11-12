@@ -1,0 +1,194 @@
+import {applyKingPenguinColors} from './king-penguin-colors';
+import {groundedSlideClip,slideSupportWeight} from './slide-animation';
+import {FootstepAudio} from './footstep-audio';
+import {PenguinMotion,GAIT_SPEED,MOVE_SPEED} from './penguin-motion';
+import * as THREE from 'three';
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {loadTerrainTextures} from './snow/terrain-textures';
+import {TERRAINS,terrainSpec} from './island/island-terrain';
+import {IslandGround,SUN_DIRECTION} from './island/island-scene';
+import {SnowParticles} from './snow-particles';
+import {setupUiToggle} from './ui-toggle';
+
+const status=document.getElementById('status')!;
+setupUiToggle(document.getElementById('toggle-ui') as HTMLButtonElement);
+// Terreno: ?terreno=sendero (por defecto), macizo o valle. Relieve sintético, no geografía real.
+const spec=terrainSpec(new URLSearchParams(location.search).get('terreno'));
+/** Cámara en perspectiva 3/4 elevada: distancia (m), elevación (rad) y altura del punto de mira. */
+const VIEW={distance:15,elevation:.8,lookHeight:.55};
+const BACKGROUND='#e1e9ed';
+
+async function main(){
+ const nav=document.getElementById('islands')!;
+ for(const terrain of TERRAINS){const link=document.createElement('a');link.href='?terreno='+terrain.id;link.textContent=terrain.name;link.title=terrain.summary;if(terrain.id===spec.id)link.setAttribute('aria-current','page');nav.append(link);}
+ document.getElementById('island-summary')!.textContent=spec.summary;
+ const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('scene') as HTMLCanvasElement,antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ const scene=new THREE.Scene();scene.background=new THREE.Color(BACKGROUND);scene.fog=new THREE.Fog(BACKGROUND,38,120);
+ const camera=new THREE.PerspectiveCamera(36,innerWidth/innerHeight,.1,220);
+ // Pantallas verticales (móvil): se abre el campo visual para conservar ≥ 34° horizontales.
+ const fitCamera=()=>{camera.aspect=innerWidth/innerHeight;camera.fov=Math.max(36,2*Math.atan(Math.tan(17*Math.PI/180)/camera.aspect)*180/Math.PI);camera.updateProjectionMatrix();};fitCamera();
+ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=3.5;controls.maxDistance=24;controls.minPolarAngle=.3;controls.maxPolarAngle=1.3;controls.enablePan=false;
+ scene.add(new THREE.HemisphereLight('#e2f1ff','#7f8d9d',1.7));
+ // Sol: la sombra del relieve va horneada en la textura de luz; en tiempo real solo proyecta el pingüino,
+ // con un mapa pequeño que lo sigue (nítido y barato).
+ const sunOffset=new THREE.Vector3(...SUN_DIRECTION).normalize().multiplyScalar(12);
+ const sun=new THREE.DirectionalLight('#fff4de',2.6);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-2.2,right:2.2,top:2.2,bottom:-2.2,near:2,far:26});sun.shadow.normalBias=.015;sun.shadow.bias=-.0001;scene.add(sun,sun.target);
+
+ const started=performance.now();
+ const ground=new IslandGround(spec);scene.add(ground.group);
+ const terrain=ground.terrain;
+ const [gltf,textures]=await Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy())]);
+ const penguin=gltf.scene;applyKingPenguinColors(penguin);const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);scene.add(character);
+ const mixer=new THREE.AnimationMixer(penguin);
+ const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip.name.toLowerCase()==='swim'?groundedSlideClip(clip):clip)]));
+ // Fixed belly support: moving flippers must not lift the whole character.
+ const swim=actions.get('swim');let swimFloor=0;
+ if(swim){swim.play();mixer.setTime(0);character.updateMatrixWorld(true);swimFloor=new THREE.Box3().setFromObject(penguin,true).min.y-character.position.y;mixer.stopAllAction();mixer.setTime(0);}
+ let active=actions.get('idle');active?.play();
+ // Pisadas: crujido de nieve sintetizado; ?pisadas=muestra usa la grabación anterior para comparar.
+ const stepAudio=new FootstepAudio(import.meta.env.BASE_URL+'assets/audio/footstepOnSnow1Medium.ogg',new URLSearchParams(location.search).get('pisadas')==='muestra'?'muestra':'nieve');
+ const soundButton=document.getElementById('step-sound')!;
+ soundButton.onclick=()=>{stepAudio.setEnabled(!stepAudio.enabled);soundButton.textContent=stepAudio.enabled?'Sonido activado':'Sonido silenciado';soundButton.setAttribute('aria-pressed',String(stepAudio.enabled));};
+ const unlockAudio=()=>stepAudio.unlock();renderer.domElement.addEventListener('pointerdown',unlockAudio);
+ // Sin límite circular: la isla decide dónde se puede pisar (agua y laderas de más de 34° bloquean).
+ // Hielo (lagunas, glaciares, toboganes): se desliza solo, con inercia (src/penguin-motion.ts, ICE).
+ const motion=new PenguinMotion(Infinity,(x,z)=>terrain.canStand(x,z),(x,z)=>terrain.gradient(x,z),(x,z)=>terrain.ice(x,z));motion.setHome(ground.spawn.x,ground.spawn.z,spec.viewAzimuth-.75); // de tres cuartos hacia la cámara
+ const feet=['LeftHindToe','RightHindToe'].map(name=>({bone:penguin.getObjectByName(name)!,point:new THREE.Vector3(),contact:false,last:new THREE.Vector2(Infinity,Infinity)}));
+ let wasAirborne=false;
+ let slideTrail:THREE.Vector2|null=null;
+ // Partículas de nieve (pisadas, aterrizajes y estela al deslizar sobre nieve blanda).
+ const snowParticles=new SnowParticles();scene.add(snowParticles.points);snowParticles.setViewport(renderer.domElement.height,camera.fov);
+ let sprayDebt=0;
+ let footprintCount=0;
+ const counter=document.getElementById('footprint-count')!;
+ const clearFeet=()=>{for(const foot of feet){foot.contact=false;foot.last.set(Infinity,Infinity);}};
+ document.getElementById('clear-snow')!.onclick=()=>{slideTrail=null;ground.clear();footprintCount=0;counter.textContent='0 huellas';clearFeet();};
+ const forward=new THREE.Vector3(),right=new THREE.Vector3(),direction=new THREE.Vector3(),rotation=new THREE.Quaternion(),up=new THREE.Vector3(0,1,0);
+ const lookTarget=new THREE.Vector3(),follow=new THREE.Vector3();
+ function placeCharacter(){character.position.set(motion.x,ground.height(motion.x,motion.z)+motion.y,motion.z);character.quaternion.setFromAxisAngle(up,motion.yaw);}
+ function reset(){
+  // Encuadre 3/4 elevado detrás del pingüino según la isla (acimut fijo, no gira con él).
+  lookTarget.set(motion.x,ground.height(motion.x,motion.z)+VIEW.lookHeight,motion.z);
+  const a=spec.viewAzimuth,h=Math.cos(VIEW.elevation)*VIEW.distance;
+  camera.position.set(lookTarget.x+Math.sin(a)*h,lookTarget.y+Math.sin(VIEW.elevation)*VIEW.distance,lookTarget.z+Math.cos(a)*h);
+  controls.target.copy(lookTarget);controls.update();
+ }
+ motion.reset();placeCharacter();reset();
+ const movementStatus=document.getElementById('movement-status')!;let lastState='';
+ let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
+ const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
+ const keys=new Set<string>();
+ const relevant=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Space','KeyR','KeyE']);
+ const editable=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable="true"]');
+ const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space'&&!keys.has('KeyE'))motion.jump();if(event.code==='KeyR'){keys.clear();slideTrail=null;motion.reset();clearFeet();placeCharacter();reset();}};
+ const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();slideTrail=null;stepAudio.stop();};
+ window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
+ function stampFoot(x:number,z:number,yaw:number){
+  const dirty=ground.footprints.stamp(x,z,yaw);if(!dirty)return;
+  ground.applyRegion(dirty);counter.textContent=String(++footprintCount)+' pisadas · se borran en 14 s';
+ }
+ function move(dt:number){
+  camera.getWorldDirection(forward);forward.y=0;forward.normalize();right.crossVectors(forward,up).normalize();
+  const x=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
+  const z=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
+  direction.copy(right).multiplyScalar(x).addScaledVector(forward,z);
+  const oldX=motion.x,oldZ=motion.z;
+  motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight'),dt,keys.has('KeyE')&&!!swim);
+  if(motion.sliding&&motion.moving){
+   slideTrail??=new THREE.Vector2(oldX,oldZ);
+   // Estela de nieve al deslizar sobre nieve blanda (más densa cuanto más rápido); en hielo, nada.
+   if(terrain.isSoftSnow(motion.x,motion.z)){
+    sprayDebt+=dt*(30+12*motion.slideSpeed);const count=Math.floor(sprayDebt);sprayDebt-=count;
+    if(count>0)snowParticles.emit(motion.x,ground.height(motion.x,motion.z),motion.z,count,{dirX:motion.x-oldX,dirZ:motion.z-oldZ,back:.85,speed:[.4,.4+.25*motion.slideSpeed],up:[.4,1],size:[.02,.04],life:[.35,.7]});
+   }
+   // Update after 4 cm of travel, sweeping the entire interval without gaps. Ice keeps no groove.
+   if(Math.hypot(motion.x-slideTrail.x,motion.z-slideTrail.y)>=.04){
+    if(terrain.isSoftSnow(slideTrail.x,slideTrail.y)&&terrain.isSoftSnow(motion.x,motion.z)){
+     const dirty=ground.footprints.groove(slideTrail.x,slideTrail.y,motion.x,motion.z);
+     if(dirty)ground.applyRegion(dirty);
+     counter.textContent='Surco en la nieve · se borra en 14 s';
+    }else counter.textContent='Deslizando sobre hielo';
+    slideTrail.set(motion.x,motion.z);
+   }
+  }else slideTrail=null;
+  // Piso de la animación: los pies del GLB apoyan sobre este plano horizontal (en pendientes el pie de
+  // abajo queda unos cm sobre la nieve; el contacto se mide contra este piso, la huella va al terreno).
+  const animationFloor=ground.height(motion.x,motion.z)+motion.y;
+  character.position.set(motion.x,animationFloor,motion.z);
+  rotation.setFromAxisAngle(up,motion.yaw);character.quaternion.slerp(rotation,1-Math.exp(-20*dt));
+  const state=motion.y>0?'saltando':motion.sliding?'deslizándose':motion.skating&&motion.moving?'patinando':motion.running?'corriendo':motion.moving?'caminando':'en reposo';
+  const groundSpeed=dt>0?Math.hypot(motion.x-oldX,motion.z-oldZ)/dt:0;
+  // Patinando en hielo (de pie): con teclas, pasos de caminar o correr; planeando sin teclas, pose de reposo.
+  const next=actions.get(motion.sliding?'swim':motion.skating?(motion.pushing?(motion.running?'run':'walk'):'idle'):motion.running?'run':motion.moving?'walk':'idle');
+  if(next&&next!==active){
+   const oldPhase=active&&active!==swim&&next!==swim&&active!==actions.get('idle')?active.time/active.getClip().duration:0;
+   next.reset();if(next!==actions.get('idle'))next.time=oldPhase*next.getClip().duration;
+   const transition=(next===swim||active===swim) ? .18 : .06;next.fadeIn(transition).play();active?.fadeOut(transition);active=next;
+  }
+  // Match backwards travel of the planted foot to actual forward travel of the body.
+  // Deslizamiento: las aletas acompañan la velocidad (acelera en bajada).
+  if(next===swim&&next)next.setEffectiveTimeScale(motion.moving?Math.min(2,.8*motion.slideSpeed/MOVE_SPEED.slide):0);
+  // Patinando, los pies no van apoyados al ritmo del avance: pasos a ritmo fijo, algo vivo.
+  else if(next&&motion.skating)next.setEffectiveTimeScale(motion.pushing?(motion.running?1.6:1.8):1);
+  else if(next&&motion.moving)next.setEffectiveTimeScale(groundSpeed/(motion.running?GAIT_SPEED.run:GAIT_SPEED.walk));
+  else if(next)next.setEffectiveTimeScale(1);
+  if(animated||motion.moving||motion.sliding||motion.y>0||swim?.isScheduled())mixer.update(dt);
+  character.position.y-=swimFloor*slideSupportWeight(swim);
+  character.updateMatrixWorld(true);
+  const airborne=motion.y>0||motion.verticalSpeed>0,landed=wasAirborne&&!airborne;
+  for(const foot of feet){
+   foot.bone.getWorldPosition(foot.point);
+   const gap=foot.point.y-animationFloor;
+   const contact=!motion.sliding&&!(slideSupportWeight(swim)>.01)&&!airborne&&gap<(foot.contact?.045:.028);
+   const distance=foot.last.distanceTo(new THREE.Vector2(foot.point.x,foot.point.z));
+   if(contact&&((!foot.contact&&motion.moving)||landed)&&distance>.12){
+    // Huella solo en nieve blanda; en hielo se oye el paso pero no se marca.
+    if(terrain.isSoftSnow(foot.point.x,foot.point.z)){
+     stampFoot(foot.point.x,foot.point.z,character.rotation.y);
+     // Granitos de nieve: hacia atrás y a los costados; más al correr y al aterrizar de un salto.
+     snowParticles.emit(foot.point.x,ground.height(foot.point.x,foot.point.z),foot.point.z,landed?26:motion.running?13:8,
+      landed?{speed:[.4,1.2],up:[.8,1.6],back:0}:{dirX:motion.x-oldX,dirZ:motion.z-oldZ,speed:motion.running?[.5,1.2]:[.25,.7],up:motion.running?[.7,1.4]:[.5,1.1]});
+    }
+    // Sobre hielo no suenan pisadas de nieve.
+    if(terrain.ice(foot.point.x,foot.point.z)<.5)stepAudio.play(motion.running,landed,foot===feet[0]?-1:1);
+    foot.last.set(foot.point.x,foot.point.z);
+   }
+   foot.contact=contact;
+  }
+  wasAirborne=airborne;
+  if(state!==lastState){lastState=state;movementStatus.textContent='Pingüino '+state;}
+ }
+ /** La cámara acompaña al pingüino conservando el ángulo 3/4 (el usuario puede girarla y acercarla). */
+ function followCamera(dt:number){
+  follow.set(character.position.x,ground.height(character.position.x,character.position.z)+VIEW.lookHeight,character.position.z);
+  const k=1-Math.exp(-9*dt),dx=(follow.x-controls.target.x)*k,dy=(follow.y-controls.target.y)*k,dz=(follow.z-controls.target.z)*k;
+  controls.target.x+=dx;controls.target.y+=dy;controls.target.z+=dz;camera.position.x+=dx;camera.position.y+=dy;camera.position.z+=dz;
+  controls.update();
+  // Nunca bajo el relieve ni bajo el agua.
+  const floor=Math.max(terrain.sample(camera.position.x,camera.position.z),terrain.seaY)+.7;
+  if(camera.position.y<floor)camera.position.y=floor;
+  // Sombra del pingüino: la cámara de sombras lo sigue.
+  sun.target.position.copy(character.position);sun.position.copy(character.position).add(sunOffset);
+ }
+ let fadeElapsed=0,perfStarted=performance.now(),perfFrames=0;const perfLabel=document.getElementById('performance')!;
+ const setup=performance.now()-started,timing=ground.timings;
+ console.info(`${spec.name}: relieve ${timing.terrainMs.toFixed(0)} ms (erosión ${terrain.erosionMs.toFixed(0)} ms) · mapas ${timing.mapsMs.toFixed(0)} ms · texturas procedurales del material ${timing.materialMs.toFixed(0)} ms · malla ${timing.meshMs.toFixed(0)} ms · preparación total ${setup.toFixed(0)} ms · texturas KTX2 ${(textures.bytes/1024).toFixed(0)} KB`);
+ // Solo en desarrollo: acceso para pruebas en el navegador (posición, uniforms, teclas simuladas).
+ if(import.meta.env.DEV)Object.assign(window,{antarisLab:{motion,ground,terrain,camera,controls,character,keys,renderer,setup}});
+ const clock=new THREE.Clock();const resize=()=>{fitCamera();renderer.setSize(innerWidth,innerHeight);snowParticles.setViewport(renderer.domElement.height,camera.fov);};window.addEventListener('resize',resize);
+ let simTime=0;
+ function tick(dt:number){
+  simTime+=dt;
+  fadeElapsed+=dt;if(fadeElapsed>=.1){const remaining=ground.fade(fadeElapsed);fadeElapsed=0;if(!remaining&&footprintCount>0){footprintCount=0;counter.textContent='Nieve sin huellas';}}
+  move(dt);followCamera(dt);snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
+ }
+ if(import.meta.env.DEV)Object.assign((window as unknown as {antarisLab:object}).antarisLab,{tick,scene});
+ renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden)return;
+ tick(dt);
+ perfFrames++;const elapsed=performance.now()-perfStarted;if(elapsed>=2000){perfLabel.textContent=Math.round(perfFrames*1000/elapsed)+' FPS · '+renderer.info.render.triangles.toLocaleString('es-AR')+' triángulos · '+renderer.info.render.calls+' llamadas · huellas CPU '+(ground.cpuMs/perfFrames).toFixed(2)+' ms/cuadro';perfStarted=performance.now();perfFrames=0;ground.cpuMs=0;}});status.hidden=true;
+ window.addEventListener('pagehide',()=>{if(disposed)return;disposed=true;stepAudio.dispose();renderer.domElement.removeEventListener('pointerdown',unlockAudio);renderer.setAnimationLoop(null);window.removeEventListener('resize',resize);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);controls.dispose();mixer.stopAllAction();mixer.uncacheRoot(penguin);const materials=new Set<THREE.Material>(),textureSet=new Set<THREE.Texture>();scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textureSet.add(value);m.dispose();}for(const u of Object.values(ground.uniforms))if(u.value instanceof THREE.Texture)textureSet.add(u.value);for(const t of textureSet)t.dispose();snowParticles.dispose();sun.shadow.map?.dispose();renderer.dispose();},{once:true});
+}
+main().catch(error=>{status.hidden=false;status.textContent='No se pudo preparar la prueba: '+String(error);console.error(error);});

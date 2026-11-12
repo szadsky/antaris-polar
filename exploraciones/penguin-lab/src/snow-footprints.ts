@@ -49,12 +49,15 @@ export class SnowFootprints {
   }
   return changed?{x0,x1,z0,z1}:null;
  }
+ /** Blocks of FADE_TILE × FADE_TILE cells changed by the last fade(): large fields refresh only these. */
+ readonly fadedTiles=new Set<number>();
+ static readonly FADE_TILE=16;
  fade(dt:number){
-  let x0=this.size,x1=-1,z0=this.size,z1=-1;
+  let x0=this.size,x1=-1,z0=this.size,z1=-1;const tile=SnowFootprints.FADE_TILE,tilesPerRow=Math.ceil(this.size/tile);this.fadedTiles.clear();
   for(const i of this.active){
    this.ages[i]+=Math.max(0,dt);const t=Math.min(1,Math.max(0,(this.ages[i]-this.holdSeconds)/this.fadeSeconds));
    const depth=this.initial[i]*(1-t*t*(3-2*t));
-   if(depth!==this.depths[i]){this.depths[i]=depth;const x=i%this.size,z=Math.floor(i/this.size);x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z);}
+   if(depth!==this.depths[i]){this.depths[i]=depth;const x=i%this.size,z=Math.floor(i/this.size);x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z);this.fadedTiles.add(Math.floor(z/tile)*tilesPerRow+Math.floor(x/tile));}
    if(t===1){this.active.delete(i);this.initial[i]=0;this.ages[i]=0;}
   }
   return x1<0?null:{x0,x1,z0,z1};

@@ -1,0 +1,10 @@
+/* Pingüino · menú (/pinguino-menu/): islas de práctica. Se carga después de style.css, compartido con el laboratorio. */
+#islands{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;pointer-events:auto}#islands a{padding:7px 11px;border:1px solid #c7d5dc;border-radius:999px;background:#ffffffc8;font-size:11px;text-decoration:none;color:#35525e}#islands a:hover{background:white}#islands a[aria-current="page"]{background:#254958;border-color:#254958;color:white}#island-summary{font-size:12px;max-width:320px;color:#5a727c}header p strong{font-weight:600;color:#3d5864}
+.back-link{top:auto;bottom:24px;left:auto;right:40px;bottom:46px}@media(max-width:650px){#islands a{padding:6px 9px;font-size:10px}#island-summary{display:none}.back-link{left:22px;right:auto;top:24px;bottom:auto;display:none}}
+header{top:24px;left:24px;padding:16px 18px 6px;border-radius:14px;background:#f4f8fadb;box-shadow:0 4px 18px #1633420f;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}header h1{margin:10px 0 8px}@media(max-width:650px){header{left:12px;right:12px;top:12px;max-width:none;padding:12px 14px 4px}header h1{font-size:20px;max-width:none}header p:not(#island-summary){font-size:11px;max-width:none}}
+
+/* Ocultar interfaz (botón o tecla H): queda solo el paisaje y el botón para volver a mostrarla. */
+#toggle-ui{display:inline-flex;align-items:center;gap:6px}#toggle-ui kbd{font:600 10px system-ui;padding:1px 5px;border:1px solid #c7d5dc;border-radius:4px;color:#647e89}
+body.ui-hidden header,body.ui-hidden .back-link,body.ui-hidden .keys,body.ui-hidden footer,body.ui-hidden .controls>:not(#toggle-ui){display:none}
+body.ui-hidden #toggle-ui{background:#ffffffb0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+@media(max-width:650px){.controls{flex-wrap:wrap;gap:6px;bottom:72px}.controls button{padding:9px 11px;font-size:11px}.keys{bottom:176px}body.ui-hidden .controls{justify-content:flex-end}#toggle-ui kbd{display:none}}
