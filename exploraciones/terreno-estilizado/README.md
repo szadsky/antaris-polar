@@ -704,6 +704,29 @@ Panel «Ajustes de vista → Pixel art · Prueba» (`src/pixel-look.ts`, adaptac
 - **Costo**: el pase final sigue siendo uno, a resolución de pantalla, sobre una imagen ya reducida. La textura de profundidad suma unos 4 bytes por píxel reducido (≈ 0,25 MB a 1243×787 con píxel de 4). No se midió GPU.
 - **Depuración**: `__terreno.pixelLook.set(nombre, valor)` y `__terreno.pixelLook.params`. Los valores no se guardan al recargar.
 
+### Arranque sin congelar la página (12/11/2026)
+
+Pedido: mejorar el rendimiento sin cambiar nada de lo que se ve.
+
+- **Causa medida** (perfil de CPU del hilo principal, Chrome sin caché de shaders): de 4,7 s de trabajo al arrancar, **4,3 s eran espera a que la GPU compilara shaders** (`onFirstUse` de Three.js, ~0,5 s por variante del terreno; 1,9 s dentro del reflejo del agua). El terreno usa 4 programas grandes: con grilla (bloques LOD) y sin grilla (malla costera y corte), cada uno para la pantalla (con tone mapping) y para el búfer intermedio (reflejo del agua y pixel art, sin tone mapping). Mientras el hilo estaba bloqueado tampoco terminaban las descargas del nivel de 4 m.
+- **Precompilación** (`precompile` en `src/main.ts`): antes de agregar cada nivel a la escena se piden esos mismos programas, para pantalla y búfer intermedio, y se espera con `KHR_parallel_shader_compile` sin bloquear. Sin la extensión se compila al dibujar, como antes.
+- **El nivel de 4 m se pide apenas está armado el de 8 m**: su descarga y su armado en el worker corren mientras se muestra la primera vista y compila la GPU (antes esperaban a que terminara).
+- **Worker** (`src/worker.ts`): la normal Sobel ya no crea un array y una función por píxel, los pasos del rayo de sombra se calculan una vez y los radios de cavidad se calculan fuera del bucle. Mismas operaciones en el mismo orden.
+- **Sin cambio visual, verificado**: (1) los 12 programas de shader que usa el visor tienen exactamente las mismas claves antes y después; (2) el worker devuelve los mismos bytes (SHA-256 de texturas, malla y alturas) en Brown y Carlini, niveles de 4 y 8 m; (3) un cuadro con el estado congelado (tiempo del agua fijo, icebergs ocultos) da el mismo hash de píxeles, 1600 × 950, antes y después, en dos poses.
+- **Medido** (Lighthouse 13.6 móvil, mismo servidor local con gzip, dos corridas; PC de desarrollo, Radeon integrada):
+
+| | Antes | Después |
+|---|---|---|
+| Puntaje de rendimiento | 62 / 62 | 66 / 67 |
+| Bloqueo total (TBT) | 7,78 / 7,79 s | 3,34 / 2,97 s |
+| Speed Index | 8,17 / 8,23 s | 5,58 / 5,29 s |
+| Interactivo (TTI) | 10,17 / 10,23 s | 5,74 / 5,41 s |
+| Tarea más larga | 4,99 / 5,16 s | 2,00 / 1,55 s |
+
+  Perfil sin caché, CPU sin limitar: espera por shaders 3,7 → 0,28 s; tarea más larga 3,4 → 0,26 s; detalle completo 8,8 → 5,0 s (con caché de shaders: 4,1 s). Worker en Node (Brown 4 m): sombra ~0,8–1,3 → ~0,6–0,8 s; superficie ~1,2 → ~1,1 s.
+- **Primera vista**: el terreno aparece cuando sus shaders están listos (~2,3 s sin caché en esta PC) en lugar de mostrarse a ~1,2 s y congelar la página ~3 s. Con caché de shaders no cambia.
+- **Pendiente**: el sistema de calidad cambia el shader del agua después de la primera vista y esa variante se compila al dibujar (~0,28 s); quedan tareas de 0,1–0,3 s (armado de la escena, texturas de detalle, icebergs). No se midió en un móvil real.
+
 ### Peso de la descarga y del repositorio
 
 - **El 3D se carga bajo demanda**: `index.html` arranca con `src/boot.ts` (2 KB), que verifica WebGL 2 y recién entonces importa `src/main.ts`. Sin WebGL no se descarga el visor. Cuando el sitio tenga más páginas, solo la home importa el visor y las páginas interiores no cargan Three.js.

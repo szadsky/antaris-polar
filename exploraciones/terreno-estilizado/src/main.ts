@@ -522,17 +522,45 @@ async function main() {
       diorama.update(t,exaggeration);
     }
   };
-  const show = (t: Terrain) => {
+  // Shaders sin congelar la página: el primer dibujo de cada material esperaba en el hilo principal a que la
+  // GPU terminara de compilar (sin caché de shaders: ~0,5 s por variante del terreno, ~4 s en total). Antes de
+  // agregar el terreno a la escena se piden los mismos programas que usará el dibujo (pantalla con tone mapping
+  // y búfer intermedio sin él: reflejo del agua y pixel art) y se espera con KHR_parallel_shader_compile, sin
+  // bloquear. Son los mismos programas: la imagen no cambia. Sin la extensión, se compila al dibujar, como antes.
+  const compileTarget = new THREE.WebGLRenderTarget(1, 1);
+  const precompile = async (object: THREE.Object3D) => {
+    if (!renderer.extensions.has("KHR_parallel_shader_compile")) return;
+    const previous = renderer.getRenderTarget();
+    try {
+      // Búfer intermedio: el terreno y lo que refleja el agua (el agua no se dibuja en su propio reflejo).
+      renderer.setRenderTarget(compileTarget);
+      renderer.compile(object, camera, scene);
+      for (const child of scene.children) if (child !== ocean.mesh) renderer.compile(child, camera, scene);
+      renderer.setRenderTarget(null);
+      renderer.compile(object, camera, scene);
+      renderer.compile(scene, camera);
+    } finally { renderer.setRenderTarget(previous); }
+    const programs = (renderer.info.programs ?? []) as unknown as { isReady(): boolean }[];
+    await new Promise<void>((resolve) => { const check = () => (programs.every((p) => p.isReady()) ? resolve() : setTimeout(check, 16)); check(); });
+  };
+  const show = async (t: Terrain) => {
+    // Primero los materiales definitivos (variante, estilo, detalle): se precompilan esos mismos programas.
+    t.setVariant(variant);
+    t.setStyle(style);
+    t.setDetail(detail && TIERS[quality.tier].detail);
+    t.setLodTarget(TIERS[quality.tier].lodPx);
+    await precompile(t.object);
+    // Durante la espera el usuario pudo cambiar variante, estilo o detalle: se reaplican (mismo resultado que antes).
+    t.setVariant(variant);
+    t.setStyle(style);
+    t.setDetail(detail && TIERS[quality.tier].detail);
+    t.setLodTarget(TIERS[quality.tier].lodPx);
     if (terrain) {
       scene.remove(terrain.object);
       terrain.dispose();
     }
     if (pin) scene.remove(pin.group);
     terrain = t;
-    t.setVariant(variant);
-    t.setStyle(style);
-    t.setDetail(detail && TIERS[quality.tier].detail);
-    t.setLodTarget(TIERS[quality.tier].lodPx);
     if(outerData){
       if(outer){scene.remove(outer); outer.geometry.dispose(); outer.material.dispose();}
       outer=outerTerrain(t,outerData,meta.heights.minM);
@@ -575,7 +603,12 @@ async function main() {
   });
 
   const first = await loader.load(dir, meta, plan[0], exaggeration, style, maxAniso, geo);
-  show(first);
+  // El nivel detallado se pide apenas está armado el primero: su descarga y su armado en el worker corren mientras
+  // el hilo principal muestra la primera vista y la GPU compila los shaders (antes esperaban a que terminara).
+  const detailK = exaggeration;
+  const detailedLoad = plan[1] ? loader.load(dir, meta, plan[1], detailK, style, maxAniso, geo) : null;
+  detailedLoad?.catch(() => {}); // el error se informa al esperarlo, más abajo
+  await show(first);
   const firstViewMs = performance.now() - t0;
   const p0 = pin as ReturnType<typeof buildPin>;
   const origin = new THREE.Vector3(p0?.local.x ?? 0, 0, p0?.local.z ?? 0);
@@ -601,11 +634,10 @@ async function main() {
   metrics.load = info(first, firstViewMs, null);
   requestRender();
 
-  if (plan[1]) {
-    const k = exaggeration;
-    const detailed = await loader.load(dir, meta, plan[1], k, style, maxAniso, geo);
-    if (exaggeration !== k) await detailed.update(exaggeration);
-    show(detailed);
+  if (detailedLoad) {
+    const detailed = await detailedLoad;
+    if (exaggeration !== detailK) await detailed.update(exaggeration);
+    await show(detailed);
     metrics.load = info(detailed, firstViewMs, performance.now() - t0);
   }
 

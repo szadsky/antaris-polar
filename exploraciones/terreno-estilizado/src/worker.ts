@@ -202,7 +202,7 @@ function surfaceTexture(g: Grid, k: number): Uint8Array {
       const isSea = mask ? mask[i] === 0 : false;
       let nx = 0;
       let nz = 0;
-      if (!isSea || heights[i] > g.sea) [nx, nz] = sobelNormalXZ(heights, w, h, x, y, cell, k, mask, g.sea);
+      if (!isSea || heights[i] > g.sea) { sobelNormalXZ(heights, w, h, x, y, cell, k, mask, g.sea); nx = sobelOut[0]; nz = sobelOut[1]; }
       out[i * 4] = Math.round((nx * 0.5 + 0.5) * 255);
       out[i * 4 + 1] = Math.round((nz * 0.5 + 0.5) * 255);
       out[i * 4 + 2] = cavity[i];
@@ -220,33 +220,37 @@ function surfaceTexture(g: Grid, k: number): Uint8Array {
  * Frente a las diferencias centrales simples, atenúa el ruido residual de la
  * cuantización, que la exageración vertical amplificaba en franjas.
  */
+// Resultado de sobelNormalXZ ([nx, nz]): se reutiliza en vez de crear un array y una función por píxel
+// (4 millones de llamadas en la grilla de 4 m). Mismas operaciones en el mismo orden: mismos bytes.
+const sobelOut = new Float64Array(2);
+function sobelAt(hs: Float32Array, w: number, h: number, x: number, y: number, c: number, land: Uint8Array | null, sea: number, xx: number, yy: number) {
+  xx = xx < 0 ? 0 : xx >= w ? w - 1 : xx;
+  yy = yy < 0 ? 0 : yy >= h ? h - 1 : yy;
+  const idx=yy*w+xx;
+  const v=hs[idx];
+  // Marine fill is not a measured hillside. Use a one-sided derivative on land.
+  if(land && Number.isFinite(c) && c>sea && !land[idx] && v<=sea){
+    const ox=2*x-xx, oy=2*y-yy;
+    if(ox>=0 && ox<w && oy>=0 && oy<h){
+      const opposite=oy*w+ox;
+      if(land[opposite] && Number.isFinite(hs[opposite]))return 2*c-hs[opposite];
+    }
+    return c;
+  }
+  return v === v ? v : c === c ? c : 0;
+}
 function sobelNormalXZ(hs: Float32Array, w: number, h: number, x: number, y: number, cell: number, k: number, land: Uint8Array | null, sea: number) {
   const c = hs[y * w + x];
-  const at = (xx: number, yy: number) => {
-    xx = xx < 0 ? 0 : xx >= w ? w - 1 : xx;
-    yy = yy < 0 ? 0 : yy >= h ? h - 1 : yy;
-    const idx=yy*w+xx;
-    const v=hs[idx];
-    // Marine fill is not a measured hillside. Use a one-sided derivative on land.
-    if(land && Number.isFinite(c) && c>sea && !land[idx] && v<=sea){
-      const ox=2*x-xx, oy=2*y-yy;
-      if(ox>=0 && ox<w && oy>=0 && oy<h){
-        const opposite=oy*w+ox;
-        if(land[opposite] && Number.isFinite(hs[opposite]))return 2*c-hs[opposite];
-      }
-      return c;
-    }
-    return v === v ? v : c === c ? c : 0;
-  };
-  const a = at(x - 1, y - 1), b = at(x, y - 1), cc = at(x + 1, y - 1);
-  const d = at(x - 1, y), f = at(x + 1, y);
-  const g = at(x - 1, y + 1), hh = at(x, y + 1), i = at(x + 1, y + 1);
+  const a = sobelAt(hs, w, h, x, y, c, land, sea, x - 1, y - 1), b = sobelAt(hs, w, h, x, y, c, land, sea, x, y - 1), cc = sobelAt(hs, w, h, x, y, c, land, sea, x + 1, y - 1);
+  const d = sobelAt(hs, w, h, x, y, c, land, sea, x - 1, y), f = sobelAt(hs, w, h, x, y, c, land, sea, x + 1, y);
+  const g = sobelAt(hs, w, h, x, y, c, land, sea, x - 1, y + 1), hh = sobelAt(hs, w, h, x, y, c, land, sea, x, y + 1), i = sobelAt(hs, w, h, x, y, c, land, sea, x + 1, y + 1);
   const dx = (cc + 2 * f + i - (a + 2 * d + g)) / (8 * cell);
   const dz = (g + 2 * hh + i - (a + 2 * b + cc)) / (8 * cell);
   const nx = -dx * k;
   const nz = -dz * k;
   const len = Math.hypot(nx, 1, nz);
-  return [nx / len, nz / len];
+  sobelOut[0] = nx / len;
+  sobelOut[1] = nz / len;
 }
 
 // ─── Luz (resolución de malla) ─────────────────────────────
@@ -271,31 +275,34 @@ function lightTexture(g: Grid, k: number, sun: Vec3): Uint8Array {
   const dx = sun[0] / horiz; // dirección en la grilla: x → columnas, z → filas
   const dz = sun[2] / horiz;
   const tanE = sun[1] / horiz;
-  const sample = (fx: number, fz: number) => {
-    // bilineal en coordenadas de celda
-    const x0 = Math.floor(fx), z0 = Math.floor(fz);
-    if (x0 < 0 || z0 < 0 || x0 >= mw - 1 || z0 >= mh - 1) return -Infinity;
-    const tx = fx - x0, tz = fz - z0;
-    const i = z0 * mw + x0;
-    return (H[i] * (1 - tx) + H[i + 1] * tx) * (1 - tz) + (H[i + mw] * (1 - tx) + H[i + mw + 1] * tx) * tz;
-  };
   const out = new Uint8Array(mw * mh * 4);
   const maxDist = 6000;
+  // Los pasos del rayo (8 m → ~6 km, ×1,09) son los mismos para todas las celdas: sus desplazamientos, la
+  // subida del rayo y el ancho de la penumbra se calculan una vez (mismas operaciones: mismos bytes).
+  const steps: number[] = [];
+  for (let d = mc; d < maxDist; d *= 1.09) steps.push(d);
+  const n = steps.length, offX = new Float64Array(n), offZ = new Float64Array(n), rise = new Float64Array(n), penumbra = new Float64Array(n);
+  for (let s = 0; s < n; s++) { const d = steps[s]; offX[s] = (dx * d) / mc; offZ[s] = (dz * d) / mc; rise[s] = d * tanE; penumbra[s] = d * 0.035; }
   for (let y = 0; y < mh; y++) {
     for (let x = 0; x < mw; x++) {
       const i = y * mw + x;
       const h0 = H[i] + 1.5; // sesgo: evita autosombra por ruido
       let lit = 1;
-      for (let d = mc; d < maxDist; d *= 1.09) {
-        const ht = sample(x + (dx * d) / mc, y + (dz * d) / mc);
-        if (ht === -Infinity) break;
-        const ray = h0 + d * tanE;
+      for (let s = 0; s < n; s++) {
+        // bilineal en coordenadas de celda; fuera de la grilla termina el rayo
+        const fx = x + offX[s], fz = y + offZ[s];
+        const x0 = Math.floor(fx), z0 = Math.floor(fz);
+        if (x0 < 0 || z0 < 0 || x0 >= mw - 1 || z0 >= mh - 1) break;
+        const tx = fx - x0, tz = fz - z0;
+        const j = z0 * mw + x0;
+        const ht = (H[j] * (1 - tx) + H[j + 1] * tx) * (1 - tz) + (H[j + mw] * (1 - tx) + H[j + mw + 1] * tx) * tz;
+        const ray = h0 + rise[s];
         if (ht > ray) {
           lit = 0;
           break;
         }
         // penumbra: cuánto margen deja el terreno respecto del rayo, relativo a la distancia
-        lit = Math.min(lit, ((ray - ht) / (d * 0.035)));
+        lit = Math.min(lit, ((ray - ht) / penumbra[s]));
       }
       out[i * 4] = Math.round(Math.max(0, Math.min(1, lit)) * 255);
       out[i * 4 + 1] = shore[i];
@@ -453,13 +460,15 @@ function cavityShade(hs: Float32Array, w: number, h: number, cell: number): { ca
   // negativa en crestas y aristas. Es el relieve REMA, sin datos nuevos.
   const curv = new Uint8Array(w * h).fill(128);
   const crR = [8, 24], crD = [2, 5];
+  // Radios en celdas: constantes, se calculan una vez (antes, 5 veces por celda).
+  const crCells = crR.map((m) => Math.max(1, Math.round(m / cell))), occCells = radiiM.map((m) => Math.max(1, Math.round(m / cell)));
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x;
     const v = hs[i];
     if (v !== v) { out[i] = 255; continue; }
     let c = 0;
     for (let s = 0; s < 2; s++) {
-      const r = Math.max(1, Math.round(crR[s] / cell));
+      const r = crCells[s];
       const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
       const S = sum[y1 * W1 + x1] - sum[y0 * W1 + x1] - sum[y1 * W1 + x0] + sum[y0 * W1 + x0];
       const C = cnt[y1 * W1 + x1] - cnt[y0 * W1 + x1] - cnt[y1 * W1 + x0] + cnt[y0 * W1 + x0];
@@ -468,7 +477,7 @@ function cavityShade(hs: Float32Array, w: number, h: number, cell: number): { ca
     curv[i] = Math.round(128 + c * 127);
     let occ = 0;
     for (let s = 0; s < 3; s++) {
-      const r = Math.max(1, Math.round(radiiM[s] / cell));
+      const r = occCells[s];
       const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
       const S = sum[y1 * W1 + x1] - sum[y0 * W1 + x1] - sum[y1 * W1 + x0] + sum[y0 * W1 + x0];
       const C = cnt[y1 * W1 + x1] - cnt[y0 * W1 + x1] - cnt[y1 * W1 + x0] + cnt[y0 * W1 + x0];
