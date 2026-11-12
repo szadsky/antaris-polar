@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile, access, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -13,11 +13,17 @@ const out = join(root, 'exploraciones/terreno-estilizado/dist');
 const dest = join(out, 'laboratorio/pinguino');
 await mkdir(dest, { recursive: true });
 await cp(join(lab, 'dist'), dest, { recursive: true });
+// Pingüino · menú (islas de práctica): su HTML va a /pinguino-menu/ y usa los recursos del laboratorio
+// por ruta absoluta (/laboratorio/pinguino/assets/).
+const menuHtml = await readFile(join(lab, 'dist/pinguino-menu/index.html'), 'utf8');
+if (!menuHtml.includes('/laboratorio/pinguino/assets/')) throw Error('Penguin menu assets must use the laboratory route');
+await mkdir(join(out, 'pinguino-menu'), { recursive: true });
+await writeFile(join(out, 'pinguino-menu/index.html'), menuHtml);
+await rm(join(dest, 'pinguino-menu'), { recursive: true, force: true });
 const index = join(out, 'index.html');
 let html = await readFile(index, 'utf8');
-if (!html.includes('/laboratorio/pinguino/')) {
-  if (!html.includes('</aside>')) throw Error('Viewer navigation anchor missing');
-  html = html.replace('</aside>', '<p class="hud__help"><a href="/laboratorio/pinguino/">Laboratorio · Pingüino y nieve</a></p></aside>');
-  await writeFile(index, html);
-}
-console.log('Penguin laboratory included in viewer deployment.');
+if (!html.includes('</aside>')) throw Error('Viewer navigation anchor missing');
+if (!html.includes('/laboratorio/pinguino/')) html = html.replace('</aside>', '<p class="hud__help"><a href="/laboratorio/pinguino/">Laboratorio · Pingüino y nieve</a></p></aside>');
+if (!html.includes('/pinguino-menu/')) html = html.replace('</aside>', '<p class="hud__help"><a href="/pinguino-menu/">Pingüino · menú (islas de práctica)</a></p></aside>');
+await writeFile(index, html);
+console.log('Penguin laboratory (/laboratorio/pinguino/) and penguin menu (/pinguino-menu/) included in viewer deployment.');
