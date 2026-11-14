@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { BuiltMsg, UpdatedMsg, Vec3 } from "./worker";
+import type { BuiltMsg, PreviewMsg, UpdatedMsg, Vec3 } from "./worker";
 import { baseMaterial, seaPlaneMaterial, styleUniforms, stylizedMaterial, type GridUniforms, type MaterialVariant } from "./shaders";
 import { detailTexture, noiseTexture } from "./materials";
 import { CoastLodView } from "./coast-lod";
@@ -80,27 +80,31 @@ export const MESH_STRIDE = 2;
 
 export class TerrainLoader {
   private worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-  private waiting = new Map<number, {resolve:(m:BuiltMsg|UpdatedMsg)=>void;reject:(e:Error)=>void}>();
+  private waiting = new Map<number, {resolve:(m:BuiltMsg|UpdatedMsg)=>void;reject:(e:Error)=>void;preview?:(p:PreviewMsg)=>void}>();
   private nextKey=0;
   private nextRequest=0;
 
   constructor(private sun: Vec3) {
     this.worker.onerror=(e)=>{for(const p of this.waiting.values())p.reject(new Error(e.message));this.waiting.clear();};
-    this.worker.onmessage = (e:MessageEvent<BuiltMsg|UpdatedMsg|{type:'error';key:string;requestId?:number;message:string}>)=>{
-      const m=e.data;if(m.requestId===undefined)return;const pending=this.waiting.get(m.requestId);this.waiting.delete(m.requestId);
+    this.worker.onmessage = (e:MessageEvent<BuiltMsg|UpdatedMsg|PreviewMsg|{type:'error';key:string;requestId?:number;message:string}>)=>{
+      const m=e.data;if(m.requestId===undefined)return;
+      // La vista previa llega antes del resultado y no cierra el pedido.
+      if(m.type==='preview'){this.waiting.get(m.requestId)?.preview?.(m);return;}
+      const pending=this.waiting.get(m.requestId);this.waiting.delete(m.requestId);
       if(m.type==='error')pending?.reject(new Error(m.message));else pending?.resolve(m);
     };
   }
 
-  private call<T extends BuiltMsg | UpdatedMsg>(reply: T["type"], payload: { type: string; key: string; [k: string]: unknown }, transfer: Transferable[] = []) {
+  private call<T extends BuiltMsg | UpdatedMsg>(reply: T["type"], payload: { type: string; key: string; [k: string]: unknown }, transfer: Transferable[] = [], preview?: (p: PreviewMsg) => void) {
     const requestId=++this.nextRequest;
     return new Promise<T>((resolve,reject) => {
-      this.waiting.set(requestId, {resolve:resolve as (m: BuiltMsg | UpdatedMsg) => void,reject});
+      this.waiting.set(requestId, {resolve:resolve as (m: BuiltMsg | UpdatedMsg) => void,reject,preview});
       this.worker.postMessage({...payload,requestId}, transfer);
     });
   }
 
-  async load(dir: string, meta: TerrainMeta, level: Level, k: number, style: Style, maxAniso: number, geo: GeoMode): Promise<Terrain> {
+  /** `onPreview`: alturas a resolución de malla apenas decodificadas (precarga "construcción" del visor). */
+  async load(dir: string, meta: TerrainMeta, level: Level, k: number, style: Style, maxAniso: number, geo: GeoMode, onPreview?: (p: PreviewMsg) => void): Promise<Terrain> {
     const t0 = performance.now();
     // Costa: distancia con signo a la costa ADD (scripts/costa-sdf.mjs); si falta, la máscara binaria.
     const coast = async () => {
@@ -113,8 +117,9 @@ export class TerrainLoader {
     const key = `${dir}/${level.file}:${++this.nextKey}`;
     const b = await this.call<BuiltMsg>(
       "built",
-      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, coverage, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", coastLod: geo !== "completa", sdf },
-      [bin,...(coverage?[coverage]:[]), ...(vector ? [vector] : []), ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
+      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, coverage, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", coastLod: geo !== "completa", preview: !!onPreview, sdf },
+      [bin,...(coverage?[coverage]:[]), ...(vector ? [vector] : []), ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])],
+      onPreview,
     );
 
     const dataTex = (data: Uint8Array, w: number, h: number) => {

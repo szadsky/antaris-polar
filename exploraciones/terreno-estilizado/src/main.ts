@@ -15,7 +15,8 @@ import { Metrics } from "./metrics";
 import { applyPose, runBench, runFpsTest, type BenchCtx } from "./bench";
 import type { MaterialVariant } from "./shaders";
 import { AdaptiveQuality, TIERS, guessDevice, renderPixelRatio, type Tier } from "./quality";
-import type { Vec3 } from "./worker";
+import type { PreviewMsg, Vec3 } from "./worker";
+import { createConstruction } from "./construction";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const canvas = $<HTMLCanvasElement>("scene");
@@ -266,13 +267,15 @@ async function main() {
   });
   window.addEventListener("pagehide",()=>{disposePixelControls();pixelLook.dispose();},{once:true});
   let benchmarking = false;
+  // Precarga "construcción" (construction.ts): mientras dibuja su propia escena, el visor no dibuja la suya.
+  let holdMain = false;
   renderer.info.autoReset = false;
   const drawScene = () => {
     renderer.info.reset();
     pixelLook.render(scene,camera);
   };
   const frame = () => {
-    if(benchmarking)return;
+    if(benchmarking||holdMain)return;
     const moved = controls.update();
     keepCameraAboveSurface();
     // Plano cercano según la altura sobre el suelo y la distancia al pivote: lejos (diorama) hasta 50 m, más
@@ -552,6 +555,10 @@ async function main() {
     t.setStyle(style);
     t.setDetail(detail && TIERS[quality.tier].detail);
     t.setLodTarget(TIERS[quality.tier].lodPx);
+    // Con la precarga en curso, el terreno (y la escena) queda tapado hasta que pase el frente del revelado. Antes de
+    // precompilar: los programas ya salen con el revelado (no se compila dos veces).
+    const c = construction as ReturnType<typeof createConstruction> | null;
+    if (c) { c.patch(t.object); c.patch(scene); }
     await precompile(t.object);
     // Durante la espera el usuario pudo cambiar variante, estilo o detalle: se reaplican (mismo resultado que antes).
     t.setVariant(variant);
@@ -610,7 +617,28 @@ async function main() {
     fullMs,
   });
 
-  const first = await loader.load(dir, meta, plan[0], exaggeration, style, maxAniso, geo);
+  // Precarga "construcción": en la vista inicial del diorama, las curvas de nivel del relieve REMA real se dibujan
+  // apenas el worker decodifica las alturas, mientras arma texturas y malla y la GPU compila los materiales.
+  // ?construccion=0 la apaga (vuelve el texto de estado solo).
+  let construction: ReturnType<typeof createConstruction> | null = null;
+  const initialDioramaPose = (seaLevelM: number | null) => {
+    const distance=size*1.75/Math.min(1,Number.isFinite(camera.aspect)&&camera.aspect>0?camera.aspect:16/9);
+    controls.maxDistance=Math.max(controls.maxDistance,distance*1.3);
+    controls.target.set(0,(seaLevelM??0)+size*.025,0);
+    camera.position.copy(new THREE.Vector3(.85,.77,1).normalize().multiplyScalar(distance)).add(controls.target);
+    controls.update();
+  };
+  const onPreview = diorama && !params.has("pose") && params.get("construccion") !== "0" ? (p: PreviewMsg) => {
+    initialDioramaPose(p.seaLevelM);
+    construction = createConstruction({ renderer, camera, controls, background: (scene.background as THREE.Color | null) ?? new THREE.Color("#dbe5ea"), preview: p, k: exaggeration, reducedMotion });
+    holdMain = true;
+    construction.start();
+    statusEl.classList.add("status--bajo");
+    statusEl.textContent = "Armando el terreno con el relieve REMA…";
+  } : undefined;
+  statusEl.textContent = "Descargando el relieve REMA…";
+  const first = await loader.load(dir, meta, plan[0], exaggeration, style, maxAniso, geo, onPreview);
+  statusEl.textContent = "Preparando materiales…";
   // El nivel detallado se pide apenas está armado el primero: su descarga y su armado en el worker corren mientras
   // el hilo principal muestra la primera vista y la GPU compila los shaders (antes esperaban a que terminara).
   const detailK = exaggeration;
@@ -628,19 +656,20 @@ async function main() {
     drawScene();
   } };
   if(diorama && !params.has("pose")){
-    const distance=size*1.75/Math.min(1,Number.isFinite(camera.aspect)&&camera.aspect>0?camera.aspect:16/9);
-    controls.maxDistance=Math.max(controls.maxDistance,distance*1.3);
-    controls.target.set(0,(first.seaLevelM??0)+size*.025,0);
-    camera.position.copy(new THREE.Vector3(.85,.77,1).normalize().multiplyScalar(distance)).add(controls.target);
-    controls.update();
+    // Con la construcción, la cámara ya está ahí (el usuario pudo moverla mientras cargaba): no se la devuelve.
+    if(!construction) initialDioramaPose(first.seaLevelM);
   }else if(expanded && !params.has("pose")){
     controls.target.copy(origin);
     camera.position.copy(origin).add(new THREE.Vector3(0, 5200, 8400));
     controls.update();
   }else applyPose(ctx, Number(params.get("pose") ?? 0));
   statusEl.hidden = true;
+  statusEl.classList.remove("status--bajo");
   metrics.load = info(first, firstViewMs, null);
+  holdMain = false;
   requestRender();
+  // la construcción se funde sobre la vista final (no se espera: el nivel detallado sigue en paralelo)
+  if (construction) void (construction as ReturnType<typeof createConstruction>).finish(scene, requestRender).then(() => { construction = null; });
 
   if (detailedLoad) {
     const detailed = await detailedLoad;

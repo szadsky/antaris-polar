@@ -1081,6 +1081,74 @@ Tiempo de GPU sincrónico en el mismo Chrome aparte, calidad media (lienzo 1602 
 - **Verificado**: las 13 bases cargan sin errores ni avisos. Con calidad media el agua toma el cubemap en las 12 con reflejo; en Carlini se ve la costa reflejada.
 - **Peso**: 37–79 KB de JPEG por base.
 
+### Precarga "construcción" del terreno (14/11/2026, prototipo)
+
+**Qué es** (`src/construction.ts`, conectada en `src/main.ts`): mientras el worker arma texturas y malla y la GPU compila los materiales, se construye una malla de nodos sobre el relieve REMA real, por pasos. Mientras se arma, solo hay malla (nodos y conexiones): nada se dibuja fuera de la grilla.
+
+1. **Malla gruesa plana**: 9 × 9 nodos y sus conexiones aparecen al nivel del mar, desde la base hacia afuera.
+2. **Extrusión**: la malla sube en ola hasta la altura real de cada nodo (1,2 s).
+3. **Tres refinamientos** (17, 33 y 65 nodos por lado):
+   - cada nodo nuevo nace sobre la superficie del paso anterior (interpolada) y se acomoda a su altura real, así la malla es cada vez más fiel al terreno;
+   - las conexiones del paso anterior se apagan.
+4. **Espera y final** (hasta acá todo es malla, sin relleno de color):
+   - si la carga sigue, un pulso tenue recorre la malla;
+   - cuando el terreno está listo, se aceleran los pasos que falten (hasta ~0,9 s);
+   - después, la malla se **transforma en el terreno**: un frente de borde turbulento (ruido animado, tipo plasma) recorre el suelo desde la base hacia afuera en 1,7 s. El relleno llega recién acá: delante del frente sigue la malla, que se carga de luz, y donde pasa aparece directamente la textura del terreno, con una línea de luz suave y un brillo leve que se apaga hacia adentro. Sin destellos por celdas ni celdas de color planas (antes había un paso que coloreaba las celdas antes del revelado; se sacó porque se veía pixelado y adelantaba el relleno). Lo que queda por debajo de la superficie del terreno (fondo del mar, zócalo bajo las montañas, pie de las paredes) va atrasado 1,5 m por metro de profundidad, con 25 m de tolerancia. La superficie sale de una textura de 65 × 65 con las mismas alturas REMA de la malla. Así, mirando por el borde del frente, no se ve el corte oscuro de abajo, y el frente baja por las paredes del diorama;
+   - el revelado está en el mundo, no en la pantalla: el fondo nunca se toca y la malla solo se dibuja donde el terreno todavía no apareció, así que nunca quedan superpuestos.
+
+**Datos**:
+- El worker manda una vista previa (`PreviewMsg`: alturas a resolución de malla y nivel del mar) apenas decodifica el relieve, antes de las texturas y la malla. Llega a ~0,4–0,9 s del inicio.
+- **Cómo se tapa el terreno**: `makeRevealPatch` agrega a los materiales de la escena (terreno, agua `Water`, paredes del diorama, edificios, icebergs) la distancia al frente en el plano del mundo; afuera descartan el fragmento. La posición es la final de cada material: los bloques del LOD calculan su propio `transformed` (leen la altura de una textura) y se toma esa. Antes se tomaba `position` y esos bloques aparecían antes del revelado. Se aplica antes de precompilar el terreno, así no se compila dos veces. Al terminar, `uRvOn = 0` y el único costo que queda es un salto por uniforme.
+- Cada nodo está en la posición y a la altura REMA que tiene el terreno, con la misma exageración vertical.
+- Los pasos intermedios son interpolaciones de esos mismos nodos; no hay formas inventadas.
+
+**Alcance**:
+- Solo en la vista inicial del diorama (sin `?pose=`). `?construccion=0` la apaga y vuelve el texto de estado solo.
+- Mientras dibuja su propia escena, el visor no dibuja la suya (`holdMain`). La cámara se puede mover durante la construcción.
+- Con "reducir movimiento", la malla aparece completa y quieta, y el final es corto.
+- El texto de estado baja al pie de la pantalla y anuncia las etapas: descargando el relieve, armando el terreno, preparando materiales.
+
+**Costo medido** (Brown, Chrome aparte, 4 cargas con y 4 sin, después de una de calentamiento):
+- **Primera vista lista**: 1199–1322 ms con la construcción (mediana 1287) contra 1126–1273 ms sin ella (mediana 1203), unos +50–100 ms.
+- **Revelado**: cuando el terreno está listo, la animación de cierre suma hasta ~2,6 s antes de verlo entero: los pasos que falten se aceleran (≤ 0,9 s) y el frente recorre el terreno (1,7 s). Mientras dura, los materiales calculan dos ruidos por píxel; después, nada. Sin errores de shader en consola (Brown).
+- **Geometría**: ≤ 65 × 65 nodos, sin texturas ni luces.
+
+**Capturas**: `capturas/precarga-{1-malla-plana,2-extrusion-refinamiento,3-malla-fina,4-malla-completa,5-terreno-emerge}.jpg` (la 5, con el frente a mitad de camino). Se tomaron con la carga frenada por las capturas para que se vean los pasos; en esta máquina, sin frenar, la secuencia se acelera.
+
+**Pendiente**:
+- Probar en celular y con red lenta, donde la construcción dura más.
+- Decidir si la animación de cierre se acorta.
+- Las otras vistas (`?pose=`, paisaje) siguen con el texto de estado solo.
+
+### Icebergs simples, suaves y con ubicación fija (14/11/2026)
+
+**Antes** (`capturas/icebergs-formas-antes.jpg`): 3 geometrías repetidas en los 12 icebergs (tabular, domo y cuña), casi discos con paredes verticales y superficie horizontal, 24.576 triángulos en total. Además, la ubicación se recalculaba con cada nivel de la costa: con el de 8 m salían en un lugar y, al llegar el de 4 m, saltaban a otro. Pasaba en todas las bases con icebergs; en Brown cambiaban 5 de 7.
+
+**Ahora** (`capturas/icebergs-formas-despues.jpg`, `src/icebergs.ts`):
+- **Simples y suaves, a propósito, por rendimiento**: 20 lados y 9 anillos por iceberg, unos 280 triángulos: 2 anillos bajo el agua (casi no se ve), la línea de flotación, 3 de talud y 3 de superficie.
+- **Una forma propia por iceberg** (semilla = índice, la misma en cada carga), con cuatro tipos: tabular, domo, cuña y pináculo.
+  - Contorno con armónicos 2–5 de fase al azar y 1 o 2 entrantes anchos.
+  - Talud con curvatura propia, en vez de pared vertical, con salientes y huecos suaves; los huecos van más azules.
+  - Superficie según el tipo.
+  - Inclinación propia: 2–6° el tabular, 4–10° el resto.
+- **Material con las propiedades de la nieve del terreno** (`icebergMaterial`): usa los mismos valores que `t.styleUniforms`, así que si cambian en el terreno, cambian en los icebergs.
+  - Colores de nieve, sombra y hielo: nieve arriba, sombra de nieve con hielo en las paredes, más hielo en los huecos y bajo el agua.
+  - Luz envolvente, reflejo con Fresnel, dispersión hacia adelante y destellos de cristales.
+  - Sin el grano de textura: el iceberg es chico en pantalla y así no lee texturas.
+  - El código de esa luz pasó de `shaders.ts` a `src/snow-light.ts` (`STYL_RAMP`, `SNOW_GLINTS`, `SUN_SHADOW_LIGHTS`), para compartirlo sin arrastrar texturas. El terreno sigue armando el mismo shader.
+- **Probado y descartado en el camino**:
+  - Caras planas (`flatShading`): se leían como segmentos rectos.
+  - Mallas más finas (32–48 lados) con corrimiento por vértice y muesca de oleaje: más detalle, pero más costo.
+- **Ubicación fija por base**: la decide el primer nivel que llega, y los siguientes la conservan si cada punto sigue con 350 m de agua abierta.
+  - Entre niveles, el recorte y la base se corren unos metros (medio píxel); por eso se compara con 50 m de tolerancia.
+  - Si el lugar es el mismo, no se toca la posición: el iceberg sigue flotando sin saltar.
+  - Verificado en Brown: los mismos 7 puntos con 8 m y con 4 m.
+- **Costo**:
+  - **Geometría**: 3.360 triángulos con los 12 icebergs, contra 24.576 antes; 82 KB.
+  - **GPU** (Brown, Chrome aparte, cámara cercana con un iceberg ocupando buena parte de la pantalla; mediana de 40 cuadros con `EXT_disjoint_timer_query`, icebergs visibles contra ocultos, dos veces): unos 0,2 ms por cuadro. La versión anterior costaba unos 0,7 ms y la intermedia, de 9.216 triángulos con grano, unos 0,6 ms.
+  - **CPU**: animación 0,004 ms por paso, igual que antes (`scripts/check-icebergs.mjs`, Node; no mide FPS). Las distancias a la costa del chequeo siguen pasando.
+- Son una **reconstrucción artística** (decorativa), no icebergs observados.
+
 ### Peso de la descarga y del repositorio
 
 - **El 3D se carga bajo demanda**: `index.html` arranca con `src/boot.ts` (2 KB), que verifica WebGL 2 y recién entonces importa `src/main.ts`. Sin WebGL no se descarga el visor. Cuando el sitio tenga más páginas, solo la home importa el visor y las páginas interiores no cargan Three.js.

@@ -42,6 +42,20 @@ export interface BuildMsg {
   full: boolean;
   /** Niveles de detalle de la malla costera (solo el visor; el horneado guarda la malla original). */
   coastLod?: boolean;
+  /** Mandar antes las alturas a resolución de malla (precarga "construcción" del visor). */
+  preview?: boolean;
+}
+/** Alturas REMA a resolución de malla, enviadas apenas se decodifican (antes de "built"). NaN = sin dato. */
+export interface PreviewMsg {
+  type: "preview";
+  key: string;
+  requestId?: number;
+  heights: Float32Array;
+  width: number;
+  height: number;
+  /** Lado de una celda de malla (m). */
+  cellM: number;
+  seaLevelM: number | null;
 }
 export interface UpdateMsg {
   type: "update";
@@ -146,6 +160,15 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg | {type:"release";k
       // All geometry paths consume the same repaired heightfield and provenance.
       const seaM = msg.seaDatum ?? seaLevel(heights, land);
       const t1 = performance.now();
+      // Vista previa (precarga "construcción"): alturas REMA a resolución de malla apenas decodificadas, antes de las
+      // texturas y la malla (que tardan la mayor parte). Solo si el visor la pide.
+      if (msg.preview) {
+        const pw = Math.floor((msg.width - 1) / msg.stride) + 1, ph = Math.floor((msg.height - 1) / msg.stride) + 1;
+        const pv = new Float32Array(pw * ph);
+        for (let y = 0; y < ph; y++) for (let x = 0; x < pw; x++) pv[y * pw + x] = heights[y * msg.stride * msg.width + x * msg.stride];
+        const pre: PreviewMsg = { type: "preview", key: msg.key, requestId: msg.requestId, heights: pv, width: pw, height: ph, cellM: msg.cellSizeM * msg.stride, seaLevelM: seaM ?? null };
+        post(pre, [pv.buffer]);
+      }
 
       const { cavity, curv } = cavityShade(heights, msg.width, msg.height, msg.cellSizeM);
       const shore = shoreProximity(land, msg.width, msg.height, msg.stride, msg.cellSizeM);

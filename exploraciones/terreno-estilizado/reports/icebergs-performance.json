@@ -1,13 +1,13 @@
 {
   "note": "CPU measurements in Node; not browser FPS or GPU timings.",
-  "animationCpuMsPerStep": 0.00446875,
+  "animationCpuMsPerStep": 0.004012566666666695,
   "maxGeometry": {
     "usableWaterArea": 0,
     "targetCount": 0,
     "placementMs": 0,
     "count": 12,
-    "triangles": 24576,
-    "geometryBytes": 147672
+    "triangles": 3360,
+    "geometryBytes": 81504
   },
   "bases": [
     {
@@ -15,182 +15,182 @@
       "level": "4m",
       "usableWaterKm2": 0,
       "count": 0,
-      "placementMs": 40.39
+      "placementMs": 33.13
     },
     {
       "base": "belgrano-ii",
       "level": "8m",
       "usableWaterKm2": 0,
       "count": 0,
-      "placementMs": 8.93
+      "placementMs": 8.13
     },
     {
       "base": "carlini",
       "level": "4m",
       "usableWaterKm2": 7.71,
       "count": 3,
-      "placementMs": 39.93
+      "placementMs": 35.49
     },
     {
       "base": "carlini",
       "level": "8m",
       "usableWaterKm2": 7.69,
       "count": 3,
-      "placementMs": 20.2
+      "placementMs": 13.03
     },
     {
       "base": "esperanza",
       "level": "4m",
       "usableWaterKm2": 13.92,
       "count": 5,
-      "placementMs": 41.58
+      "placementMs": 37.39
     },
     {
       "base": "esperanza",
       "level": "8m",
       "usableWaterKm2": 13.88,
       "count": 5,
-      "placementMs": 14.74
+      "placementMs": 12.84
     },
     {
       "base": "marambio",
       "level": "4m",
       "usableWaterKm2": 23.05,
       "count": 8,
-      "placementMs": 51.76
+      "placementMs": 31.61
     },
     {
       "base": "marambio",
       "level": "8m",
       "usableWaterKm2": 23,
       "count": 8,
-      "placementMs": 9.66
+      "placementMs": 10.84
     },
     {
       "base": "petrel",
       "level": "4m",
       "usableWaterKm2": 30.47,
       "count": 11,
-      "placementMs": 38.73
+      "placementMs": 38.94
     },
     {
       "base": "petrel",
       "level": "8m",
       "usableWaterKm2": 30.36,
       "count": 11,
-      "placementMs": 7.13
+      "placementMs": 7.1
     },
     {
       "base": "san-martin",
       "level": "4m",
       "usableWaterKm2": 22,
       "count": 8,
-      "placementMs": 39.35
+      "placementMs": 41.89
     },
     {
       "base": "san-martin",
       "level": "8m",
       "usableWaterKm2": 21.87,
       "count": 8,
-      "placementMs": 24.09
+      "placementMs": 20.57
     },
     {
       "base": "orcadas",
       "level": "4m",
       "usableWaterKm2": 18.82,
       "count": 7,
-      "placementMs": 48.9
+      "placementMs": 41.06
     },
     {
       "base": "orcadas",
       "level": "8m",
       "usableWaterKm2": 18.82,
       "count": 7,
-      "placementMs": 21.66
+      "placementMs": 18.56
     },
     {
       "base": "brown",
       "level": "4m",
       "usableWaterKm2": 22,
       "count": 8,
-      "placementMs": 60.17
+      "placementMs": 38.57
     },
     {
       "base": "brown",
       "level": "8m",
       "usableWaterKm2": 21.96,
       "count": 8,
-      "placementMs": 10.41
+      "placementMs": 25.43
     },
     {
       "base": "camara",
       "level": "4m",
       "usableWaterKm2": 35.29,
       "count": 12,
-      "placementMs": 32.01
+      "placementMs": 29.43
     },
     {
       "base": "camara",
       "level": "8m",
       "usableWaterKm2": 35.21,
       "count": 12,
-      "placementMs": 9.19
+      "placementMs": 18.77
     },
     {
       "base": "decepcion",
       "level": "4m",
       "usableWaterKm2": 21.12,
       "count": 8,
-      "placementMs": 33.71
+      "placementMs": 33.72
     },
     {
       "base": "decepcion",
       "level": "8m",
       "usableWaterKm2": 21.04,
       "count": 8,
-      "placementMs": 9.43
+      "placementMs": 11.24
     },
     {
       "base": "matienzo",
       "level": "4m",
       "usableWaterKm2": 36.26,
       "count": 12,
-      "placementMs": 26.97
+      "placementMs": 33.73
     },
     {
       "base": "matienzo",
       "level": "8m",
       "usableWaterKm2": 36.22,
       "count": 12,
-      "placementMs": 9.44
+      "placementMs": 8.23
     },
     {
       "base": "melchior",
       "level": "4m",
       "usableWaterKm2": 26.07,
       "count": 9,
-      "placementMs": 40.75
+      "placementMs": 47.91
     },
     {
       "base": "melchior",
       "level": "8m",
       "usableWaterKm2": 26.05,
       "count": 9,
-      "placementMs": 10.18
+      "placementMs": 11.74
     },
     {
       "base": "primavera",
       "level": "4m",
       "usableWaterKm2": 32.65,
       "count": 12,
-      "placementMs": 39.16
+      "placementMs": 41.55
     },
     {
       "base": "primavera",
       "level": "8m",
       "usableWaterKm2": 32.83,
       "count": 12,
-      "placementMs": 15.69
+      "placementMs": 20.81
     }
   ]
 }
