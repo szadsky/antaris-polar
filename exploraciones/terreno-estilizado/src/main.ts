@@ -4,6 +4,7 @@ import {createIcebergs} from './icebergs';
 import { solarPosition } from "./solar";
 import { outerTerrain } from "./outer-terrain";
 import { createDiorama } from "./diorama";
+import { bakeReflection, loadReflection } from "./reflection-bake";
 import { mountViewControls, mountMarineControls, mountPixelControls } from "./view-controls";
 import { createOcean } from "./ocean";
 import { loadTerrainTextures } from "./terrain-textures";
@@ -291,6 +292,7 @@ async function main() {
     if (waves && terrain) { waterSeconds+=dt;terrain.styleUniforms.uTime.value=waterSeconds; ocean.time(waterSeconds,floating); }
     ocean.motion(floating);
     const rippling=ocean.stepRipples(dt);
+    if(ocean.pendingReflection())dirty=true; // reflejo planar salteado en movimiento: un cuadro más al frenar
     if (!moved && !dirty && (waves || floating || rippling)) {
       // en reposo: solo el agua se mueve, a cadencia reducida
       if (now - lastWaveMs < WAVE_IDLE_MS) return;
@@ -351,6 +353,7 @@ async function main() {
   const geo: GeoMode = params.get("geo") === "completa" ? "completa" : "lod";
   let exaggeration = 1;
   let terrain: Terrain | null = null;
+  let reflectionRequested = false;
   // Los icebergs van antes del `await` de los edificios: `frame` los usa, y si un render se disparaba durante
   // esa espera (resize, controles) tiraba "Cannot access 'icebergs' before initialization" y moría el bucle.
   const icebergs=createIcebergs();scene.add(icebergs.group);let bergsOn=true;icebergs.group.visible=bergsOn;
@@ -572,6 +575,11 @@ async function main() {
     ocean.bind(t);
     placeSea(t);
     ocean.refresh();
+    // Reflejo precalculado (calidad baja y media), si la base lo tiene: se carga una vez, en paralelo.
+    if (meta.reflection && !reflectionRequested) {
+      reflectionRequested = true;
+      loadReflection(dir).then((env) => { ocean.setEnvironment(env, meta.reflection!.point); requestRender(); }).catch((e) => console.warn("Sin reflejo precalculado:", e));
+    }
     pin = buildPin(meta, t);
     if (pin) {
       pin.setExaggeration(exaggeration);
@@ -704,7 +712,16 @@ async function main() {
     await bench();
   }
   Object.assign(window, {
-    __terreno: { scene, camera, controls, renderer, antialiasInfo, metrics, meta, pixelLook, icebergStats:()=>icebergs.stats(), requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; } },
+    __terreno: { scene, camera, controls, renderer, antialiasInfo, metrics, meta, pixelLook, ocean, icebergStats:()=>icebergs.stats(), requestRender, setStyle, setDetail, setVariant, quality, applyTier, fpsTest: (sec?: number) => runFpsTest(ctx, sec), get terrain() { return terrain; },
+      // Solo en desarrollo: captura el reflejo precalculado de la base desde `point` (x, y, z de mundo) y lo guarda.
+      bakeReflection: import.meta.env.DEV ? async (point: [number, number, number], size = 256) => {
+        if (!terrain) throw Error("Sin terreno");
+        // el disco del sol sigue a la cámara principal: desde el punto de captura tapaba media cara
+        const hide = [ocean.mesh, icebergs.group, pin?.group, diorama?.group, disc, scene.getObjectByName(baseId + "-building-footprints")].filter((o): o is THREE.Object3D => !!o);
+        const r = await bakeReflection({ renderer, scene, terrain, baseId, point: new THREE.Vector3(...point), hide, size });
+        requestRender();
+        return r;
+      } : undefined },
     __bench: bench,
     // Diagnóstico por capas sobre el material estilizado: a = colores base, b = + variación de color,
     // c = + detalle al 15 %, d = material completo.

@@ -727,6 +727,360 @@ Pedido: mejorar el rendimiento sin cambiar nada de lo que se ve.
 - **Primera vista**: el terreno aparece cuando sus shaders están listos (~2,3 s sin caché en esta PC) en lugar de mostrarse a ~1,2 s y congelar la página ~3 s. Con caché de shaders no cambia.
 - **Pendiente**: el sistema de calidad cambia el shader del agua después de la primera vista y esa variante se compila al dibujar (~0,28 s); quedan tareas de 0,1–0,3 s (armado de la escena, texturas de detalle, icebergs). No se midió en un móvil real.
 
+### Agua: reflejo precalculado en baja y media, color según la profundidad y espuma
+
+**Reflejo precalculado (cubemap), solo Brown por ahora** (`src/reflection-bake.ts`, `src/ocean.ts`):
+- Antes: en escritorio, las calidades baja y media no reflejaban las montañas (degradé de cielo fijo); en celular se hacía el reflejo planar (segundo dibujo de la escena) en todas las calidades.
+- Ahora: alta sigue con el reflejo planar. Baja y media, en cualquier dispositivo, leen un cubemap fijo con la dirección de reflexión en espacio mundo, con un oleaje suave (`uEnvRipple` = 0,08: con la normal plena de las olas el reflejo quedaba gris moteado) y el mismo Fresnel del agua. Sin segundo dibujo y sin `CubeCamera` durante el recorrido. Las bases sin cubemap quedan como antes.
+- Asset: seis JPEG de 256 × 256 (`terreno/brown/reflejo-px.jpg` … `reflejo-nz.jpg`, **19 KB en total**), declarados en el `reflection` de `terreno.json`. Capturados una vez desde 4 m sobre el agua, 250 m al oeste de la base (−242, 6,3, 53; a más de 250 m de la tierra en todas las direcciones), con terreno y cielo y sin agua, icebergs, edificios, marcador, corte del diorama ni disco del sol. Se regeneran en desarrollo con `__terreno.bakeReflection([x, y, z])`, que los guarda a través de una ruta del servidor de Vite que solo existe en desarrollo (`/__bake-reflection`, `vite.config.ts`).
+- Orientación comprobada contra el reflejo planar con el agua lisa (las siluetas coinciden; con el eje x espejado no).
+- Capturas, misma cámara: `capturas/reflejo-planar.jpg`, `reflejo-cubemap.jpg`, `reflejo-desactivado.jpg`.
+- **Junto a la costa** (`reflejo-costa-planar.jpg` → `reflejo-costa-cubemap.jpg`): sin paralaje, el reflejo de lo cercano queda corrido y los edificios no se reflejan (no están en la captura). Las montañas siguen reconocibles. Junto a la orilla el reflejo se atenúa a medias hacia el cielo (`uEnvShore` = 0,5); en esta vista casi no cambia. *Corregido después con paralaje: ver "Reflejo del cubemap en su lugar".*
+- **Instrumentación**: `__terreno.ocean.reflectionStats()` cuenta los pases planares. En un recorrido de 50 cuadros en movimiento: alta 54 pases y 69 draw calls; media y baja 0 pases y 35 draw calls. El cubemap no se actualiza nunca. `__terreno.ocean.setReflectionMode("planar" | "cubo" | "cielo" | null)` fuerza un modo para comparar.
+- **Costo** (misma calidad media y la misma resolución, 1280 × 960, recorrido en movimiento, 2 × 50 cuadros, GPU integrada AMD Radeon): planar 17,3–17,6 ms · cubemap 10,7–11,3 ms · sin reflejo 10,8–11,1 ms. El cubemap cuesta lo mismo que no reflejar; el planar suma ~6,5 ms.
+
+**Color según la profundidad** (`capturas/agua-profundidad-antes-general.jpg` → `agua-profundidad-despues-general.jpg`; `agua-profundidad-antes-media.jpg` → `agua-profundidad-despues-media.jpg`; reconstrucción artística, no batimetría medida): el color propio del agua pasa de turquesa claro (#2f8f95) junto a la costa al azul profundo de siempre mar adentro (~63 % a 320 m, `uDepthM`). La distancia sale de un canal nuevo de la textura de luz del terreno (A = cercanía a la costa hasta 1,5 km; el worker hace una distancia de chaflán más). Mismo criterio que el fondo curvo del corte. Vale en los tres modos de reflejo. Sin texturas nuevas: una lectura más por píxel de agua.
+
+**Espuma en la orilla** (`capturas/agua-espuma-orilla.jpg`): franja de ~9 m del lado del mar, con la distancia con signo a la costa de la textura de superficie (la misma línea de agua de la malla), olitas que avanzan hacia la orilla y un ruido que la corta. Intensidad y ancho en `uFoam`. Con 5 m quedaba debajo del borde del terreno y no se veía. Desde la vista general del diorama no se distingue (9 m en un bloque de 8 km).
+
+### Rendimiento medido (Brown, 13/11/2026)
+
+Chrome, GPU integrada AMD Radeon (ANGLE D3D11). Tiempo de GPU por cuadro con `EXT_disjoint_timer_query_webgl2`. **Recorrido**: travelling de 500 m sobre la bahía, cámara a 120 m, 50 cuadros, dos veces. **Poses**: las 5 cámaras fijas de `__bench` (con la cámara quieta, el reflejo planar se dibuja una sola vez por pose). El panel del navegador estaba oculto: no se midieron FPS reales (el bucle de cuadros se frena con la pestaña oculta).
+
+| Calidad | Resolución | Reflejo | Recorrido mediana / p95 | Draw calls | Triángulos | Poses mediana / p95 |
+|---|---|---|---|---|---|---|
+| Alta | 1280 × 960 | planar | 19,5–19,7 / 20,5–23,7 ms | 69 | 922 k | 11,8 / 17,3 ms |
+| Media | 1280 × 960 | cubemap | 11,1 / 12,5–13,3 ms | 35 | 365 k | 10,3 / 11,9 ms |
+| Baja | 1024 × 768 | cubemap | 7,9 / 8,7–9,1 ms | 35 | 321 k | 8,1 / 9,6 ms |
+
+- **Cuánto pesa el agua** (recorrido, mismo tamaño): alta 19,6 ms con agua contra 12,0 ms sin agua (**el reflejo planar es ~7,6 ms, el 39 % del cuadro**, y duplica draw calls y triángulos); media 11,1 contra 10,3 ms (agua con cubemap ≈ 0,8 ms).
+- **Contra el objetivo**: 60 FPS son 16,7 ms. En esta GPU, alta en movimiento no llega (≈ 51 FPS de GPU) y supera el presupuesto de 12 ms de `quality.ts`: la calidad automática bajaría a media, que entra holgada (11 ms). Quieta, alta entra (11,8 ms).
+- **Memoria de GPU del terreno**: geometría 7,4 MB, texturas 29,2 MB.
+- **Lo más caro que queda**: el reflejo planar en alta y el terreno (≈ 10–12 ms con 330–430 k triángulos; el shader estilizado es el grueso). Próximos pasos posibles, sin medir: reflejo planar a menor resolución o cada dos cuadros mientras la cámara se mueve; cubemap para las otras 12 bases.
+
+### Reflejo planar más barato en calidad alta
+
+Medido en Brown, calidad alta, 1282 × 787, GPU integrada AMD Radeon, mismo travelling en movimiento (40 cuadros, dos veces, todo en la misma carga de página para no mezclar el ruido entre recargas).
+
+- **Dónde está el costo**: el reflejo planar suma ~5–6 ms por cuadro (16 ms con agua contra 10 ms sin agua) y casi no depende de la resolución: con el mismo recorrido, 768 px 16,0–16,6 ms · 512 px 15,9–16,4 · 384 px 15,6–15,9 · 256 px 15,5–15,7. Apagar en ese pase el desplazamiento de nieve, la rampa de costa y el detalle tampoco cambió nada (16,1–16,3 contra 16,2–16,6 ms). Es volver a dibujar la geometría de la escena.
+- **Cadencia en movimiento** (`MIRROR_EVERY` = 2, `src/ocean.ts`): con la cámara moviéndose, el reflejo se redibuja un cuadro sí y otro no; en el otro el agua reusa el último, mapeado con su propia matriz (no se desliza; queda una fracción de cuadro atrasado). Al frenar, `pendingReflection` pide un cuadro más para que quede al día. Con la cámara quieta no cambia nada (ya se dibujaba una sola vez).
+- **Resolución 768 → 512 px** (escritorio; celular sigue en 384): casi no cambia el costo, pero ahorra memoria y la imagen es la misma (`capturas/reflejo-planar-768.jpg` → `reflejo-planar-512.jpg`). Para medir: `?reflejoRes=` y `__terreno.ocean.setReflectionResolution(px)` / `setReflectionCadence(n)` (el render target del `Water` se reconoce la primera vez que se dibuja, para poder redimensionarlo sin recrear el agua).
+
+| | Promedio | Mediana | p95 | Cuadros > 16,7 ms (60 FPS) |
+|---|---|---|---|---|
+| Antes (768 px, todos los cuadros) | 15,9–16,2 ms | 15,7–16,0 ms | 17,5–17,8 ms | 13–18 % |
+| Después (512 px, uno de cada dos) | **11,8–12,6 ms** | 10,5–11,4 ms | 17,7–17,9 ms | **5–10 %** |
+
+- **Resultado**: −24 % de GPU en promedio y la mitad de cuadros fuera de presupuesto. Los cuadros con reflejo siguen en ~16 ms (el p95 no baja): para bajar el pico habría que dibujar menos geometría en el reflejo (por ejemplo, el terreno a menor detalle solo en ese pase), sin probar todavía. No se midieron FPS reales ni se probó en celular.
+
+### Reflejo del cubemap en su lugar (paralaje con el relieve)
+
+- **Problema**: leer el cubemap solo con la dirección de reflexión supone que todo el paisaje está infinitamente lejos. La captura se hizo desde un punto (`terreno.json` → `reflection.point`), y en costas a unos cientos de metros de ese punto las montañas reflejadas aparecían corridas respecto de la orilla real: una "montaña fantasma" o franjas de nieve flotando sobre el agua que se leían como un escalón de nivel.
+- **Ahora** (`cubeFragment`, `src/ocean.ts`): el agua sigue el rayo reflejado sobre las alturas de la malla (`Terrain.relief`, textura R16F de 1000 × 1000 con filtrado lineal, en Brown) en 32 pasos crecientes más 5 de refinamiento, hasta el primer punto de terreno, y lee el cubemap en la dirección **desde el punto de captura hacia ese punto**. Si el rayo no toca terreno (cielo o fuera del recorte), dirección directa como antes. La exageración vertical se sigue sin rehacer la textura. Como el reflejo ya cae en su lugar, se quitó la atenuación hacia el cielo junto a la orilla (`uEnvShore` 0,5 → 0).
+- **Límites**: un punto del terreno que no se veía desde la captura toma el color de lo que lo tapaba; los edificios siguen sin reflejarse (no están en la captura); la luz del reflejo es la del momento de la captura.
+- **Comparación, misma cámara y agua calma** (`capturas/reflejo-paralaje-comparacion.jpg`): arriba a la izquierda cubemap sin paralaje (montañas corridas), arriba a la derecha con paralaje, abajo planar (referencia) y sin reflejo. Con paralaje las montañas y la roca reflejadas caen donde las pone el planar.
+- **Costo**: *la primera medición (sin diferencia) no era válida*: para "apagar" el paralaje se llevó `uReliefTop` a un valor negativo, pero el bucle seguía corriendo sus pasos igual. Medido después contra el reflejo de cielo: ver el punto "Reflejo duplicado en el cubemap" más abajo.
+
+### Costa sin franja bajo el borde del agua y espuma sin "segunda costa"
+
+- **Franja beige con la orilla flotando** (`capturas/costa-nivel-antes.jpg` → `costa-nivel-despues.jpg`, misma cámara; cada una con cubemap / sin agua / cielo / planar). Medido con rayos sobre la malla: en Brown hay tramos donde ADD dice tierra pero la malla costera queda bajo el nivel del mar (hasta ~3 m; por ejemplo, la nieve llana junto a los edificios está ~1,6 m bajo el nivel estimado, dentro de la incertidumbre de REMA y del geoide). Ahí no hay agua (el polígono del mar es ADD), y desde arriba se veía el fondo marino por debajo del borde del agua. La rampa de costa estaba apagada justo en ese caso (`agreeC`).
+- **Ahora** (`COAST_RAMP_VERTEX`, `src/snow-volume.ts`): la tierra ADD nunca se dibuja bajo el agua; lo que queda más bajo se lleva al nivel del mar (+5 cm), sin tocar las caras del corte del diorama. Es un ajuste vertical de reconstrucción (≤ ~3 m, solo en tierra ADD bajo el nivel del mar), no un dato. Se probó primero subirla con la pendiente de la rampa: tierra adentro quedaba un escalón de hasta 3 m en el borde de la franja de 10 m; descartado.
+- **Probado y descartado: inundar por altura** (agua donde REMA mide bajo el nivel del mar y conectada con el mar). Inundaba la nieve llana de la península junto a los edificios: en la costa baja, REMA no alcanza para decidir qué es mar. Se mantiene el polígono ADD.
+- **Espuma** (`src/ocean.ts`; `capturas/espuma-aro-antes.jpg` → `espuma-aro-despues.jpg`): las olitas (un seno cada ~5 m) pesaban más que la cercanía a la orilla, y quedaba un aro blanco separado de la costa por un valle de agua: desde arriba, una segunda costa ("reflejo duplicado"). Ahora la cercanía a la orilla manda (al cuadrado) y el ruido la rompe en manchas hacia afuera; el seno solo modula un poco. Mismo ancho (9 m) e intensidad.
+- La cornisa vertical de ~3 m que se ve en algunas orillas de Brown es el frente de hielo que mide REMA (ver "Costas sin dientes de sierra"), no este problema.
+- **Margen turquesa entre la espuma y la tierra** (`capturas/costa-margen-antes.jpg` → `costa-margen-despues.jpg`, vista cenital, misma cámara). Dos causas: (1) la espuma se cortaba donde la textura de costa ya dice tierra (`step(sdfW, 0.5)`), pero el polígono del agua (ADD vectorial) llega en partes unos metros más adentro: ahí quedaba agua sin espuma; se quitó el corte. (2) El terreno contaba como mar hasta 1 m por encima del nivel del mar (`isSea`, `src/shaders.ts`): lo que asoma apenas sobre el agua del lado mar de ADD se pintaba de mar con su propio reflejo, una segunda franja de agua junto a la real. Ahora solo cuenta como mar hasta la altura del plano del agua.
+- **Reflejo duplicado en el cubemap**: con el paralaje, un punto del terreno que no se veía desde el punto de captura tomaba el color de lo que lo tapaba, y la roca de adelante aparecía repetida sobre el agua donde el planar refleja nieve. Ahora el agua comprueba si el punto se veía (cara de espaldas al punto de captura o relieve en el medio); si no, usa un tono de terreno estimado (nieve o roca según la pendiente, con el sol: `uEnvSnow` / `uEnvRock`). Capturas, misma cámara: `capturas/reflejo-ocluido-antes.jpg` → `reflejo-ocluido-despues.jpg`, referencia `reflejo-ocluido-planar.jpg`.
+- **Seguía repetido desde lejos** (`capturas/reflejo-repetido-antes.jpg` → `reflejo-repetido-despues.jpg`, referencia `reflejo-repetido-planar.jpg`; cámara a ~1,9 km al oeste, a 377 m). Comparado con el planar con el agua lisa y pintando en colores qué rayos impactan y cuáles se veían desde la captura, aparecieron tres causas:
+  1. **Rayos sin impacto** (cielo): se leía el cubemap en la dirección de reflexión, como si todo estuviera en el infinito, pero desde el punto de captura esa dirección choca con las rocas que tiene al lado. Era la mancha grande de roca sobre el agua, a la derecha. Ahora, si la dirección queda por debajo del horizonte de la captura en ese acimut, se la sube apenas por encima: cielo, o lo que asome detrás del recorte.
+  2. **Visibilidad**: la marcha de 8 pasos hacia el punto de captura se espaciaba (pasos cuadráticos) justo cerca de él, donde están las rocas que más tapan, y las salteaba. Se reemplazó por un **mapa de horizonte** desde la captura (`buildHorizon` en `src/ocean.ts`): 1024 acimuts × 512 distancias, R16F (2 MB), con la tangente de la elevación máxima del relieve. Una lectura en el shader en lugar del bucle. Se calcula en CPU al cargar y al cambiar la exageración del relieve (~35 ms en esta máquina). La última fila toma el máximo de ±3 acimuts para que un pico angosto no deje una línea vertical.
+  3. **La captura era gruesa**: 256 px por cara, con el terreno en su LOD más grueso (la cámara ortogonal que elegía el LOD abarcaba todo el recorte en 256 px, ~60 m). Las rocas cercanas quedaban como manchas anchas que no coincidían con el relieve fino. Ahora `bakeReflection` vuelve a dibujar cada cara con el LOD que le corresponde desde el punto, y Brown se recapturó a **512 px**: 49 KB en JPEG (antes 19 KB) y ~8 MB de GPU con mipmaps (antes ~2 MB). La captura anterior no se conservó en el repositorio.
+  - Comprobado: la orientación del cubemap es correcta (proyectado en una esfera desde el punto de captura, coincide con la escena) y el relieve del paralaje coincide con la malla (rayos verticales en puntos al azar: misma altura, sin espejo en Z).
+  - Costo (misma GPU, pestaña en segundo plano, 3 cámaras, mediana de 30 cuadros, 3 rondas alternadas): sin diferencia medible contra el shader anterior (8,3–11,1 ms contra 8,9–12,1 ms, dentro del ruido). Contra el cielo: +1,3 a +2,9 ms. No medido en celular.
+- **Costo del reflejo con paralaje** (Brown, calidad media, 1282 × 787, GPU integrada AMD Radeon, recorrido bajo con agua en casi toda la pantalla, mediana de 30 cuadros × 2): con 32 pasos de búsqueda y 16 de visibilidad, 9,7–9,9 ms contra 7,5–7,9 ms del reflejo de cielo (+2 ms). Con **20 + 8 pasos** (después los 8 de visibilidad se reemplazaron por el mapa de horizonte; ver arriba), 9,0 ms contra 7,8–7,9 ms (**+1,2 ms**), sin diferencia visible en las capturas. Antes, el cubemap sin paralaje costaba lo mismo que el cielo: la corrección cuesta ~1 ms en vistas con mucha agua. No medido en celular.
+
+### Rendimiento medido (Brown, 14/11/2026, después del cubemap a 512 px y el mapa de horizonte)
+
+Chrome en el panel del navegador de Claude, GPU integrada AMD Radeon (ANGLE D3D11). Tiempo de GPU por cuadro con `EXT_disjoint_timer_query_webgl2`, dibujando de forma sincrónica (el mismo camino de `renderer.render` y LOD por cuadro; el reflejo planar se redibuja uno de cada dos cuadros, como en movimiento). Dos recorridos de 500 m sobre la bahía, 60 cuadros cada uno: **alto** (cámara a 120 m) y **rasante** (a 25 m, agua en casi toda la pantalla). Dos rondas por calidad.
+
+| Calidad | Lienzo | Reflejo | Alto: mediana / p95 | Rasante: mediana / p95 | Cuadros > 16,7 ms | Draw calls | Triángulos |
+|---|---|---|---|---|---|---|---|
+| Alta | 1282 × 787 (dpr 1,25) | planar | 15,6–16,1 / 18,5–19,2 ms | 15,3–15,5 / 16,6–21,1 ms | 3–38 % | 47–52 | 615–629 k |
+| Media | 1282 × 787 (dpr 1,25) | cubemap | 11,5–11,6 / 12,5–16,4 ms | 10,0–10,1 / 10,8–11,5 ms | 0–3 % | 33–37 | 351–353 k |
+| Baja | 1026 × 630 (dpr 1) | cubemap | 8,5–8,7 / 9,2–9,9 ms | 7,4 / 8,0–8,2 ms | 0 % | 32–36 | 317–319 k |
+
+Cuánto pesa cada parte (medianas, alto / rasante, dos rondas):
+
+| Calidad | Sin agua | Agua con cielo | Agua con su reflejo | Costo del agua |
+|---|---|---|---|---|
+| Alta | 9,7–9,8 / 9,2–9,3 ms | — | 15,6–16,5 / 14,8–15,6 ms (planar) | **~6 ms (≈ 38 % del cuadro)** |
+| Media | 8,7–8,8 / 8,1–8,2 ms | 9,9–10,1 / 8,9 ms | 11,7–11,8 / 10,2–10,5 ms (cubemap) | ~3 / ~2,2 ms; el paralaje es ~1,7 / ~1,4 ms |
+| Baja | 6,7–6,8 / 6,1 ms | 7,5–7,7 / 6,7 ms | 8,8–9,0 / 7,6–7,7 ms (cubemap) | ~2,1 / ~1,5 ms; el paralaje es ~1,2 / ~1,0 ms |
+
+- **Contra los objetivos** (60 FPS = 16,7 ms; presupuesto de la calidad automática en escritorio: 12 ms): **media y baja entran** en esta GPU. **Alta no**: la mediana roza los 16 ms y los cuadros que redibujan el reflejo planar pasan de 16,7 ms; la calidad automática bajaría a media. En esta corrida, alta salió más cara que la medición del 13/11 (11,8–12,6 ms de promedio): otro recorrido y otra forma de medir; no se comparan directamente.
+- **Lo más caro**: el terreno, 6–10 ms según la calidad (el grueso, sobre todo el shader estilizado) y, en alta, el reflejo planar (~6 ms, porque vuelve a dibujar la geometría: duplica triángulos). El paralaje del cubemap suma 1–1,7 ms.
+- **No medido** en esta tabla: FPS reales (ver abajo), celular y las otras bases.
+
+#### FPS reales (Brown, 14/11/2026)
+
+El panel del navegador de Claude no sirve para esto: con la ventana de la app tapada, el navegador frena `requestAnimationFrame` a ~1 cuadro por segundo. Se midió en un Chrome aparte (misma máquina y GPU, monitor de 59,9 Hz, ventana de 1282 × 786 con dpr 1,25) abierto con `--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows` y manejado por DevTools Protocol. Los mismos dos recorridos de arriba, 8 s de ida y vuelta, **a través del bucle real del visor**: se mueve la cámara y se pide render, y se verificó 1,00–1,01 dibujos por cuadro.
+
+- **`__terreno.fpsTest()` no sirve como está**: no frena el bucle principal y cada cuadro se dibuja dos veces (dio 23–28 FPS en alta y media y 43 en baja, todo falso).
+
+| Calidad | Lienzo | FPS alto | FPS rasante | Cuadros > 18 ms |
+|---|---|---|---|---|
+| Alta (planar) | 1602 × 982 | 49,4–49,8 (37 en otra corrida) | 47,4–51,9 (38) | 13–23 % |
+| Media (cubemap) | 1602 × 982 | 42,3–42,7 | 47,9 (58,8 en otra corrida) | 22–37 % |
+| Baja (cubemap) | 1282 × 786 | 59,1–59,9 | 59,9 | 0–1,3 % |
+
+- **CPU no es el cuello**: por cuadro, 0,3 ms de LOD (`terrain.beforeRender`) y 1–2,5 ms de envío (`pixelLook.render`), p95 ≤ 2,5 ms.
+- **Manda la GPU**: en el bucle real, alta mide 16,8–17,4 ms de mediana (p95 21–28 ms) y media ~12,6 ms (p95 ~18 ms). Sin VRR, un cuadro que pasa de 16,7 ms espera al siguiente refresco (33 ms), por eso media con 12–13 ms de mediana ya pierde FPS.
+- **Calidad automática** (lo que ve un visitante): arranca en alta y en el primer recorrido de 8 s baja a baja (presupuesto de 12 ms); ahí se queda. En 4 vueltas dio **46–60 FPS** (rasante 56–60; alto 46–57), con la GPU de baja en 10,7–13,9 ms.
+- **Mucha variación entre corridas**: la GPU de baja pasó de 7,4–8,7 ms (benchmark sincrónico) a 12–14 ms tras varios minutos de carga sostenida. Es una GPU integrada que comparte energía y temperatura con la CPU, y la app de Claude usaba la misma GPU. Hay que tomar los números como rango, no como valor fijo.
+- **Conclusión**: en esta máquina solo baja sostiene ~60 FPS, y no siempre. **No está optimizado del todo para 60 FPS en GPU integrada.** Lo que más rendiría es abaratar el terreno (6–10 ms en el benchmark de GPU; desglose abajo); el agua y su reflejo pesan bastante menos (1–3 ms) salvo el planar de alta.
+
+#### Desglose del costo del terreno (Brown, 14/11/2026)
+
+Tiempo de GPU sincrónico en el mismo Chrome aparte, calidad media (lienzo 1602 × 982, relieve de 4 m), 60 cuadros por vista, dos rondas. Tres vistas: **general** (la del inicio, el diorama entero a ~14 km), **alto** y **rasante** (los recorridos de arriba). Cada bloque del shader se apagó reemplazando su texto en tiempo de ejecución (`onBeforeCompile` + `customProgramCacheKey`), sin tocar el código del repositorio.
+
+| Medición | General | Alto | Rasante |
+|---|---|---|---|
+| Cuadro completo | 11,6–13,8 ms | 15,0–17,8 ms | 13,0–15,2 ms |
+| Sin el terreno (solo agua, exterior, edificios, icebergs) | 3,8–3,9 | 6,0 | 4,4 |
+| Terreno con sombreado gris plano (solo geometría) | 8,9–9,7 | 13,4–14,9 | 11,9–15,1 |
+| Todos los bloques de detalle apagados juntos | 12,1–12,2 | 15,1–15,5 | 13,2–13,4 |
+| **Sin la malla costera** (`terreno-rema`; deja huecos, solo diagnóstico) | 6,9–7,1 | 10,5–10,6 | 9,1–9,2 |
+| Relieve de 8 m (`?nivel=8m`: malla costera de 94 k triángulos) | 8,0 | 11,7–11,8 | 9,7–9,8 |
+
+- **El costo no está en los detalles del sombreado**: apagar todos juntos (volumen de la nieve, bicúbico, paredes de acantilado, color y normal de la roca, fracturas, microrelieve de la nieve, cristales, brillo de la nieve, olas en el terreno) ahorra 1,6–2,3 ms. Cada bloque por separado queda en 0–0,8 ms, dentro del ruido de la medición. Sacar el `discard` de la costa tampoco cambia nada.
+- **No hay sobredibujo**: contando fragmentos con mezcla aditiva, el terreno sombrea 1,03–1,09 veces cada píxel que cubre (en la vista general cubre el 11 % de la pantalla; en las otras, 28–32 %). Ordenar de adelante hacia atrás o una pasada previa de profundidad no ahorraría nada.
+- **Tampoco pesan** el desplazamiento de vértices de la nieve ni la rampa costera (sin cambio medible), ni la CPU.
+- **Lo que pesa es la malla costera de 4 m**: 243 933 triángulos que **se dibujan siempre completos, sin LOD ni descarte por bloque**, estén a 25 m o a 14 km. Son dos tercios de los triángulos del terreno (los bloques con LOD suman 85–100 k) y **4,1–4,7 ms por cuadro (32–40 %)**. En la vista general son más triángulos que píxeles cubiertos: triángulos sub-píxel, que la GPU procesa muy mal.
+- **Arreglo**: niveles de detalle para la malla costera (sección siguiente). Usar la malla costera de 8 m no servía: está armada en bloques de 512 m y el relieve de 4 m en bloques de 256 m, así que se superponían.
+
+#### Niveles de detalle de la malla costera (14/11/2026)
+
+**Qué hace** (`src/coast-lod-build.ts` en el worker, `src/coast-lod.ts` en el visor):
+- Al cargar, el worker simplifica cada bloque costero (32 celdas de malla: 256 m con el relieve de 4 m) con meshoptimizer 0.22 (MIT, A. Kapoulkine; `LockBorder`, `Sparse`, `ErrorAbsolute`). Arma cuatro niveles con error máximo de **0, 1, 2 y 8 m** respecto de la malla original, en cascada.
+- **El borde de cada bloque queda fijo** en todos los niveles: empalma sin grietas con los bloques costeros vecinos de cualquier nivel y con el LOD instanciado, que conserva el perímetro nativo. Las caras verticales (cierre del diorama, con vértices propios) no se simplifican.
+- Cada triángulo simplificado vuelve a llevar su vértice más alto al final (`flat vTopY`), como la malla horneada.
+- Por cuadro, cada grupo de 2 × 2 bloques (512 m) usa el nivel más simple cuyo error se ve como **≤ 1 px** desde la cámara (con la exageración vertical), y se descarta si queda fuera de la pirámide de visión. De cerca dibuja la malla completa, igual que antes. Los grupos se guardan en orden de Morton, así que los contiguos con el mismo nivel se dibujan juntos.
+- `terreno-rema` sigue siendo un `Mesh` con un solo material (el corte del diorama lo usa así). Los tramos extra los dibujan mallas hermanas (`terreno-rema-tramo`) que comparten sus buffers de GPU.
+- El horneado (`brown-bake.mjs`) no cambia: los niveles solo se arman en el visor (`coastLod: true` en el mensaje al worker).
+
+**Exactitud**: todas las alturas siguen siendo vértices de la malla REMA original; los niveles simplificados solo quitan vértices, con el error acotado en metros. El color, la luz y la clasificación nieve/roca/agua siguen saliendo de las texturas del relieve de 4 m. Es el mismo criterio del LOD del interior, que de lejos baja a celdas de 64 m.
+
+**Medido** (Chrome aparte, GPU integrada AMD, tiempo de GPU sincrónico, 60 cuadros por vista, dos rondas):
+
+| Calidad media, relieve de 4 m | General | Alto | Rasante |
+|---|---|---|---|
+| Antes (malla costera completa siempre) | 11,6–11,7 ms | 15,0–15,1 ms | 13,0–13,2 ms |
+| Después | **8,5–9,0 ms** | **12,3–12,5 ms** | **10,3–10,4 ms** |
+| Triángulos costeros dibujados | 244 k → 35 k | 244 k → 42 k | 244 k → 36 k |
+
+| Calidad baja | General | Alto | Rasante |
+|---|---|---|---|
+| Malla costera completa (con el descarte por grupo ya activo) | 9,8–10,1 ms | 8,7–8,8 ms | 7,0–7,1 ms |
+| Con niveles de detalle | 6,9–7,4 ms | 8,0 ms | 6,7 ms |
+
+**FPS reales** (mismo método que la sección "FPS reales"; monitor de 60 Hz):
+
+| Calidad | Antes: alto / rasante | Después: alto / rasante |
+|---|---|---|
+| Alta | 49,4–49,8 / 47,4–51,9 (37–38 en otra corrida) | **58,6–59,3 / 59,9** |
+| Media | 42,3–42,7 / 47,9 | **59,8–59,9 / 59,8** |
+| Baja | 59,1–59,9 / 59,9 | 59,1–59,9 / 59,6–59,9 |
+| Automática (4 vueltas) | 46–60 | **56,9–59,9** (se asienta en baja) |
+
+- La variación entre corridas es grande en esta GPU integrada; el "después" pudo correr con la máquina más fría. El tiempo de GPU por cuadro, medido en la misma sesión con y sin los niveles, confirma el ahorro.
+
+**Verificación visual**:
+- **Píxeles distintos** entre malla completa y niveles, con la misma cámara y el agua quieta: 0,09–0,49 % del lienzo con diferencia > 8/255 y 0,02–0,14 % > 24/255. Están en las caras de roca de los acantilados costeros: su sombreado usa la orientación de cada triángulo (detección de paredes) y cambia apenas con la faceta.
+- **Capturas** antes/después desde la misma cámara: `capturas/costa-lod-{general,alto,media}-{antes,despues}.jpg`. No se distinguen a simple vista.
+- **Grietas**: se renderizó solo el terreno con el fondo en rojo y se buscaron píxeles de fondo nuevos.
+  - En las 13 bases (4 poses cada una) y en Brown a 8 m, los píxeles nuevos están en el perfil de las montañas contra el cielo (≤ 2 px del fondo que ya había): el perfil se corre menos de 1 px.
+  - Hay 1–3 píxeles sueltos lejos del perfil en Esperanza, San Martín, Primavera y Brown a 8 m. El de San Martín se ubicó: es el fondo marino bajo el agua, a 889 m de la cámara, y en la imagen normal lo tapa el plano del agua. Los otros no se inspeccionaron.
+
+**Costos**:
+- **Carga**: el worker tarda 0,30–0,35 s más en Brown con el relieve de 4 m (0,01–0,59 s según la base) y ~0,11 s con el de 8 m, que es el de la primera vista. Si molesta, se puede pasar al horneado.
+- **Memoria de GPU**: el índice de la malla costera pasa de 2,8 a 5,0 MB.
+- **Llamadas de dibujo**: 1–15 tramos según la vista (antes, 1).
+- **Dependencia**: `meshoptimizer` 0,22 queda declarada en `package.json`; antes ya estaba instalada como dependencia de `@types/three`.
+- **Descarga**: el worker del build pasa de 17 a 48 KB, porque trae el WASM del simplificador embebido.
+
+**Pendiente**: la calidad automática igual termina en baja. Arranca en alta, baja si la mediana de GPU pasa de 12 ms y solo vuelve a subir por debajo de 4,2 ms (35 % del presupuesto). Con los niveles, media ya da 60 FPS en esta máquina; revisar esos umbrales es una decisión aparte.
+
+### Nieve sin parches de bordes rectos (14/11/2026)
+
+**Síntoma**: en las laderas nevadas aparecían zonas con otro "grano" (ondulaciones finas) separadas de la nieve lisa por bordes rectos, como si un bloque cargara otra textura (Brown, ladera al NE de la base).
+
+**Causa, descartando una por una**:
+- **No es la geometría ni el LOD**: el corte no cambia forzando todos los bloques al nivel más fino o al más grueso, ni ocultando la malla costera.
+- **No es el volumen artístico de la nieve**: con `uSnowDisp.w = 0` sigue igual.
+- **Sale de las normales REMA** con que se sombrea la nieve. Al suavizarlas más, desaparece.
+- **Interpretación**: el microrelieve de REMA (4–16 m) no es parejo; hay zonas del mosaico con mucho más grano que sus vecinas. Probablemente se combinan tiras con distinto ruido, pero un mapa de rugosidad del relieve de 4 m no mostró una costura recta clara, así que no está confirmado.
+- La nieve usaba la normal REMA a ~16 m (sesgo de mipmap 2), y en esa escala ese grano se notaba en la luz.
+
+**Cambio** (`src/shaders.ts`):
+- La nieve se sombrea con la normal REMA a **~45 m** (sesgo 3,5 con el relieve de 4 m). La suavidad se fija en metros (`SNOW_SMOOTH_M`, a partir del tamaño de celda del relieve), así que con el de 8 m (celulares, primera vista) es la misma; antes ahí eran ~32 m.
+- De cerca, el filtrado bicúbico se hace sobre ese mismo mip, para que no aparezcan cuadrados en la luz.
+- **La cavidad sigue en el mip 2 (~16 m), como antes**: define el borde nieve-roca, y el contorno de la roca no cambia.
+- La roca, el volumen artístico de la nieve, la geometría y la clasificación no cambian.
+
+**Verificación** (capturas en `capturas/`, misma cámara, antes con el sesgo anterior):
+- `nieve-parches-{antes,despues}.jpg`: la vista donde se veía el problema. El corte recto desaparece y la nieve queda pareja; las formas grandes de las laderas siguen.
+- `nieve-parches-cerca-{antes,despues}.jpg`: a ~200 m, sin cuadrados en la luz y con el mismo contorno de roca.
+- `nieve-parches-belgrano-{antes,despues}.jpg`: meseta de Belgrano II. Desaparecen unas ondas concéntricas de REMA sobre la meseta y el volumen de la nieve se mantiene.
+- También revisado con el relieve de 8 m (Brown).
+- **Costo**: sin diferencia medible. En calidad media da 8,5 / 11,9 / 10,1 ms (general / alto / rasante) con y sin el cambio.
+- **Impacto visual**: la nieve pierde las ondulaciones de 16–45 m del dato; las mayores siguen. Es una decisión de estilo sobre una interpretación artística, no un cambio de datos.
+
+### Nieve sin bultos en filas: solo grano y reflejos (14/11/2026)
+
+**Pedido**: quitar los bultos en filas que se veían en la nieve, cerca y lejos, y conservar solo el grano y los reflejos.
+
+**Cambios**:
+- **Acumulaciones de nieve apagadas** (`uSnowDisp.x` 3,5 → 0, `src/snow-volume.ts`). Eran el relieve artístico de dunas (±1,75 m de desplazamiento y su normal). Con 0 tampoco se calculan: el vertex y el fragment shader saltean esas lecturas. `uSnowDisp.w` sigue en 1, porque también controla la detección de paredes, el banco junto a la roca y el tono por orientación al sol.
+- **Tono de cavidad de la nieve a ~45 m, cerca y lejos** (`cavN` en `src/shaders.ts`). De lejos se teñía con la cavidad de ~6 m, la misma del borde nieve-roca, y el grano fino de REMA se veía como bultos en filas aun sin las acumulaciones. Ahora se tiñe con la misma lectura suave que las normales de la nieve (sin lecturas extra). El borde nieve-roca sigue usando la cavidad anterior y no cambia.
+- **Sin cambios**: el grano (microrelieve Snow007A, de cerca), los destellos de cristales, el satinado y la dispersión del sol en la nieve, y la roca.
+
+**Verificación**: `capturas/nieve-bultos-lejos-{antes,despues}.jpg`, misma cámara (la vista lejana en la que se veía el problema). "Antes" es el estado anterior a los dos arreglos de la nieve: sesgo 2, acumulaciones y tono con la cavidad fina. Los bultos y hoyuelos desaparecen y las formas grandes de las laderas siguen.
+
+**Rendimiento**: sin mejora medible. En calidad media, el original da 8,8 / 12,5 / 10,5 ms (general / alto / rasante) y el nuevo 8,5 / 12,5 / 10,4 ms (segunda ronda; en la primera, el nuevo tuvo picos por la compilación del shader). Lo que se ahorra (las lecturas de las acumulaciones) queda dentro del ruido.
+
+### Nieve sin manchas grises de lejos y con más brillos (14/11/2026)
+
+**Síntoma**: de lejos (600 m–1,2 km) aparecían manchas grises tenues en la nieve, alrededor de las rocas chicas; al acercarse desaparecían.
+
+**Causa**: la **sombra de contacto del banco de nieve** (`uSnowBank.y`). Se probó apagando cada capa en la misma vista:
+- La sombra de contacto: al apagarla, la nieve queda limpia.
+- Sin efecto visible: el tono de las hondonadas, la nieve venteada, el ancho del borde nieve-roca y la cavidad suavizada de lejos.
+- Por qué dependía de la distancia: la sombra seguía el umbral nieve-roca, que usa la cavidad de REMA. De lejos esa cavidad es fina (~6 m) y forma manchas; de cerca es la bicúbica de ~16 m y casi no las forma.
+
+**Cambios** (`src/shaders.ts`):
+- **Sin sombra de contacto en la nieve.** La roca recién expuesta junto al borde conserva su leve sombra.
+- **Más brillos**:
+  - satinado especular 0,055 → 0,09;
+  - destellos de cristales 0,65 → 1,8;
+  - densidad de cristales 0,18 → 0,3;
+  - lóbulo del destello más ancho (exponente 1500 → 600), así brillan en un rango de ángulos mayor.
+  - La dispersión hacia el sol no cambia.
+
+**Verificación** (`capturas/nieve-manchas-brillos-{lejos,cerca,brillos}-{antes,despues}.jpg`, misma cámara):
+- **Lejos** (1,2 km): sin las manchas grises alrededor de las rocas.
+- **Cerca** (150 m): igual que antes.
+- **Brillos**, cámara a contraluz del sol: muchos más destellos repartidos por la nieve.
+
+**Costo**: se quita una operación y el exponente no cambia el costo; no se midió por separado.
+
+### Relieve REMA visible en la nieve a toda distancia (14/11/2026)
+
+**Pedido**: la nieve quedó demasiado lisa; que se note el relieve REMA en la textura, también de cerca (con ~45 m solo se leía de lejos y con luz rasante).
+
+**Cambio** (`src/shaders.ts`). Esto revierte en parte "Nieve sin parches de bordes rectos":
+- La normal REMA de la nieve vuelve a **16 m** (`SNOW_SMOOTH_M`; sesgo 2 con el relieve de 4 m y 1 con el de 8 m, la misma escala en metros).
+- **Contraste del relieve en la luz** (`uSnowNormalK = 1,4`): multiplica la inclinación de esa normal solo para el sombreado. La geometría, las alturas y los datos no cambian. Es una interpretación para que el relieve se lea desde cualquier ángulo y no solo con luz rasante. Se probaron 1 y 1,6: con 1,6 se lee más, pero se carga.
+- Se mantienen:
+  - el tono de las hondonadas a la misma escala, cerca y lejos;
+  - sin acumulaciones artísticas;
+  - sin sombra de contacto;
+  - los brillos nuevos.
+- **Consecuencia aceptada**: el grano de REMA no es parejo entre zonas del mosaico, así que puede haber sectores con más textura que sus vecinos. Es el dato, no un defecto del visor.
+
+**Verificación**: `capturas/nieve-relieve-rema-{vista,cerca,lejos}-{antes,despues}.jpg`. "Antes" es ~45 m con contraste 1. El relieve se lee de cerca (~200 m), en la vista media y de lejos.
+
+**Costo**: igual. En calidad media da 8,7 / 12,0 / 10,3 ms (general / alto / rasante) contra 8,7 / 12,1 / 10,3 ms antes.
+
+### Nieve sin aspecto plástico y con reflejo en vez de destellos (14/11/2026)
+
+**Pedido**: que la nieve no se vea plástica; que no haya más destellos, sino un buen reflejo.
+
+**Cambios** (`src/shaders.ts`):
+- **Reflejo con Fresnel en lugar de satinado parejo**. El brillo especular del sol se multiplica por un Fresnel de Schlick (F0 = 0,1): de frente casi no brilla y con ángulo rasante, hacia el sol, refleja fuerte, como la nieve real. Antes era un satinado sin Fresnel (0,09, exponente 28) que se veía plástico. Ahora `uSnowGlint.x` = 1,0 y el exponente es 16 (lóbulo amplio).
+- **Dispersión hacia el sol** 0,16 → 0,25: más resplandor mirando a contraluz.
+- **Pocos destellos de cristales**: vuelven los valores originales (intensidad 0,65, densidad 0,18, lóbulo angosto, exponente 1500).
+- **Luz que envuelve la sombra**: un término difuso extra solo en la nieve, con *wrap lighting* de 0,35 y tinte azulado. El paso de luz a sombra es más suave, como en un material que deja pasar algo de luz, y no como arcilla.
+- **Tono tipo polvo**: variación muy leve del blanco (±3–3,5 %) con dos lecturas del ruido a ~7 y ~29 m, solo hasta 2–3 km. De lejos el mipmap la promedia; sin el corte por distancia costaba +1,3 ms en la vista general sin verse. Es una reconstrucción artística.
+
+**Verificación**: `capturas/nieve-sin-plastico-{vista,cerca,bajo,contraluz}-{antes,despues}.jpg`, misma cámara.
+- **Cerca**: la nieve se lee como polvo, con sombras suaves y azuladas, y no como una cáscara lisa.
+- **Bajo hacia el sol**: casi sin puntitos y con un resplandor suave en las laderas que miran al reflejo.
+- **Vista**: sin sobreexposición.
+
+**Costo** (calidad media, general / alto / rasante): antes 8,6–8,8 / 12,1–12,3 / 10,3–10,4 ms; ahora 8,8–8,9 / 12,6 / 10,8 ms. Son +0,1 / +0,3–0,55 / +0,4 ms, por el tono de polvo de cerca y la luz envolvente.
+
+### Nieve sin líneas rectas (14/11/2026)
+
+**Síntoma**: líneas rectas en la nieve, más marcadas de cerca y en vistas rasantes.
+
+**Causa**: el tono de polvo leía `uNoise`, un ruido de valor sobre una grilla de celdas (8–64 por mosaico) con interpolación cúbica simple. Ese ruido marca los ejes de su grilla, y en la nieve se veían como líneas rectas y diagonales. Se verificó apagando capas en la vista donde aparecían: sin el tono de polvo, las líneas desaparecen.
+
+**Cambio** (`src/shaders.ts`): el tono de polvo lee `uSnowVol`, el relieve de nieve generado con interpolación quíntica y deformado por viento, a 13 y 41 m, en dos lecturas giradas. La amplitud y el corte por distancia no cambian.
+
+**Verificación**: `capturas/nieve-lineas-{cerca,vista}-{antes,despues}`, misma cámara. De cerca, las líneas diagonales pasan a manchas orgánicas, como barridas por el viento.
+
+**Costo**: igual o apenas menor, −0,1 a −0,3 ms (calidad media, misma corrida).
+
+**Quedan** unas rayitas blancas muy finas a lo lejos con vista rasante. Salen del relieve REMA (desaparecen con su normal aplanada) y no de una capa artística.
+
+### Tono de polvo eliminado (14/11/2026)
+
+- **Problema**: con `uSnowVol` el tono de polvo dejó de marcar líneas, pero se veía el mosaico repetido (13 y 41 m) como un patrón de ondas en toda la nieve.
+- **Verificación**: apagando capas de cerca, el patrón desaparece sin el tono de polvo; el grano Snow007A no influye. Capturas en `capturas/nieve-polvo-patron-{antes,despues}.png`.
+- **Decisión**: se eliminó el tono de polvo. La nieve conserva el relieve REMA (16 m, contraste 1,4), la luz envolvente, el reflejo con Fresnel y los pocos destellos.
+- **Costo**: dos lecturas de textura menos por píxel de nieve cercano.
+- **Pendiente si se quiere más textura**: hacerla con muestreo aperiódico (como el agua o la roca), nunca con un mosaico simple.
+
+### Destellos que se leen como cristales (14/11/2026)
+
+**Pedido**: mejorar el brillo de los destellos.
+
+**Por qué no un bloom**: el modo normal dibuja directo en pantalla (el paso final de `pixel-look.ts` solo existe en el modo pixelado). Un bloom de verdad sumaría una pasada completa a una textura intermedia, más difuminado y composición, que es caro en GPU integrada. Se hizo dentro del mismo shader de la nieve.
+
+**Cambio** (`src/shaders.ts`):
+- **Celdas de cristal de ~10 px** (antes ~1,5 px), siempre como potencia de 2 del tamaño en mundo, estables al acercarse.
+- **Cada cristal es un punto redondo**: núcleo intenso más halo suave, con el centro al azar dentro de la celda y un recorte suave antes del borde, así que no se ven cuadrados. Mide 3–4 px.
+- **Más intensos que el blanco de la nieve** (`uSnowGlint.z` 0,65 → 5); el mapeo de tonos los comprime sin quemar el entorno.
+- **Ajustes de cantidad**: 60 % de celdas candidatas y lóbulo 500, para que con celdas más grandes queden pocos destellos visibles pero legibles.
+- Antes eran píxeles sueltos que se perdían en la nieve casi blanca.
+
+**Verificación**: `capturas/nieve-destellos-{contraluz,vista}-{antes,despues}`, misma cámara. A contraluz se ven puntos de luz redondos, menos y más claros. En la vista general casi no aparecen: solo donde la cara del cristal refleja el sol.
+
+**Costo**: igual (calidad media: 8,4–8,6 / 11,8–12,1 / 10,0 ms contra 8,6–8,8 / 11,8–11,9 / 10,0 ms antes).
+
+**Ajuste posterior: destellos como el reflejo de un cristal de nieve**:
+- Los puntos de 3–4 px se veían como círculos. Ahora las celdas son de ~5 px y cada destello tiene un núcleo de ~1 px con un brillo mínimo alrededor (núcleo `exp(-d²·90)` más `0,3·exp(-d²·28)`), es decir, un punto de 1–2 px.
+- Las celdas candidatas bajan de 60 % a 20 %, para que con celdas más chicas no haya más destellos en pantalla.
+- La intensidad sigue en 5 y el lóbulo en 500.
+
+### Reflejo precalculado del agua en todas las bases (14/11/2026)
+
+**Problema**: solo Brown tenía el cubemap del reflejo (`reflejo-*.jpg` y el bloque `reflection` de `terreno.json`). En las otras bases, con calidad media y baja, el agua usaba el modo "cielo": reflejaba solo el cielo, sin montañas ni costa.
+
+**Cambio**:
+- Se horneó el cubemap (512 px, con el LOD de cada cara) en las bases con agua abierta en el recorte.
+- El punto es el agua abierta más cercana a la base, 4 m sobre el nivel del mar, como en Brown. Agua abierta: un cuadrado de 9 × 9 celdas de malla (72 × 72 m) todo a la altura del mar.
+- Como umbral se usa el mayor entre el nivel del mar y 0 m: en Marambio y Petrel el nivel del mar da −0,3 y −0,6 m y el mar rellenado de REMA queda en 0.
+- Se horneó con `__terreno.bakeReflection` en desarrollo (Chrome aparte por DevTools Protocol) y se escribió el bloque `reflection` de cada `terreno.json`. El resto del archivo no cambia.
+
+| Base | Punto (x, y, z, m) | Distancia a la base |
+|---|---|---|
+| Carlini | 4, 3,87, 4 | 6 m |
+| Esperanza | 68, 3,73, −92 | 114 m |
+| Marambio | 1196, 3,7, −1188 | 1686 m |
+| Petrel | −284, 3,4, −284 | 402 m |
+| San Martín | 68, 6,34, −60 | 91 m |
+| Orcadas | −180, 4,84, 28 | 182 m |
+| Cámara | 108, 4,09, −164 | 196 m |
+| Decepción | −60, 4,43, 60 | 85 m |
+| Matienzo | −68, 4,46, −68 | 96 m |
+| Melchior | 52, 5,64, −44 | 68 m |
+| Primavera | −100, 5,67, −100 | 141 m |
+| Brown | −242, 6,28, 53 | ~250 m (ya estaba) |
+
+- **Belgrano II** no tiene agua abierta en el recorte y sigue en "cielo".
+- **Verificado**: las 13 bases cargan sin errores ni avisos. Con calidad media el agua toma el cubemap en las 12 con reflejo; en Carlini se ve la costa reflejada.
+- **Peso**: 37–79 KB de JPEG por base.
+
 ### Peso de la descarga y del repositorio
 
 - **El 3D se carga bajo demanda**: `index.html` arranca con `src/boot.ts` (2 KB), que verifica WebGL 2 y recién entonces importa `src/main.ts`. Sin WebGL no se descarga el visor. Cuando el sitio tenga más páginas, solo la home importa el visor y las páginas interiores no cargan Three.js.

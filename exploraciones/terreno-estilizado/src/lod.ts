@@ -43,6 +43,8 @@ export interface LodStats {
   descartados: number;
   porNivel: number[];
   triangulos: number;
+  /** Malla costera con niveles de detalle (coast-lod.ts): grupos por nivel, triángulos dibujados y tramos. */
+  costa?: { porNivel: number[]; triangulos: number; tramos: number; descartados: number };
 }
 
 export class ChunkedTerrain {

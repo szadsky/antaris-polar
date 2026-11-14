@@ -56,5 +56,14 @@
     "relieveCita": "Howat, Ian, et al., 2022, \"The Reference Elevation Model of Antarctica – Mosaics, Version 2\", https://doi.org/10.7910/DVN/EBW8UC, Harvard Dataverse, V1, [Accessed 2026-11-08].",
     "costa": "SCAR Antarctic Digital Database v7.12 (2025), polígonos alta resolución",
     "base": "COMNAP Antarctic Facilities, nov 2024"
+  },
+  "reflection": {
+    "size": 512,
+    "point": [
+      -284,
+      3.4,
+      -284
+    ],
+    "note": "Cubemap del terreno y el cielo (sin agua, icebergs ni edificios) desde 4 m sobre el agua, en el punto de agua abierta (72 × 72 m) más cercano a la base (402 m), con el LOD de cada cara desde ese punto. Calidad baja y media. Se regenera con __terreno.bakeReflection en desarrollo."
   }
 }

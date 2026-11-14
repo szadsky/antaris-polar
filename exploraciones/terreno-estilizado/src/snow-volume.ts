@@ -77,7 +77,9 @@ export function snowVolumeUniforms() {
     uSnowVol: { value: r.tex },
     // x = amplitud del desplazamiento (m) · y = mosaico de las acumulaciones (m) · z = mosaico de las
     // lomas chicas, solo normal (m) · w = 1 encendido / 0 apagado (para comparar).
-    uSnowDisp: { value: new THREE.Vector4(3.5, 220, 70, new URLSearchParams(location.search).get("nieve") === "plana" ? 0 : 1) },
+    // x = 0 (antes 3,5, 14/11/2026): las acumulaciones dibujaban bultos en filas muy evidentes en las laderas.
+    // Con 0 no se calculan (ni desplazamiento ni normal); w sigue en 1 (paredes, banco y forma de la nieve).
+    uSnowDisp: { value: new THREE.Vector4(0, 220, 70, new URLSearchParams(location.search).get("nieve") === "plana" ? 0 : 1) },
     // x = derivada máxima codificada · y = amplitud de las ondulaciones finas (m) · z = distancia (m) a la que
     // el desplazamiento llega a 0 (empieza a bajar al 60 %): lejos no se ve y los bloques gruesos no lo necesitan.
     uSnowVolK: { value: new THREE.Vector3(r.maxDeriv, 0, 1800) }, // lomas de ~15 m apagadas: manchaban la nieve (se veía rugosa)
@@ -160,7 +162,7 @@ float snowBank(float tEdge) { return 1.0 - smoothstep(0.20, 0.33, tEdge); }
  */
 export const SNOW_VOL_VERTEX = `
 #ifdef SNOW_VOL
-if (uSnowDisp.w > 0.0) {
+if (uSnowDisp.w > 0.0 && uSnowDisp.x > 0.0) { // sin amplitud, sin lecturas
   vec3 wpS = (modelMatrix * vec4(transformed, 1.0)).xyz;
   vec4 sS = textureLod(uSurface, vSurfUv, 2.0); // normal REMA suavizada (~16 m) y distancia a la costa
   vec2 nS = sS.rg * 2.0 - 1.0;
@@ -213,15 +215,24 @@ if (uCoastRamp.w > 0.0) {
   float lowC = 1.0 - smoothstep(uCoastRamp.y * 0.6, uCoastRamp.y, wpC.y - uSeaY);
   // Solo donde la costa ADD y la malla (REMA) coinciden: tierra sobre el agua con ADD diciendo tierra, o fondo
   // bajo el agua con ADD diciendo mar. Donde REMA mide hielo o nieve sobre el agua y ADD dice mar (hielo costero,
-  // islas bajas), la rampa los hundía y la orilla quedaba como un contorno con huecos.
+  // islas bajas), la rampa los hundía y la orilla quedaba como un contorno con huecos. Tierra ADD bajo el agua: ver
+  // abajo (se deja a nivel del mar, sin la pendiente de la rampa, que la subía hasta 3 m y dejaba un escalón).
   float agreeC = (sdfC < 0.0 && wpC.y > uSeaY + 0.2) || (sdfC > 0.0 && wpC.y < uSeaY - 0.2) ? 0.0 : 1.0;
   float kC = bandC * lowC * agreeC * uCoastRamp.w;
   // Caras de cierre (corte del diorama): solo la parte de arriba sigue a la orilla. Sin esto, el fondo del corte
   // (cientos de metros bajo el agua) junto a cada orilla subía al nivel del mar y abría una ranura en diagonal.
-  if (dot(vClosureNormal, vClosureNormal) > 0.5 && wpC.y < uSeaY - 5.0) kC = 0.0;
+  bool closureC = dot(vClosureNormal, vClosureNormal) > 0.5;
+  if (closureC && wpC.y < uSeaY - 5.0) kC = 0.0;
+  float dyC = 0.0;
   if (kC > 0.0) {
     float yC = uSeaY + clamp(sdfC * uCoastRamp.x, -3.0, uCoastRamp.y);
-    transformed.y += (yC - wpC.y) * kC;
+    dyC = (yC - wpC.y) * kC;
   }
+  // Tierra ADD nunca bajo el agua: ahí no hay mar (el polígono del agua es ADD), y si la malla queda más baja se ve
+  // el fondo por debajo del borde del agua (franja beige con la orilla flotando). REMA mide parte de la costa baja
+  // hasta ~3 m bajo el nivel del mar estimado (incertidumbre de REMA y del geoide): se la deja a nivel del mar.
+  // Antes se resolvía solo en la franja de la rampa (10 m) y tierra adentro quedaba un escalón.
+  if (sdfC > 0.0 && !closureC) dyC = max(dyC, uSeaY + 0.05 - wpC.y);
+  transformed.y += dyC;
 }
 #endif`;

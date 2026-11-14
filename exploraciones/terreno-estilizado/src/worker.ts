@@ -1,6 +1,7 @@
 import {repairHeightfield,type HeightfieldRepair} from "./heightfield-repair";
 import { coastalNormals } from "./coastal-normals";
 import { TILE } from "./tile-size";
+import { buildCoastLod, type CoastLod } from "./coast-lod-build";
 /**
  * Web Worker del terreno estilizado. A partir de UNA grilla de alturas REMA arma:
  *   - malla submuestreada (cada `stride` muestras);
@@ -39,6 +40,8 @@ export interface BuildMsg {
   sun: Vec3;
   /** true: arma la malla única de la fase 1 (para medir el "antes"). false: solo alturas para LOD. */
   full: boolean;
+  /** Niveles de detalle de la malla costera (solo el visor; el horneado guarda la malla original). */
+  coastLod?: boolean;
 }
 export interface UpdateMsg {
   type: "update";
@@ -65,8 +68,10 @@ export interface BuiltMsg {
   meshLand: Uint8Array;
   tileKinds: Uint8Array;
   mesh: { width: number; height: number };
+  /** Modo LOD: rangos del índice por nivel y grupo de bloques costeros (coast-lod-build.ts). */
+  coastLod?: Omit<CoastLod, "index">;
   seaLevelM: number | null;
-  ms: { decode: number; surface: number; light: number; mesh: number };
+  ms: { decode: number; surface: number; light: number; mesh: number; coastLod?: number };
 }
 export interface UpdatedMsg {
   type: "updated";
@@ -95,6 +100,8 @@ interface Grid {
   /** Nivel del mar del recorte (m); 0 si no hay costa. */
   sea: number;
   shore: Uint8Array; // a resolución de malla
+  /** Igual que `shore` con alcance de 1,5 km (color del agua por profundidad). */
+  farShore: Uint8Array;
   /** Muestras emergidas (1): tierra ADD, o REMA emergido y conectado a tierra donde la costa ADD queda tierra
    *  adentro. Su borde con el relleno de mar de REMA es la línea de agua real de la malla. null sin costa. */
   ground: Uint8Array | null;
@@ -142,8 +149,9 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg | {type:"release";k
 
       const { cavity, curv } = cavityShade(heights, msg.width, msg.height, msg.cellSizeM);
       const shore = shoreProximity(land, msg.width, msg.height, msg.stride, msg.cellSizeM);
+      const farShore = shoreProximity(land, msg.width, msg.height, msg.stride, msg.cellSizeM, FAR_SHORE_M);
       const vector: VectorCoast | undefined = msg.vector ? JSON.parse(new TextDecoder().decode(await gunzipMaybe(msg.vector))) : undefined;
-      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, sdf, cavity, curv, shore, sea: seaM ?? 0, ground: null, coastDist: null, emerged: null, oceanCeiling: seaM ?? 0 };
+      const g: Grid = { w: msg.width, h: msg.height, cell: msg.cellSizeM, stride: msg.stride, full: msg.full, heights, land, sdf, cavity, curv, shore, farShore, sea: seaM ?? 0, ground: null, coastDist: null, emerged: null, oceanCeiling: seaM ?? 0 };
       Object.assign(g, groundField(g, !!vector));
       grids.set(msg.key, g);
       const surface = surfaceTexture(g, msg.exaggeration);
@@ -151,12 +159,21 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg | {type:"release";k
       const light = lightTexture(g, msg.exaggeration, msg.sun);
       const t3 = performance.now();
       const m = msg.baked && provenance.indices.length===0 ? readBaked(await gunzipMaybe(msg.baked),g) : meshFrom(g, vector);
+      // Modo LOD: niveles de detalle de la malla costera (coast-lod-build.ts). El índice pasa a ser el de todos los
+      // niveles; el visor elige por grupo de bloques según la distancia.
+      let coastLod: BuiltMsg["coastLod"];
+      if (!msg.full && msg.coastLod) {
+        const c = await buildCoastLod(m.positions, m.index, m.normals, m.mesh.width, m.mesh.height, g.cell * g.stride);
+        m.index = c.index;
+        coastLod = { ranges: c.ranges, boxes: c.boxes, errors: c.errors, groups: c.groups, ms: c.ms };
+      }
       const { meshHeights, meshLand } = meshResolution(g);
       const heightsCopy = heights.slice();
       const out: BuiltMsg = {
         type: "built",
         key: msg.key,requestId:msg.requestId,
         ...m,
+        coastLod,
         surface,
         light,
         heightsM: heightsCopy,
@@ -164,11 +181,12 @@ self.onmessage = async (e: MessageEvent<BuildMsg | UpdateMsg | {type:"release";k
         meshHeights,
         meshLand,
         seaLevelM: seaM,
-        ms: { decode: t1 - t0, surface: t2 - t1, light: t3 - t2, mesh: performance.now() - t3 },
+        ms: { decode: t1 - t0, surface: t2 - t1, light: t3 - t2, mesh: performance.now() - t3, coastLod: coastLod?.ms ?? 0 },
       };
       post(out, [
         m.positions.buffer, m.normals.buffer, m.uvs.buffer, m.index.buffer,
         surface.buffer, light.buffer, heightsCopy.buffer, meshHeights.buffer, meshLand.buffer,provenance.indices.buffer,provenance.sources.buffer,
+        ...(coastLod ? [coastLod.ranges.buffer, coastLod.boxes.buffer] : []),
       ]);
     } else {
       const g = grids.get(msg.key);
@@ -307,14 +325,16 @@ function lightTexture(g: Grid, k: number, sun: Vec3): Uint8Array {
       out[i * 4] = Math.round(Math.max(0, Math.min(1, lit)) * 255);
       out[i * 4 + 1] = shore[i];
       out[i * 4 + 2] = curv[y * stride * w + x * stride];
-      out[i * 4 + 3] = 255;
+      // A = cercanía a la costa de largo alcance (255 en la costa → 0 a 1,5 km): el agua la usa como profundidad
+      // aproximada para su color (reconstrucción artística, no batimetría)
+      out[i * 4 + 3] = g.farShore[i];
     }
   }
   return out;
 }
 
-/** Cercanía a la línea de costa (distancia de chaflán, dos pasadas, O(n)). */
-function shoreProximity(land: Uint8Array | null, w: number, h: number, stride: number, cell: number): Uint8Array {
+/** Cercanía a la línea de costa (distancia de chaflán, dos pasadas, O(n)): 255 en la costa → 0 a `rangeM`. */
+function shoreProximity(land: Uint8Array | null, w: number, h: number, stride: number, cell: number, rangeM = SHORE_M): Uint8Array {
   const mw = Math.floor((w - 1) / stride) + 1;
   const mh = Math.floor((h - 1) / stride) + 1;
   const out = new Uint8Array(mw * mh);
@@ -344,9 +364,11 @@ function shoreProximity(land: Uint8Array | null, w: number, h: number, stride: n
     if (x > 0 && y < mh - 1) D[i] = Math.min(D[i], D[i + mw - 1] + s2);
   }
   const mc = cell * stride;
-  for (let i = 0; i < out.length; i++) out[i] = Math.round(Math.max(0, 1 - (D[i] * mc) / SHORE_M) * 255);
+  for (let i = 0; i < out.length; i++) out[i] = Math.round(Math.max(0, 1 - (D[i] * mc) / rangeM) * 255);
   return out;
 }
+/** Alcance de la cercanía a la costa de largo alcance (canal A de la textura de luz): color del agua por profundidad. */
+const FAR_SHORE_M = 1500;
 
 /**
  * Muestras emergidas y distancia a su borde (ver Grid.ground / Grid.coastDist). Si la costa ADD corta una

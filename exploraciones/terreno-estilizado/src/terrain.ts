@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { BuiltMsg, UpdatedMsg, Vec3 } from "./worker";
 import { baseMaterial, seaPlaneMaterial, styleUniforms, stylizedMaterial, type GridUniforms, type MaterialVariant } from "./shaders";
 import { detailTexture, noiseTexture } from "./materials";
+import { CoastLodView } from "./coast-lod";
 import { detailTextureCorrected } from "./detail-corrected";
 import { ChunkedTerrain, STEPS, type LodStats } from "./lod";
 
@@ -27,6 +28,8 @@ export interface TerrainMeta {
   heights: { minM: number; maxM: number; stepM: number };
   levels: Level[];
   fuentes: { relieve: string; relieveCita: string | null; costa: string | null; base: string };
+  /** Reflejo precalculado para el agua en calidad baja y media (reflejo-<cara>.jpg en la carpeta de la base). */
+  reflection?: { size: number; point: [number, number, number]; note?: string };
 }
 
 export type Style = "base" | "estilizado";
@@ -49,11 +52,15 @@ export interface Terrain {
   depthM: number;
   seaLevelM: number | null;
   meshSize: { width: number; height: number };
+  /** Alturas de la malla (m sobre `heights.minM`, sin exagerar; filas = z) y exageración vertical vigente. */
+  relief: { heights: Float32Array; k: { value: number } };
   /** Material del plano del mar en modo LOD (null en modo completa). */
   seaMaterial: THREE.Material | null;
-  ms: { fetch: number; decode: number; surface: number; light: number; mesh: number };
+  ms: { fetch: number; decode: number; surface: number; light: number; mesh: number; coastLod?: number };
   gpuBytes(): { geometry: number; textures: number };
   lodStats(): LodStats | null;
+  /** Error máximo en pantalla (px) de la malla costera simplificada; 0 = siempre completa (comparar antes/después). */
+  setCoastLodPx?(px: number): void;
   /** Llamar antes de dibujar si la cámara cambió (elige bloques y niveles). */
   beforeRender(camera: THREE.PerspectiveCamera, viewportHeightPx: number): void;
   setStyle(s: Style): void;
@@ -106,7 +113,7 @@ export class TerrainLoader {
     const key = `${dir}/${level.file}:${++this.nextKey}`;
     const b = await this.call<BuiltMsg>(
       "built",
-      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, coverage, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", sdf },
+      { type: "build", seaDatum: meta.geoid ? meta.geoid.egm2008 - meta.heights.minM : null, key, bin, mask, coverage, baked: vector, width: level.width, height: level.height, cellSizeM: level.cellSizeM, stepM: meta.heights.stepM, stride: MESH_STRIDE, exaggeration: k, sun: this.sun, full: geo === "completa", coastLod: geo !== "completa", sdf },
       [bin,...(coverage?[coverage]:[]), ...(vector ? [vector] : []), ...(mask ? [mask] : []), ...(sdf ? [sdf] : [])]
     );
 
@@ -132,7 +139,7 @@ export class TerrainLoader {
     const halfW = ((b.mesh.width - 1) * meshCell) / 2;
     const halfD = ((b.mesh.height - 1) * meshCell) / 2;
     const seaRel = b.seaLevelM ?? 0;
-    const su = styleUniforms(tex, { halfSize: [halfW, halfD], seaY: seaRel * k });
+    const su = styleUniforms(tex, { halfSize: [halfW, halfD], seaY: seaRel * k, texCellM: level.cellSizeM });
     let style_ = style;
 
     // ─── Modo completa (fase 1) ───
@@ -157,7 +164,9 @@ export class TerrainLoader {
       const geomBytes = b.index.byteLength + b.positions.byteLength + b.normals.byteLength + b.uvs.byteLength;
       if (geo === "completa") {
       const water = seaPlaneMaterial(su, waterGrid);
+      const reliefK = { value: k };
       return {
+        relief: { heights: b.meshHeights, k: reliefK },
         object: mesh, geo, level, oceanDomain, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
         meshSize: b.mesh, seaMaterial: water, ms: { fetch: fetchMs, ...b.ms },
         gpuBytes: () => ({ geometry: geomBytes, textures: Math.round((b.surface.byteLength + b.light.byteLength) * (4 / 3)) }),
@@ -171,6 +180,7 @@ export class TerrainLoader {
         update: async (kk) => {
           const r = await this.call<UpdatedMsg>("updated", { type: "update", key, exaggeration: kk, sun: this.sun });
           mesh.scale.y = kk;
+          reliefK.value = kk;
           surface.image.data = r.surface;
           surface.needsUpdate = true;
           light.image.data = r.light;
@@ -211,17 +221,21 @@ export class TerrainLoader {
     const lodPick = (s: Style) => (s === "base" ? baseMats : stylMats[variant]);
     const chunked = new ChunkedTerrain(b.meshHeights, b.meshLand, b.tileKinds, b.mesh.width, b.mesh.height, meshCell, lodPick(style), k, !!vector);
     chunked.group.add(mesh);
+    // Niveles de detalle de la malla costera (coast-lod.ts): antes se dibujaba siempre completa.
+    const coastLod = b.coastLod ? new CoastLodView(mesh, b.coastLod, grid.uK) : null;
     chunked.skipSea = style === "estilizado";
     const seaMat = seaPlaneMaterial(su, grid);
     return {
+      relief: { heights: b.meshHeights, k: grid.uK },
       object: chunked.group, geo, level, oceanDomain, heightsM: b.heightsM,provenance:b.provenance,grid:{width:level.width,height:level.height,cellSizeM:level.cellSizeM,origin:meta.origin,heightOffsetM:meta.heights.minM,crs:"EPSG:3031"}, widthM: halfW * 2, depthM: halfD * 2, seaLevelM: b.seaLevelM,
       meshSize: b.mesh, seaMaterial: seaMat, ms: { fetch: fetchMs, ...b.ms },
       gpuBytes: () => ({
         geometry: geomBytes + chunked.geometryBytes(),
         textures: Math.round((b.surface.byteLength + b.light.byteLength) * (4 / 3)) + b.meshHeights.byteLength,
       }),
-      lodStats: () => chunked.stats,
-      beforeRender: (camera, h) => chunked.update(camera, h),
+      lodStats: () => ({ ...chunked.stats, costa: coastLod ? { ...coastLod.stats } : undefined }),
+      setCoastLodPx: (px) => { if (coastLod) coastLod.maxErrorPx = px; },
+      beforeRender: (camera, h) => { chunked.update(camera, h); coastLod?.update(camera, h); },
       setDetail: (on) => (su.uDetailOn.value = on ? 1 : 0),
       setLodTarget: (px) => (chunked.targetPx = px),
       styleUniforms: su,
@@ -253,6 +267,7 @@ export class TerrainLoader {
       },
       dispose: () => {
           this.worker.postMessage({type:"release",key});
+        coastLod?.dispose();
         geometry.dispose();
         baseMat.dispose();
         Object.values(styl).forEach(m => m.dispose());

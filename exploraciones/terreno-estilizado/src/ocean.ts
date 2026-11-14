@@ -14,11 +14,16 @@ function rippleMap(maxAniso:number) {
 }
 // Color del agua profunda vista desde arriba (lo que se ve a través de la superficie con poco reflejo).
 const WATER_COLOR=0x103a42;
+// Color propio del agua poco profunda junto a la costa (turquesa claro): color según la profundidad.
+const SHALLOW_COLOR=0x2f8f95;
+// Reflejo planar con la cámara en movimiento: uno de cada N cuadros (1 = todos).
+const MIRROR_EVERY=2; // en Brown (alta, 1282 × 787): cuadros de 16 y 10 ms alternados en vez de 16 ms todos (p95 18)
 export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial:Tier, expanded=false,maxAniso=1,diorama=false) {
   const aspect=window.innerWidth/Math.max(1,window.innerHeight);
-  const longest=mobile?384:768;
-  const reflectionWidth=Math.max(128,Math.round(longest*Math.min(1,aspect)));
-  const reflectionHeight=Math.max(128,Math.round(longest*Math.min(1,1/aspect)));
+  // Lado mayor del reflejo planar (px). `?reflejoRes=` lo cambia para medir.
+  const longest=Number(new URLSearchParams(location.search).get("reflejoRes"))||(mobile?384:512); // 768 → 512: la resolución casi no cambia el costo (es la geometría) y ahorra memoria
+  let reflectionWidth=Math.max(128,Math.round(longest*Math.min(1,aspect)));
+  let reflectionHeight=Math.max(128,Math.round(longest*Math.min(1,1/aspect)));
   const mesh=new Water(new THREE.PlaneGeometry(size*8,size*8),{
     textureWidth:reflectionWidth,textureHeight:reflectionHeight,waterNormals:rippleMap(maxAniso),waterColor:WATER_COLOR,
     sunColor:0xd9eafa,sunDirection:sun,distortionScale:1.4,clipBias:0.0001,fog:true,
@@ -52,8 +57,40 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   mat.transparent=false;mat.depthWrite=true;
   // Use geometric depth: slope-dependent offsets make water cross shallow terrain.
   mat.polygonOffset=false;
+  // Color según la profundidad (reconstrucción artística, no batimetría medida): el color propio del agua pasa de
+  // turquesa claro junto a la costa a azul profundo mar adentro, con la distancia a la costa de largo alcance (canal
+  // A de la textura de luz del terreno, 0–1,5 km). Mismo criterio que el fondo curvo del corte del diorama.
+  u.uShallowWater={value:new THREE.Color(SHALLOW_COLOR)};
+  u.uDepthM={value:320}; // distancia (m) a la que el color llega a ~63 % del profundo
+  // Espuma en la orilla: franja de ~9 m del lado del mar (distancia con signo a la costa de la textura de superficie
+  // del terreno, la misma línea de agua de la malla), cortada por un ruido que avanza hacia la costa.
+  u.uSurf={value:new THREE.DataTexture(new Uint8Array(4),1,1)};
+  u.uFoam={value:new THREE.Vector2(0.75,9.0)}; // x = intensidad · y = ancho (m; con 5 quedaba debajo del borde del terreno)
+  // Relieve de la malla (alturas REMA en la grilla de la malla, R16F): paralaje del reflejo precalculado.
+  u.uRelief={value:new THREE.DataTexture(new Float32Array(1),1,1,THREE.RedFormat,THREE.FloatType)};
+  u.uReliefSize={value:new THREE.Vector2(1,1)};
+  u.uReliefK={value:1};
   const officialFragment=mat.fragmentShader
-    .replace("uniform float alpha;","uniform float alpha;\nuniform sampler2D uShore;\nuniform vec2 uCrop, uShoreLook;\nuniform vec3 uShallow;\nuniform float uShoreCurve, uSunGlint, uSilk;\nuniform vec2 uRipple;\nuniform vec3 uWater;\nuniform vec3 uGlintLobes;")
+    .replace("uniform float alpha;",[
+      "uniform float alpha;",
+      "uniform sampler2D uShore, uSurf, uRelief;",
+      "uniform vec2 uCrop, uShoreLook, uFoam, uReliefSize;",
+      "uniform vec3 uShallow, uShallowWater;",
+      "uniform float uShoreCurve, uSunGlint, uSilk, uDepthM, uReliefK;",
+      "uniform vec2 uRipple;",
+      "uniform vec3 uWater;",
+      "uniform vec3 uGlintLobes;",
+      // uv del recorte (0..1, mundo xz / ancho + 0.5) → centro del texel de la grilla de la malla
+      "vec2 meshUv(vec2 uv) { return (uv * (uReliefSize - 1.0) + 0.5) / uReliefSize; }",
+      "float reliefAt(vec2 uv) { return texture2D(uRelief, meshUv(uv)).r * uReliefK; }", // altura en mundo
+    ].join("\n"))
+    .replace("vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * waterColor;",[
+      "vec2 depthUv = worldPosition.xz / uCrop + 0.5;",
+      "float depthIn = step(0.0, depthUv.x) * step(depthUv.x, 1.0) * step(0.0, depthUv.y) * step(depthUv.y, 1.0);",
+      "float farProx = depthIn * texture2D(uShore, clamp(depthUv, 0.0, 1.0)).a;", // fuera del recorte: profundo
+      "float depthT = 1.0 - exp(-(1.0 - farProx) * 1500.0 / uDepthM);",
+      "vec3 scatter = max( 0.0, dot( surfaceNormal, eyeDirection ) ) * mix(uShallowWater, waterColor, depthT);",
+    ].join("\n"))
     .replace("gl_FragColor = vec4( outgoingLight, alpha );",[
       "vec2 shoreUv = worldPosition.xz / uCrop + 0.5;",
       "float inCrop = step(0.0, shoreUv.x) * step(shoreUv.x, 1.0) * step(0.0, shoreUv.y) * step(shoreUv.y, 1.0);",
@@ -67,6 +104,20 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
       // y = camino de luz sobre las ondas, z = disco del sol reflejado
       "vec3 glint = sunColor * (pow(sunAlign, 6.0) * uGlintLobes.x + pow(sunAlign, 48.0) * uGlintLobes.y + pow(sunAlign, 900.0) * uGlintLobes.z / (1.0+900.0*fwidth(sunAlign))) * uSunGlint;",
       "vec3 waterOut = mix(outgoingLight + glint, uShallow, shallowK * uShoreLook.y);",
+      // espuma: distancia al mar desde la costa (m), olitas que avanzan hacia la orilla y ruido que las corta
+      "float sdfW = (texture2D(uSurf, clamp(shoreUv, 0.0, 1.0)).a * 255.0 - 128.0) / 8.0;",
+      "float seaD = max(-sdfW, 0.0);",
+      // Sin corte del lado tierra: el polígono del agua (ADD vectorial) llega en partes unos metros más adentro que
+      // la costa de la textura (raster); con `step(sdfW, 0.5)` ahí quedaba agua sin espuma entre la espuma y la nieve.
+      "float foamBand = inCrop * (1.0 - smoothstep(0.3 * uFoam.y, uFoam.y, seaD));",
+      // Pegada a la orilla y rota en manchas hacia afuera. Antes las olitas (seno cada ~5 m, peso 0,35) pesaban
+      // más que la cercanía a la costa: quedaba un aro brillante separado de la orilla por un valle, y desde
+      // arriba se leía como una segunda costa. Ahora la cercanía manda y el seno solo modula un poco.
+      "float edgeF = 1.0 - seaD / uFoam.y;",
+      "float foamN = silkValue(worldPosition.xz * 0.11 + vec2(time * 0.21, -time * 0.17)) * 0.6 + silkValue(worldPosition.xz * 0.37 - time * 0.3) * 0.4;",
+      "float foam = foamBand * smoothstep(0.35, 0.65, edgeF * edgeF * 0.8 + foamN * 0.45 + 0.1 * sin(seaD * 0.9 - time * 1.4) - 0.2);",
+      "vec3 foamCol = vec3(0.86, 0.92, 0.95) * (0.35 + 0.65 * clamp(dot(sunColor, vec3(0.333)), 0.0, 1.0));",
+      "waterOut = mix(waterOut, foamCol, foam * uFoam.x);",
       "gl_FragColor = vec4( waterOut, 1.0 );",
     ].join("\n"))
     .replace("#include <fog_fragment>", expanded ? "#include <fog_fragment>\n#ifdef USE_FOG\ngl_FragColor.rgb=mix(gl_FragColor.rgb,fogColor,smoothstep(5050.,5990.,max(abs(worldPosition.x),abs(worldPosition.z))));\n#endif" : "#include <fog_fragment>")
@@ -170,31 +221,176 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
   const mobileFragment=officialFragment.replace(noiseFn,silkNoise); // sin capa fina ni segunda capa media
   const skyFragment=mobileFragment.replace(/vec3 reflectionSample = [^;]+;/,
     "vec3 reflectionSample=mix(vec3(.24,.36,.44),vec3(.085,.16,.22),clamp(reflect(-eyeDirection,surfaceNormal).y,0.,1.));");  // A reflection only needs the silhouette and broad snow/rock tones.
+  // Reflejo precalculado (calidad baja y media, cuando la base tiene cubemap): el paisaje capturado una vez desde
+  // un punto sobre el agua (reflection-bake.ts), leído en espacio mundo con la misma deformación del oleaje y
+  // Fresnel del Water. Sin segundo dibujo de la escena.
+  // Paralaje: leer el cubemap solo con la dirección de reflexión supone que todo está infinitamente lejos, y la
+  // costa reflejada aparecía corrida respecto de la orilla real (más cuanto más lejos del punto de captura). Se
+  // sigue el rayo reflejado sobre las alturas de la malla (uRelief) hasta el primer punto de terreno y se lee el
+  // cubemap en la dirección desde el punto de captura hacia ese punto. Sin impacto (cielo o fuera del recorte):
+  // dirección directa. Si ese punto no se veía desde la captura (cara de espaldas o relieve en el medio), un tono
+  // de terreno estimado (uEnvSnow / uEnvRock según la pendiente, con el sol) en vez de lo que lo tapaba.
+  u.uEnvSnow={value:new THREE.Vector3(0.74,0.78,0.82)}; // lineal
+  u.uEnvRock={value:new THREE.Vector3(0.2,0.21,0.23)};
+  u.uEnv={value:null as THREE.CubeTexture|null};
+  u.uEnvShore={value:0.0}; // atenuación hacia el cielo en la orilla (antes 0.5, para disimular el desfase sin paralaje)
+  u.uEnvRipple={value:0.08}; // cuánto desvía el oleaje la dirección de reflexión (1 = normal plena: gris moteado)
+  u.uEnvCenter={value:new THREE.Vector3()};
+  u.uReliefTop={value:0};
+  u.uReliefFar={value:1};
+  // Horizonte visto desde el punto de captura (tangente de la elevación máxima del relieve por acimut y distancia):
+  // decide en una lectura si el punto de impacto se veía desde la captura. Ver buildHorizon.
+  u.uHorizon={value:new THREE.DataTexture(new Float32Array([-100]),1,1,THREE.RedFormat,THREE.FloatType)};
+  u.uHorizon.value.needsUpdate=true;
+  u.uHorizonR={value:1};
+  const cubeFragment=mobileFragment
+    .replace("uniform float alpha;",[
+      "uniform float alpha;",
+      "uniform samplerCube uEnv;",
+      "uniform float uEnvShore, uEnvRipple, uReliefTop, uReliefFar, uHorizonR;",
+      "uniform vec3 uEnvCenter, uEnvSnow, uEnvRock;",
+      "uniform sampler2D uHorizon;",
+      "#define ENV_STEPS 20",
+    ].join("\n"))
+    .replace(/vec3 reflectionSample = [^;]+;/,[
+      "vec3 envDir = reflect(-eyeDirection, normalize(vec3(surfaceNormal.x * uEnvRipple, 1.0, surfaceNormal.z * uEnvRipple)));", // oleaje suave: la normal plena desdibujaba la franja fina de montañas
+      "envDir.y = abs(envDir.y);", // por debajo del horizonte no hay nada que reflejar
+      "vec3 envLook = envDir;",
+      "float envSeen = 1.0;",
+      "vec3 envGuess = vec3(0.0);",
+      "{",
+      "  vec3 rd = normalize(vec3(envDir.x, max(envDir.y, 0.002), envDir.z));",
+      "  float tEnd = min(max(uReliefTop * uReliefK - worldPosition.y, 0.0) / rd.y, uReliefFar);",
+      "  float tPrev = 0.0, tHit = -1.0;",
+      "  for (int i = 1; i <= ENV_STEPS; i++) {", // pasos crecientes: finos cerca de la orilla, largos lejos
+      "    float s = float(i) / float(ENV_STEPS);",
+      "    float t = tEnd * s * s;",
+      "    vec3 p = worldPosition.xyz + rd * t;",
+      "    vec2 ruv = p.xz / uCrop + 0.5;",
+      "    if (any(lessThan(ruv, vec2(0.0))) || any(greaterThan(ruv, vec2(1.0)))) break;",
+      "    if (p.y < reliefAt(ruv)) { tHit = t; break; }",
+      "    tPrev = t;",
+      "  }",
+      "  if (tHit > 0.0) {",
+      "    float a = tPrev, b = tHit;",
+      "    for (int j = 0; j < 5; j++) {",
+      "      float m = 0.5 * (a + b);",
+      "      vec3 p = worldPosition.xyz + rd * m;",
+      "      if (p.y < reliefAt(p.xz / uCrop + 0.5)) b = m; else a = m;",
+      "    }",
+      "    vec3 hitP = worldPosition.xyz + rd * b;",
+      "    envLook = hitP - uEnvCenter;",
+      // ¿Se veía ese punto desde la captura? Cara de espaldas al punto de captura, o algo del relieve en el medio.
+      // Si no, el cubemap devuelve lo que lo tapaba (la roca de adelante repetida sobre el agua: reflejo
+      // duplicado); en ese caso, tono de terreno estimado: nieve o roca según la pendiente, con el sol.
+      "    vec2 hUv = hitP.xz / uCrop + 0.5;",
+      "    vec2 cU = 1.0 / (uReliefSize - 1.0);",
+      "    float h0 = reliefAt(hUv);",
+      "    vec2 g = vec2(reliefAt(hUv + vec2(cU.x, 0.0)) - h0, reliefAt(hUv + vec2(0.0, cU.y)) - h0) / (uCrop * cU);",
+      "    vec3 nH = normalize(vec3(-g.x, 1.0, -g.y));",
+      "    vec3 toC = uEnvCenter - hitP;",
+      "    float dC = length(toC);",
+      "    vec3 dirC = toC / max(dC, 1e-3);",
+      "    envSeen = dot(nH, dirC) > -0.05 ? 1.0 : 0.0;",
+      // Relieve en el medio: el horizonte desde la captura en ese acimut, hasta un poco antes del punto (sin
+      // contar su propia ladera), contra la elevación del punto. Antes era una marcha de 8 pasos cuadráticos que
+      // se espaciaban justo cerca de la captura, donde están las rocas que más tapan (Brown): se las salteaba y su
+      // reflejo se repetía sobre el agua lejos de ellas.
+      "    vec2 hzD = hitP.xz - uEnvCenter.xz;",
+      "    float hzR = length(hzD);",
+      "    float hzQ = max(hzR - max(16.0, 0.03 * hzR), 0.0);",
+      "    float hzTan = texture2D(uHorizon, vec2(atan(hzD.y, hzD.x) * 0.15915494 + 0.5, sqrt(hzQ / uHorizonR))).r;",
+      "    envSeen *= 1.0 - smoothstep(-0.004, 0.004, hzTan - (hitP.y - uEnvCenter.y) / max(hzR, 1.0));",
+      "    float rockK = smoothstep(0.7, 1.2, length(g));",
+      "    envGuess = mix(uEnvSnow, uEnvRock, rockK) * (0.6 + 0.4 * max(dot(nH, sunDirection), 0.0));",
+      "  } else {",
+      // Sin impacto (cielo, o lo lejano fuera del recorte): la dirección directa supone el paisaje en el infinito,
+      // pero desde la captura esa dirección puede chocar con relieve cercano (las rocas de al lado de Brown), que
+      // aparecía repetido sobre el agua lejos de ellas. Por debajo del horizonte de la captura en ese acimut, se
+      // la sube apenas por encima: cielo (o lo que asoma detrás del recorte).
+      "    float hzFar = texture2D(uHorizon, vec2(atan(envDir.z, envDir.x) * 0.15915494 + 0.5, 1.0)).r + 0.01;",
+      "    float hl = length(envDir.xz);",
+      "    if (envDir.y < hzFar * hl) envLook = vec3(envDir.x, hzFar * hl, envDir.z);",
+      "  }",
+      "}",
+      "vec3 reflectionSample = mix(envGuess, textureCube(uEnv, envLook).rgb, envSeen);", // mismo eje que la captura (comprobado contra el reflejo planar con el agua lisa)
+      "vec2 envUv = worldPosition.xz / uCrop + 0.5;",
+      "float envProx = step(0.0, envUv.x) * step(envUv.x, 1.0) * step(0.0, envUv.y) * step(envUv.y, 1.0) * texture2D(uShore, clamp(envUv, 0.0, 1.0)).g;",
+      "vec3 envSky = mix(vec3(.24,.36,.44), vec3(.085,.16,.22), clamp(envDir.y, 0., 1.));",
+      "reflectionSample = mix(reflectionSample, envSky, uEnvShore * smoothstep(0.75, 1.0, envProx));",
+    ].join("\n"));
+  type ReflectionMode="planar"|"cubo"|"cielo";
   let current:Terrain|undefined;
   const mirror=mesh.onBeforeRender;
   let waterSpeed=1.0;
-  let high=false,dirty=true,movingReflection=false,lastMirrorMs=-Infinity;
+  let mode:ReflectionMode="cielo",forced:ReflectionMode|null=null,tier:Tier=initial;
+  let dirty=true,movingReflection=false,lastMirrorMs=-Infinity,mirrorRenders=0;
   const motionMirrorInterval=mobile?250:160;
   const world=new THREE.Matrix4(),projection=new THREE.Matrix4();
+  // Cadencia del reflejo planar con la cámara en movimiento: se redibuja uno de cada `mirrorEvery` cuadros; en los
+  // otros el agua reusa el último (mapeado con su propia matriz, así que no se desliza: solo queda una fracción de
+  // cuadro atrasado). Al frenar, `pendingReflection` pide un cuadro más para que quede al día.
+  let mirrorEvery=MIRROR_EVERY,moveFrames=0,stale=false,mirrorTarget:THREE.WebGLRenderTarget|null=null;
+  // Horizonte del cubemap: se recalcula si cambia el terreno, el punto de captura o la exageración del relieve.
+  let horizonKey="";
+  function ensureHorizon(){
+    const c=u.uEnvCenter.value as THREE.Vector3,k=u.uReliefK.value as number;
+    if(!current||!u.uEnv.value)return;
+    const key=`${current.relief.heights.length}|${current.widthM}|${c.x},${c.y},${c.z}|${k}`;
+    if(key===horizonKey&&u.uHorizon.value.userData.terrain===current)return;
+    horizonKey=key;
+    const {width:mw,height:mh}=current.meshSize;
+    const {texture,rMax}=buildHorizon(current.relief.heights,mw,mh,current.widthM,current.depthM,c,k);
+    texture.userData.terrain=current;
+    u.uHorizon.value.dispose();u.uHorizon.value=texture;u.uHorizonR.value=rMax;
+  }
   mesh.onBeforeRender=(renderer,scene,camera,geometry,material,group)=>{
-    if(!high){u.eye.value.setFromMatrixPosition(camera.matrixWorld);return;}
+    if(mode==="cubo")ensureHorizon();
+    if(mode!=="planar"){u.eye.value.setFromMatrixPosition(camera.matrixWorld);return;}
     if(!current)return;
     const now=performance.now();
     const motionDue=movingReflection&&now-lastMirrorMs>=motionMirrorInterval;
-    if(!dirty && !motionDue && world.equals(camera.matrixWorld)&&projection.equals(camera.projectionMatrix))return;
+    const changed=!world.equals(camera.matrixWorld)||!projection.equals(camera.projectionMatrix);
+    if(!dirty && !motionDue && !changed){stale=false;return;}
+    if(!dirty && changed && mirrorEvery>1 && (++moveFrames%mirrorEvery)!==0){stale=true;return;}
     // Rendering the mirror must not mutate the main camera chunk instance buffers.
-    mirror.call(mesh,renderer,scene,camera,geometry,material,group);
+    if(!mirrorTarget){
+      // El Water no expone su render target: se lo reconoce la primera vez que se dibuja en él (para poder cambiar
+      // la resolución del reflejo sin recrear el agua).
+      const set=renderer.setRenderTarget;
+      let found:THREE.WebGLRenderTarget|null=null;
+      renderer.setRenderTarget=function(this:THREE.WebGLRenderer,t,...rest){if(t&&!(t as {isWebGLCubeRenderTarget?:boolean}).isWebGLCubeRenderTarget&&t.texture===u.mirrorSampler.value)found=t as THREE.WebGLRenderTarget;return set.call(this,t,...rest);} as typeof set;
+      try{mirror.call(mesh,renderer,scene,camera,geometry,material,group);}finally{renderer.setRenderTarget=set;}
+      mirrorTarget=found as THREE.WebGLRenderTarget|null;
+      if(mirrorTarget&&(mirrorTarget.width!==reflectionWidth||mirrorTarget.height!==reflectionHeight))mirrorTarget.setSize(reflectionWidth,reflectionHeight);
+    }else mirror.call(mesh,renderer,scene,camera,geometry,material,group);
+    mirrorRenders++;stale=false;
     world.copy(camera.matrixWorld);projection.copy(camera.projectionMatrix);dirty=false;lastMirrorMs=now;
   };
+  // Alta: reflejo planar (segundo dibujo de la escena). Baja y media: cubemap si la base lo tiene; si no, como
+  // antes (en celular planar, en escritorio el degradé de cielo).
   function quality(t:Tier) {
-    high=mobile || t==="alta";
-    const fragment=high ? (mobile ? mobileFragment : desktopFragment) : skyFragment;
+    tier=t;
+    const env=!!u.uEnv.value;
+    mode=forced ?? (t==="alta" ? "planar" : env ? "cubo" : mobile ? "planar" : "cielo");
+    if(mode==="cubo"&&!env)mode="cielo";
+    const fragment=mode==="planar" ? (mobile ? mobileFragment : desktopFragment) : mode==="cubo" ? cubeFragment : skyFragment;
     if(mat.fragmentShader!==fragment){mat.fragmentShader=fragment;mat.needsUpdate=true;}
-
     dirty=true;
   }
   quality(initial);
   return {mesh,quality,
+    /** Cubemap precalculado de la base (null: sin él). */
+    setEnvironment(t:THREE.CubeTexture|null,center?:[number,number,number]){u.uEnv.value?.dispose();u.uEnv.value=t;if(center)u.uEnvCenter.value.set(...center);quality(tier);},
+    /** Para comparar: fuerza un modo de reflejo (null = el que corresponde a la calidad). */
+    setReflectionMode(m:ReflectionMode|null){forced=m;quality(tier);},
+    reflectionStats:()=>({modo:mode,pasesPlanares:mirrorRenders,cubemap:!!u.uEnv.value,resolucion:[reflectionWidth,reflectionHeight],cadencia:mirrorEvery}),
+    /** El último cuadro reusó el reflejo: hace falta uno más para dejarlo al día (la cámara frenó). */
+    pendingReflection:()=>stale&&mode==="planar",
+    /** Para medir: redibujar el reflejo planar uno de cada `n` cuadros con la cámara en movimiento. */
+    setReflectionCadence(n:number){mirrorEvery=Math.max(1,Math.round(n));moveFrames=0;},
+    /** Lado mayor del reflejo planar (px), sin recrear el agua. */
+    setReflectionResolution(px:number){const a=window.innerWidth/Math.max(1,window.innerHeight);reflectionWidth=Math.max(64,Math.round(px*Math.min(1,a)));reflectionHeight=Math.max(64,Math.round(px*Math.min(1,1/a)));mirrorTarget?.setSize(reflectionWidth,reflectionHeight);dirty=true;},
     disturb(position:THREE.Vector3,radius=50){ripples[nextRipple].set(position.x,position.z,radius,0);nextRipple=(nextRipple+1)%ripples.length;},
     stepRipples(dt:number){let active=false;for(const r of ripples){if(r.w<0)continue;r.w+=dt;if(r.w>=1.5)r.w=-1;else active=true;}return active;},
     setSpeed(value:number){waterSpeed=Math.max(.3,Math.min(1.6,value));},setWaves(value:number){u.uSilk.value=Math.max(.3,Math.min(1.5,value));},setSun(direction:THREE.Vector3,color:THREE.Color,direct:number,daylight:number){
@@ -202,6 +398,7 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
     u.sunDirection.value.copy(direction);
     u.sunColor.value.copy(color).multiplyScalar(direct);
     u.waterColor.value.setHex(WATER_COLOR).multiplyScalar(.1+.9*daylight);
+    u.uShallowWater.value.setHex(SHALLOW_COLOR).multiplyScalar(.1+.9*daylight);
     dirty=true;
   },refresh:()=>{dirty=true;},motion:(active:boolean)=>{movingReflection=active;},time:(t:number,moving=false)=>{u.time.value=t*waterSpeed;movingReflection=moving;},
     bind(t:Terrain){
@@ -219,8 +416,53 @@ export function createOcean(size:number,sun:THREE.Vector3,mobile:boolean,initial
           geometry.setIndex(domain.indices);geometry.computeVertexNormals();geometry.computeBoundingSphere();
         }else geometry=new THREE.PlaneGeometry(size*8,size*8);
         mesh.geometry.dispose();mesh.geometry=geometry;
+        // Relieve para el paralaje del cubemap: alturas de la malla en R16F (filtrado lineal en WebGL 2, sin
+        // convertir: se sube desde Float32).
+        const {width:mw,height:mh}=t.meshSize,h=t.relief.heights;
+        const relief=new THREE.DataTexture(h,mw,mh,THREE.RedFormat,THREE.FloatType);
+        relief.internalFormat="R16F";relief.minFilter=relief.magFilter=THREE.LinearFilter;relief.generateMipmaps=false;relief.needsUpdate=true;
+        u.uRelief.value.dispose();u.uRelief.value=relief;u.uReliefSize.value.set(mw,mh);
+        let top=0;for(let i=0;i<h.length;i++)if(h[i]>top)top=h[i];
+        u.uReliefTop.value=top;
+        u.uReliefFar.value=Math.hypot(t.widthM,t.depthM);
       }
+      u.uReliefK=t.relief.k; // mismo objeto que la exageración del terreno: sigue sus cambios sin rebind
       current=t;dirty=true;
-      u.uShore.value=t.styleUniforms.uLight.value;u.uCrop.value.set(t.widthM,t.depthM);}
+      u.uShore.value=t.styleUniforms.uLight.value;u.uSurf.value=t.styleUniforms.uSurface.value;u.uCrop.value.set(t.widthM,t.depthM);}
   };
+}
+
+/**
+ * Horizonte desde el punto de captura del cubemap, sobre las alturas de la malla (las mismas del paralaje):
+ * para cada acimut (columna, atan2(dz, dx)) y distancia horizontal r (fila, √(r / rMax)), la tangente de la
+ * elevación máxima del relieve visto desde `c` entre 4 m y r. Un punto a distancia r se veía desde la captura si su
+ * propia tangente no queda por debajo. En CPU, una vez por terreno, punto y exageración (unas decenas de ms).
+ */
+function buildHorizon(h:Float32Array,mw:number,mh:number,widthM:number,depthM:number,c:THREE.Vector3,k:number){
+  const AZ=1024,RB=512;
+  const rMax=Math.max(...[[-1,-1],[1,-1],[-1,1],[1,1]].map(([sx,sz])=>Math.hypot(sx*widthM/2-c.x,sz*depthM/2-c.z)));
+  const at=(x:number,z:number)=>{ // bilineal, como la textura del relieve (fuera del recorte: 0, mar)
+    const fx=(x/widthM+0.5)*(mw-1),fz=(z/depthM+0.5)*(mh-1);
+    if(fx<0||fz<0||fx>mw-1||fz>mh-1)return 0;
+    const i=Math.min(Math.floor(fx),mw-2),j=Math.min(Math.floor(fz),mh-2),ax=fx-i,az=fz-j,o=j*mw+i;
+    return (h[o]*(1-ax)+h[o+1]*ax)*(1-az)+(h[o+mw]*(1-ax)+h[o+mw+1]*ax)*az;
+  };
+  const data=new Float32Array(AZ*RB);
+  for(let a=0;a<AZ;a++){
+    const ang=((a+0.5)/AZ-0.5)*Math.PI*2,dx=Math.cos(ang),dz=Math.sin(ang);
+    let best=-100,r=4,j=0;
+    while(j<RB){
+      const rj=rMax*((j+0.5)/RB)**2;
+      while(r<=rj){best=Math.max(best,(at(c.x+dx*r,c.z+dz*r)*k-c.y)/r);r+=Math.min(4,Math.max(1,r*0.005));}
+      data[j*AZ+a]=best;j++;
+    }
+  }
+  // Última fila (horizonte completo del recorte, para los rayos sin impacto): máximo de ±3 acimuts, para que el
+  // filtrado lineal entre columnas no baje la cima de un pico angosto y la dirección corregida no caiga en él.
+  const last=(RB-1)*AZ,row=data.slice(last,last+AZ);
+  for(let a=0;a<AZ;a++){let m=-100;for(let d=-3;d<=3;d++)m=Math.max(m,row[(a+d+AZ)%AZ]);data[last+a]=m;}
+  const texture=new THREE.DataTexture(data,AZ,RB,THREE.RedFormat,THREE.FloatType);
+  texture.internalFormat="R16F";texture.minFilter=texture.magFilter=THREE.LinearFilter;texture.generateMipmaps=false;
+  texture.wrapS=THREE.RepeatWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.needsUpdate=true;
+  return {texture,rMax};
 }
