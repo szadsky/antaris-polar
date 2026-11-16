@@ -1,0 +1,41 @@
+{
+ "imagen": [
+  1672,
+  941
+ ],
+ "fPx": 1755.9299049611568,
+ "horizonte": 499.6,
+ "camaraAlturaM": 4,
+ "crops": {
+  "cumbres": [
+   140,
+   452
+  ],
+  "laderas": [
+   320,
+   540
+  ]
+ },
+ "bytes": {
+  "cielo.webp": 28778,
+  "cumbres.webp": 61102,
+  "laderas.webp": 25076,
+  "barcos.webp": 30592,
+  "base-mascaras.webp": 96354,
+  "pasto.webp": 28164
+ },
+ "barcos": 14,
+ "base": {
+  "pies": [
+   822,
+   757
+  ],
+  "mascaraFilas": [
+   736,
+   941
+  ],
+  "pinguinoM": 0.95,
+  "pinguinoPx": 162
+ },
+ "pasto": 14
+}

@@ -1,0 +1,70 @@
+{
+  "modelo": "onnx-community/depth-anything-v2-small",
+  "licenciaModelo": "Apache-2.0",
+  "runtime": "transformers.js + onnxruntime-node (CPU), fp32",
+  "cargaMs": 398,
+  "pasadas": [
+    {
+      "capa": "cumbres",
+      "capas": [
+        "01-cielo.png",
+        "02-cumbres-nevadas.png"
+      ],
+      "recorteFilas": [
+        110,
+        480
+      ],
+      "tamanoModelo": [
+        2338,
+        518
+      ],
+      "inferenciaMs": 8599,
+      "normalizacion": "percentiles 1–99 dentro del alfa de la capa, filas < 452",
+      "rangoCrudo": [
+        0.4558270573616028,
+        3.4565281867980957
+      ]
+    },
+    {
+      "capa": "laderas",
+      "capas": [
+        "01-cielo.png",
+        "02-cumbres-nevadas.png",
+        "04-canal-beagle.png",
+        "03-laderas-y-bruma.png"
+      ],
+      "recorteFilas": [
+        110,
+        640
+      ],
+      "tamanoModelo": [
+        1638,
+        518
+      ],
+      "inferenciaMs": 6627,
+      "normalizacion": "percentiles 1–99 dentro del alfa de la capa, filas < 498",
+      "rangoCrudo": [
+        0.7872726917266846,
+        1.261308193206787
+      ]
+    }
+  ],
+  "salida": {
+    "archivo": "public/hero/profundidad-montanas.webp",
+    "filas": [
+      140,
+      540
+    ],
+    "canales": "R = cumbres · G = laderas (0 = lejos, 1 = cerca)"
+  },
+  "relieve": {
+    "archivo": "public/hero/relieve-montanas.webp",
+    "filas": [
+      140,
+      540
+    ],
+    "calculo": "(profundidad − desenfoque gaussiano σ 18 px) × 4, 128 = 0, dentro del alfa de la capa",
+    "canales": "R = cumbres · G = laderas"
+  },
+  "fecha": "2026-11-16T16:15:13.026Z"
+}

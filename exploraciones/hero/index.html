@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Antaris Polar · Hero (exploración)</title>
+  <meta name="description" content="Exploración del hero de Antaris Polar: ilustración en capas con parallax por profundidad, loma de nieve, pingüino y agua en Three.js." />
+  <link rel="icon" href="data:," />
+  <link rel="preload" href="/hero/estatica.webp" as="image" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <!-- Navegación entre los sitios de Antaris Polar (Figma «Gamezone · david», nodo 2597:1016). Las rutas son las de la
+       compilación del sitio (scripts/assemble-site.mjs); en desarrollo src/nav.ts las apunta a npm run preview (:3410). -->
+  <header class="site-header">
+    <a class="brand" href="./" aria-current="page">AntarisPolar</a>
+    <nav class="site-nav" aria-label="Sitios de Antaris Polar">
+      <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="site-nav-lista">Menú</button>
+      <ul id="site-nav-lista" class="site-nav__list">
+        <li><a href="/" data-sitio>Descubrir</a></li>
+        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><a href="/laboratorio/pinguino/" data-sitio>Laboratorio</a></li>
+        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><span class="site-nav__pronto" title="Próximamente">Investigación<span class="sr"> (próximamente)</span></span></li>
+        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><span class="site-nav__pronto" title="Próximamente">Quienes somos<span class="sr"> (próximamente)</span></span></li>
+        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><span class="site-nav__pronto" title="Próximamente">Contacto<span class="sr"> (próximamente)</span></span></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section id="hero" class="hero" data-state="cargando" aria-labelledby="hero-title">
+      <!-- Imagen fija: se ve al instante, queda si no hay WebGL y es la alternativa sin movimiento. -->
+      <img class="hero-still" src="/hero/estatica.webp" width="1672" height="941" alt="" />
+      <canvas id="hero-canvas" aria-hidden="true"></canvas>
+      <!-- Copys del hero (Figma, nodo 2534:25). -->
+      <div class="hero-copy">
+        <h1 id="hero-title">La Antártida, tan cerca como nunca</h1>
+        <p class="hero-lead">Desde Ushuaia, personas, expediciones e investigaciones construyen un vínculo real con la Antártida.</p>
+        <p class="hero-coords"><span aria-hidden="true">[-68.30833, -54.80833]</span><span class="sr">Ushuaia: longitud −68,30833°, latitud −54,80833°</span></p>
+      </div>
+      <p class="hero-note">Ilustración en capas y escena 3D: reconstrucción artística, no fotografía ni relieve medido.</p>
+      <p id="hero-status" class="sr-status" role="status">Preparando la escena…</p>
+      <output id="hero-perf" class="hero-perf" hidden></output>
+    </section>
+
+    <section id="contenido" class="next">
+      <h2>Desde un lugar del paisaje, revelar lo invisible</h2>
+      <p>Esta página es una exploración aislada del hero. El recorrido educativo (puntos científicos, páginas con fuentes) vive en el sitio principal.</p>
+      <h3 id="sobre-la-imagen">Sobre esta imagen</h3>
+      <ul>
+        <li>Cielo, cumbres, laderas y barcos: capas de una ilustración (reconstrucción artística). La profundidad de las montañas la estimó Depth Anything V2 Small; no es topografía.</li>
+        <li>Loma de nieve y roca, agua y reflejos: Three.js con el material de nieve del visor de Antaris; la loma es un terreno generado que sigue la silueta de la ilustración (no es relieve medido).</li>
+        <li>Pingüino: modelo de <a href="https://polyfork.dev/asset/penguin-base" rel="noopener">Polyfork</a> (<a href="/LICENSES/CC-BY-4.0.txt">CC BY 4.0</a>) con colores de pingüino rey.</li>
+      </ul>
+    </section>
+  </main>
+  <script>{ const q = new URLSearchParams(location.search); if (q.has("limpio")) document.documentElement.classList.add("limpio"); if (q.has("referencia")) document.documentElement.classList.add("limpio", "referencia"); }</script>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

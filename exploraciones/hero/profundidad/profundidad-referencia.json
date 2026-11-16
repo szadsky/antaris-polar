@@ -1,0 +1,29 @@
+{
+  "modelo": "onnx-community/depth-anything-v2-small",
+  "fuenteOriginal": "depth-anything/Depth-Anything-V2-Small-hf",
+  "licenciaModelo": "Apache-2.0",
+  "runtime": "transformers.js + onnxruntime-node (CPU)",
+  "precision": "fp32",
+  "entrada": "referencia-tercera.png",
+  "entradaSha256": "6e2bc864b4581efd97103555da31297162c72ace11bb3f7bd1007aa9efe58e7c",
+  "tamanoEntrada": [
+    1672,
+    941
+  ],
+  "tamanoModelo": [
+    924,
+    518
+  ],
+  "salidaModelo": [
+    1672,
+    941
+  ],
+  "normalizacion": "disparidad relativa (min–max) a 0–1; claro = cerca. No es profundidad métrica.",
+  "rangoCrudo": [
+    0,
+    7.495306968688965
+  ],
+  "cargaMs": 408,
+  "inferenciaMs": 2099,
+  "fecha": "2026-11-16T15:31:34.258Z"
+}

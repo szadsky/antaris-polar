@@ -1,0 +1,8 @@
+ANTARIS POLAR · HERO / TERCERA VARIANTE
+
+Apilar los PNG de 01 (fondo) a 08 (frente), todos en el origen (0,0), a 1672 × 941 px. No recortar ni centrar individualmente.
+
+05 y 06: mantener juntos reflejos, barcos y boyas al moverlos.
+07 y 08: mover el terreno y el pingüino juntos mientras esté de pie.
+Las zonas ocultas se reconstruyeron de forma aproximada para parallax suave; no son una reconstrucción 3D.
+referencia-tercera.png es la imagen original sin cambios; recomposicion.webp es una vista apilada.

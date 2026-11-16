@@ -1,0 +1,46 @@
+[
+  {
+    "archivo": "roca-color.ktx2",
+    "fuente": "Poly Haven · Marble Cliff 04 (Amal Kumar) · diff 1k",
+    "url": "https://polyhaven.com/a/marble_cliff_04",
+    "licencia": "CC0 1.0",
+    "tamanoRealM": 12.66,
+    "luminanciaLineal": {
+      "p05": 0.1469,
+      "p50": 0.4175,
+      "p95": 0.6611
+    },
+    "colorMedioLineal": [
+      0.5428,
+      0.3869,
+      0.2781
+    ],
+    "px": 512,
+    "formato": "KTX2 · Basis ETC1S · mipmaps · sRGB",
+    "bytes": 68825,
+    "sha256": "f2877119c229794a5cf6f51a288dd8b9a96ecaf2fcf7fa8e80dddaae0d46ceac"
+  },
+  {
+    "archivo": "roca-normal.ktx2",
+    "fuente": "Poly Haven · Marble Cliff 04 (Amal Kumar) · nor_gl 1k",
+    "url": "https://polyhaven.com/a/marble_cliff_04",
+    "licencia": "CC0 1.0",
+    "tamanoRealM": 12.66,
+    "px": 512,
+    "formato": "KTX2 · Basis ETC1S · mipmaps · modo normal map",
+    "bytes": 94209,
+    "sha256": "44443cd826cff75317f1d6126b2526e8082a32393be0dac2413ffbbf46132e2f"
+  },
+  {
+    "archivo": "nieve-normal.ktx2",
+    "fuente": "ambientCG · Snow007A · NormalGL 1K",
+    "url": "https://ambientcg.com/view?id=Snow007A",
+    "licencia": "CC0 1.0",
+    "tamanoRealM": 2,
+    "nota": "tamaño real no publicado por la fuente: supuesto",
+    "px": 512,
+    "formato": "KTX2 · Basis ETC1S · mipmaps · modo normal map",
+    "bytes": 61335,
+    "sha256": "f3374ba3cffb04411b2176af091dcb38ce8135ee641dfa4dafc3b72231d81ebf"
+  }
+]
