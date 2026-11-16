@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rumbo a la Antártida · Trivia</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Francois+One" rel="stylesheet">
+    <link rel="stylesheet" href="build/bootstrap.min.css">
+    <link rel="stylesheet" href="build/toastr.min.css">
+
+    <style>
+        /* ===== ESTILOS GENERALES ===== */
+        body {
+            min-height: 100vh;
+            margin: 0;
+            font-size: 17px;
+            color: #0B2233;
+            /* Fondo propio (carpeta img). "left bottom" conserva la red de puntos si la pantalla es angosta. */
+            background: #eaf4f9 url(img/fondo.png) left bottom / cover no-repeat;
+        }
+
+        h1, h2, .pregunta { font-family: 'Francois One', sans-serif; }
+        h1 { font-size: 36px; margin: 24px 0 4px; text-align: center; }
+        .sub { text-align: center; color: #4A6575; margin-bottom: 20px; }
+
+        /* ===== RUTA CON EL BARCO ===== */
+        /* Todo se calcula a partir de --img (el tamaño de cada parada).
+           clamp(mínimo, ideal, máximo): crece con la pantalla y se achica solo en el celular.
+           Para agrandar o achicar las paradas, cambiá el 13.5vw y el 124px. */
+        .ruta {
+            --img: clamp(48px, 13.5vw, 124px);   /* tamaño de cada parada */
+            --s: calc(var(--img) * 0.8);          /* tamaño del barco */
+            --aire: calc(var(--s) * 0.5);         /* espacio entre las figuras y la línea del mar */
+            --onda: clamp(8px, calc(var(--s) * 0.12), 14px);   /* alto de la línea ondulada */
+            position: relative;
+            margin: 10px calc(var(--img) / 2 + 6px) 0;
+            height: calc(var(--img) + var(--aire) + 26px);
+        }
+        /* Línea ondulada: es un dibujo de una ola que se repite a lo largo del mapa.
+           Una capa clara cubre todo el recorrido y encima otra, azul intenso, cubre lo ya recorrido. */
+        .linea {
+            position: absolute; left: 0; right: 0; overflow: hidden;
+            top: calc(var(--img) + var(--aire) + 7px - var(--onda) / 2);
+            height: var(--onda);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='12'%3E%3Cpath d='M-18 6 Q-9 12 0 6 Q9 0 18 6 T36 6 T54 6' fill='none' stroke='%23BFD7E4' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-size: calc(var(--onda) * 3) var(--onda);
+            background-repeat: repeat-x;
+        }
+        .avance {
+            height: 100%; width: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='12'%3E%3Cpath d='M-18 6 Q-9 12 0 6 Q9 0 18 6 T36 6 T54 6' fill='none' stroke='%231F7FB3' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-size: calc(var(--onda) * 3) var(--onda);
+            background-repeat: repeat-x;
+            transition: width .8s ease;
+        }
+
+        /* Cada parada: la figura arriba y un punto sobre la línea del mar */
+        .parada { position: absolute; top: 0; transform: translateX(-50%); text-align: center; }
+        .parada img, .parada .emoji {
+            display: block; width: var(--img); height: var(--img); margin: 0 auto;
+            object-fit: contain; font-size: calc(var(--img) * 0.6); line-height: var(--img);
+            transform-origin: 50% 100%;
+            filter: grayscale(1) drop-shadow(0 3px 4px rgba(11, 34, 51, .18)); opacity: .5; transition: all .5s;      /* todavía no llegaste: gris y apagada */
+        }
+        .parada.on img, .parada.on .emoji { filter: grayscale(0) drop-shadow(0 3px 4px rgba(11, 34, 51, .22)); opacity: 1; }  /* ya llegaste: a color */
+        .parada.actual img, .parada.actual .emoji { transform: scale(1.08); }
+
+        /* Placa de hielo: misma forma y tamaño bajo TODAS las figuras.
+           Como cada figura tiene un ancho distinto, esta base igual para todas
+           hace que la fila se vea pareja y simétrica. */
+        .parada::before {
+            content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+            top: calc(var(--img) * 0.84);
+            width: calc(var(--img) * 0.92); height: calc(var(--img) * 0.17);
+            border-radius: 50%;
+            background: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #e3f2f9 65%, #c9e4f1 100%);
+            box-shadow: 0 2px 6px rgba(31, 127, 179, .25);
+            opacity: .55; transition: opacity .5s;
+        }
+        .parada.on::before { opacity: 1; }
+        .parada img, .parada .emoji { position: relative; z-index: 1; }
+        .punto {
+            display: block; /* punto de cada parada sobre la línea */
+            width: 14px; height: 14px; margin: var(--aire) auto 0;
+            border-radius: 50%; background: #fff; border: 3px solid #BFD7E4; transition: all .4s;
+        }
+        .parada.on .punto { background: #1F7FB3; border-color: #1F7FB3; }
+
+        /* Barco: apoyado sobre la línea del mar, con un balanceo suave (borrá la línea "animation" si no lo querés) */
+        .barco {
+            position: absolute; z-index: 2;
+            top: calc(var(--img) + var(--aire) + 10px - var(--s));
+            width: var(--s); height: var(--s);
+            object-fit: contain; font-size: calc(var(--s) * 0.6); line-height: var(--s); text-align: center;
+            transform: translateX(-50%);
+            transition: left .8s ease;
+            animation: balanceo 2.8s ease-in-out infinite;
+        }
+        @keyframes balanceo {
+            0%, 100% { transform: translateX(-50%) translateY(0)    rotate(-1.5deg); }
+            50%      { transform: translateX(-50%) translateY(-3px) rotate(1.5deg); }
+        }
+        @media (prefers-reduced-motion: reduce) { .barco { animation: none; } }
+
+        .ubicacion { text-align: center; color: #35589D; font-family: 'Francois One', sans-serif; font-size: 16px; margin: 4px 0 18px; }
+
+        /* ===== TARJETA DEL JUEGO ===== */
+        .tarjeta {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px 20px;
+            box-shadow: 0 0 20px 0 rgba(0,0,0,.15), 0 5px 5px 0 rgba(0,0,0,.18);
+        }
+        .meta { color: #4A6575; font-size: 15px; margin-bottom: 8px; }
+        .pregunta { font-size: 22px; color: #35589D; margin: 0 0 18px; line-height: 1.3; }
+
+        /* Las opciones son botones de Bootstrap, solo les cambiamos la alineación */
+        .opcion { text-align: left; white-space: normal; margin-bottom: 10px; padding: 12px 16px; }
+
+        .explicacion { margin-top: 16px; padding: 12px 14px; border-radius: 6px; background: #eaf4f9; }
+        .premio {
+            border: 2px dashed #B45309; border-radius: 8px;
+            padding: 14px; margin: 14px 0; font-weight: bold;
+        }
+        .riesgo { color: #B45309; font-weight: bold; }
+
+        .escalera { list-style: none; padding: 0; margin: 12px 0; }
+        .escalera li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e3eef4; }
+        .escalera li:last-child { border: 0; }
+
+        .acciones .btn { margin-top: 10px; }
+        .nota { color: #4A6575; font-size: 13px; text-align: center; margin: 20px 0 40px; }
+
+        /* Confeti: ocupa toda la pantalla pero no bloquea los clics */
+        #confeti { position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none; }
+
+        /* Sello circular de la pantalla final: se "estampa" con un golpe */
+        .sello {
+            width: 190px; margin: 10px auto; opacity: 0;
+            mix-blend-mode: multiply;
+            animation: estampar .6s cubic-bezier(.2, 1.4, .4, 1) .5s forwards;
+        }
+        .sello svg { display: block; width: 100%; height: auto; }
+        @keyframes estampar {
+            0%   { opacity: 0;   transform: scale(2.6)  rotate(-25deg); }
+            60%  { opacity: 1;   transform: scale(.94)  rotate(-9deg); }
+            100% { opacity: .92; transform: scale(1)    rotate(-8deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .sello { animation: none; opacity: .92; transform: rotate(-8deg); }
+        }
+
+        /* El mapa usa todo el ancho, pero la tarjeta y la nota se quedan angostas y centradas */
+        .tarjeta, .nota { max-width: 680px; margin-left: auto; margin-right: auto; }
+    </style>
+</head>
+
+<body>
+
+    <div class="container" style="max-width: 900px;">
+        <h1>Rumbo a la Antártida</h1>
+        <p class="sub">Un viaje de 5 niveles desde Ushuaia.</p>
+
+        <!-- Ruta: las imágenes y el barco se dibujan desde JavaScript (función dibujarRuta) -->
+        <div class="ruta" id="ruta" aria-hidden="true"></div>
+        <div class="ubicacion" id="ubicacion"></div>
+
+        <!-- Acá se dibuja cada pantalla del juego -->
+        <div class="tarjeta" id="vista"></div>
+
+        
+    </div>
+
+    <canvas id="confeti"></canvas>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="build/toastr.min.js"></script>
+    <script>
+
+        // ============================================================
+        // AVISOS (toastr): la misma configuración que ya tenían
+        // ============================================================
+        toastr.options = {
+            "closeButton": false,
+            "progressBar": false,
+            "positionClass": "toast-top-center",
+            "showDuration": "300",
+            "hideDuration": "1000",
+            "timeOut": "2000",
+            "extendedTimeOut": "1000",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        };
+
+        // ============================================================
+        // DATOS: niveles, premios y preguntas
+        //
+        // Cada pregunta usa el mismo formato que antes:
+        //   question -> el texto
+        //   answers  -> las opciones
+        //   correct  -> posición de la correcta (0 es la primera, 1 la segunda...)
+        //   info     -> explicación que se muestra después de responder (nuevo)
+        //
+        // Cada nivel puede tener la cantidad de preguntas que quieran:
+        // el juego usa todas las que haya en la lista.
+        // Verificar cada respuesta con fuentes oficiales antes de publicar.
+        // ============================================================
+        var niveles = [
+            {
+                nombre: "Zarpando desde Ushuaia",
+                premio: "Postal personalizada",
+                preguntas: [
+                    { question: "¿Qué canal baña la costa de Ushuaia?",
+                      answers: ["Estrecho de Magallanes", "Canal de Panamá", "Canal Beagle", "Canal de la Mancha"],
+                      correct: 2,
+                      info: "Ushuaia está sobre el Canal Beagle, desde donde zarpan los barcos antárticos." },
+                    { question: "¿Qué porcentaje de los cruceros antárticos zarpa desde Ushuaia?",
+                      answers: ["Cerca del 50%", "Más del 90%", "Menos del 10%", "Ninguno"],
+                      correct: 1,
+                      info: "Más del 90% sale de Ushuaia. Por eso se la conoce como la puerta de entrada a la Antartida." },
+                    { question: "¿En qué meses es la temporada de cruceros antárticos?",
+                      answers: ["De junio a agosto", "De abril a mayo", "De octubre a marzo", "Todo el año por igual"],
+                      correct: 2,
+                      info: "Es el verano austral: de octubre a marzo." }
+                ]
+            },
+            {
+                nombre: "Cruzando el Drake",
+                premio: "Certificado “Navegante del Drake”",
+                preguntas: [
+                    { question: "¿Cómo se llama el mar que se cruza para llegar a la Antártida desde Ushuaia?",
+                      answers: ["Mar Caribe", "Paso de Drake", "Golfo San Jorge", "Canal de Suez"],
+                      correct: 1,
+                      info: "El Paso de Drake separa Sudamérica de la Península Antártica." },
+                    { question: "¿A qué distancia aproximada está la Península Antártica de Ushuaia?",
+                      answers: ["Unos 100 km", "Unos 5.000 km", "Unos 1.000 km", "Unos 10.000 km"],
+                      correct: 2,
+                      info: "Son unos 1.000 km de navegación." },
+                    { question: "¿Cuánto tarda aproximadamente en cruzarse el Paso de Drake en barco?",
+                      answers: ["Unas 2 horas", "Dos semanas", "Un mes", "Cerca de 2 días"],
+                      correct: 3,
+                      info: "Suele llevar alrededor de 2 días, según el estado del mar." }
+                ]
+            },
+            {
+                nombre: "Península Antártica",
+                premio: "Cupon 2x1 en entradas para el Tren del Fin del Mundo",
+                preguntas: [
+                    { question: "¿Desde qué año tiene Argentina presencia ininterrumpida en la Antártida?",
+                      answers: ["1859", "1904", "1959", "1982"],
+                      correct: 1,
+                      info: "En 1904 comenzó la presencia permanente en las islas Orcadas del Sur." },
+                    { question: "¿Cuál es la base argentina permanente más antigua?",
+                      answers: ["Marambio", "Belgrano II", "Orcadas", "Petrel"],
+                      correct: 2,
+                      info: "La base Orcadas funciona desde 1904." },
+                    { question: "¿En qué base argentina viven familias y funciona una escuela?",
+                      answers: ["Belgrano II", "Carlini", "San Martín", "Esperanza"],
+                      correct: 3,
+                      info: "En la base Esperanza hay familias y una escuela." }
+                ]
+            },
+            {
+                nombre: "Ciencia en el hielo",
+                premio: "Navegación por el canal Beagle (1 pasaje)",
+                preguntas: [
+                    { question: "¿Qué parte del hielo del planeta está en la Antártida?",
+                      answers: ["Cerca del 10%", "Cerca del 90%", "Cerca del 50%", "Casi nada"],
+                      correct: 1,
+                      info: "Guarda alrededor del 90% del hielo del mundo." },
+                    { question: "¿En qué ciudad funciona el CADIC, centro científico del extremo sur?",
+                      answers: ["Buenos Aires", "Mendoza", "Ushuaia", "Río Gallegos"],
+                      correct: 2,
+                      info: "El Centro Austral de Investigaciones Científicas está en Ushuaia." },
+                    { question: "¿Cuál de estos pingüinos NO es típico de la Península Antártica?",
+                      answers: ["Adelia", "Papúa", "Barbijo", "Magallanes"],
+                      correct: 3,
+                      info: "El pingüino de Magallanes vive en Patagonia. Los otros tres habitan la Península." }
+                ]
+            },
+            {
+                nombre: "Tratado y soberanía",
+                premio: "Premio Sorpresa",
+                preguntas: [
+                    { question: "¿En qué año se firmó el Tratado Antártico?",
+                      answers: ["1904", "1959", "1982", "2001"],
+                      correct: 1,
+                      info: "Se firmó en 1959. Argentina es uno de sus 12 firmantes originales." },
+                    { question: "¿Para qué fines debe usarse la Antártida según el Tratado?",
+                      answers: ["Comerciales", "Pacíficos y científicos", "Militares", "Mineros"],
+                      correct: 1,
+                      info: "El Tratado la reserva para la paz y la ciencia." },
+                    { question: "¿Cuál de estos animales NO vive en la Antártida de forma natural?",
+                      answers: ["Pingüino emperador", "Foca de Weddell", "Oso polar", "Pingüino de Adelia"],
+                      correct: 2,
+                      info: "Los osos polares viven en el Ártico, en el polo norte. En la Antártida viven los pingüinos." }
+                ]
+            }
+        ];
+
+        // ============================================================
+        // ESTADO DEL JUEGO
+        //   nivel      -> nivel actual (0 a 4)
+        //   pregunta   -> pregunta actual dentro del nivel
+        //   premio     -> último nivel superado y asegurado (-1 = todavía ninguno)
+        //   respondida -> evita responder dos veces la misma pregunta
+        //   acerto     -> si la última respuesta fue correcta
+        // ============================================================
+        var estado;
+
+        // ============================================================
+        // PARADAS DE LA RUTA (6 en total: la salida y una por cada nivel superado)
+        //   nombre -> se muestra debajo del mapa ("📍 Paso de Drake")
+        //   img    -> imagen que van a generar (guardarlas en la carpeta img/)
+        //   emoji  -> se usa solo mientras la imagen todavía no existe
+        //   ancho  -> cuánto ocupa la figura dentro de su imagen, de 0 a 1 (1 = todo el ancho del lienzo).
+        //             Sirve para dejar la MISMA separación visible entre figuras: una figura angosta
+        //             (hombrecito, faro) necesita más lugar alrededor que una ancha (iceberg, mapa).
+        //             Si una figura queda muy pegada a otra, bajale el número; si queda muy separada, subíselo.
+        // ============================================================
+        var paradas = [
+            { nombre: "Ushuaia",             img: "img/parada0-ushuaia.png",   emoji: "🏔️", ancho: 0.41 },
+            { nombre: "Canal Beagle",        img: "img/parada1-beagle.png",    emoji: "⚓", ancho: 0.31 },
+            { nombre: "Paso de Drake",       img: "img/parada2-drake.png",     emoji: "🌊", ancho: 0.94 },
+            { nombre: "Península Antártica", img: "img/parada3-peninsula.png", emoji: "🧊", ancho: 0.94 },
+            { nombre: "Base científica",     img: "img/parada4-base.png",      emoji: "🔬", ancho: 0.93 },
+            { nombre: "Antártida",           img: "img/parada5-antartida.png", emoji: "🐧", ancho: 0.94 }
+        ];
+
+        // Dibuja la línea del mar, las 6 paradas y el barco (se ejecuta una sola vez)
+        function dibujarRuta() {
+            var html = '<div class="linea"><div class="avance" id="avance"></div></div>';
+            paradas.forEach(function (p, i) {
+                html += '<div class="parada" style="left:' + (i * 20) + '%">' +
+                        '<img src="' + p.img + '" alt="' + p.nombre + '" data-emoji="' + p.emoji + '" ' +
+                        'onerror="this.outerHTML=\'<span class=emoji>\' + this.dataset.emoji + \'</span>\'">' +
+                        '<span class="punto"></span></div>';
+            });
+            html += '<img class="barco" id="barco" src="img/barco.png" alt="Barco" style="left:0%" ' +
+                    'onerror="this.outerHTML=\'<span class=barco id=barco style=left:0%>🚢</span>\'">';
+            $("#ruta").html(html);
+            posicionarParadas();
+        }
+
+        // Reparte las paradas para que el espacio VISIBLE entre figuras sea siempre el mismo.
+        // Guarda en "centros" la posición (en px) del centro de cada parada.
+        var centros = [];
+        var progresoActual = 0;
+
+        // Cómo se reparten las paradas en el mapa. Probá cada una y quedate con la que más te guste:
+        //   "parejo"  -> los puntos de la línea quedan a la misma distancia (la línea se ve simétrica)
+        //   "visible" -> queda el mismo espacio entre figuras, pero los puntos quedan desparejos
+        //   "mixto"   -> un punto medio entre las dos
+        var REPARTO_PARADAS = "parejo";
+
+        function posicionarParadas() {
+            var W = $("#ruta").width();                                   // ancho del mapa
+            var img = $(".parada img, .parada .emoji").first().outerWidth();  // tamaño de cada parada
+            var n = paradas.length;
+            var a = paradas.map(function (p) { return (p.ancho || 1) * img; });   // ancho visible de cada figura
+
+            // 1) Puntos a igual distancia
+            var parejo = paradas.map(function (p, i) { return W * i / (n - 1); });
+
+            // 2) Mismo espacio visible entre figuras
+            var visible = parejo;
+            var suma = 0;
+            for (var i = 1; i < n - 1; i++) suma += a[i];
+            var hueco = (W - a[0] / 2 - a[n - 1] / 2 - suma) / (n - 1);
+            if (hueco >= 0) {
+                visible = [0];
+                for (var j = 1; j < n; j++) {
+                    visible.push(visible[j - 1] + a[j - 1] / 2 + hueco + a[j] / 2);
+                }
+            }
+
+            if (REPARTO_PARADAS === "visible") {
+                centros = visible;
+            } else if (REPARTO_PARADAS === "mixto") {
+                centros = parejo.map(function (c, k) { return (c + visible[k]) / 2; });
+            } else {
+                centros = parejo;
+            }
+
+            $(".parada").each(function (k) { $(this).css("left", centros[k] + "px"); });
+            moverBarco(progresoActual);
+        }
+
+        // Posición horizontal del barco según el progreso (0 a 5), pasando por el centro de cada parada
+        function xDelBarco(progreso) {
+            var i = Math.min(Math.floor(progreso), paradas.length - 1);
+            if (i >= paradas.length - 1) return centros[paradas.length - 1];
+            return centros[i] + (centros[i + 1] - centros[i]) * (progreso - i);
+        }
+
+        // Mueve el barco y pinta las paradas. progreso va de 0 a 5.
+        function moverBarco(progreso) {
+            progresoActual = progreso;
+            var f = Math.min(Math.floor(progreso), 5);          // última parada alcanzada
+            var x = xDelBarco(progreso);
+            $("#avance").css("width", x + "px");
+            $("#barco").css("left", x + "px");
+            $(".parada").each(function (i) {
+                $(this).toggleClass("on", progreso >= i).toggleClass("actual", i === f);
+            });
+            $("#ubicacion").text(progreso === f
+                ? "📍 " + paradas[f].nombre
+                : "Navegando hacia " + paradas[f + 1].nombre);
+        }
+
+        // Si se cambia el tamaño de la ventana, se vuelven a repartir las paradas
+        $(window).on("resize", posicionarParadas);
+
+        // ---------- Pantalla de inicio ----------
+        function iniciar() {
+            estado = { nivel: 0, pregunta: 0, premio: -1, respondida: false, acerto: false };
+            moverBarco(0);
+
+            var lista = niveles.map(function (n, i) {
+                return "<li><b>" + (i + 1) + ".</b><span><b>" + n.nombre + "</b><br>" + n.premio + "</span></li>";
+            }).join("");
+
+            $("#vista").html(
+                "<h2>¿Hasta dónde llegás?</h2>" +
+                "<ul>" +
+                "<li>En cada nivel tenés que acertar todas las preguntas.</li>" +
+                "<li>Al superar un nivel asegurás tu premio y elegís: <b>RETIRARTE</b> o <b>SEGUIR</b>.</li>" +
+                "<li class='riesgo'>ATENCIÓN: Si continúas y te equivocas, perdés el premio acumulado.</li>" +
+                "</ul>" +
+                "<ol class='escalera'>" + lista + "</ol>" +
+                "<div class='acciones'><button class='btn btn-primary btn-lg btn-block' data-accion='zarpar'>Zarpar</button></div>"
+            );
+        }
+
+        // ---------- Empieza un nivel ----------
+        function empezarNivel() {
+            estado.pregunta = 0;
+            mostrarPregunta();
+        }
+
+        // ---------- Muestra la pregunta actual ----------
+        function mostrarPregunta() {
+            var nivel = niveles[estado.nivel];
+            var p = nivel.preguntas[estado.pregunta];
+            estado.respondida = false;
+            moverBarco(estado.nivel + estado.pregunta / nivel.preguntas.length);
+
+            var opciones = p.answers.map(function (texto, i) {
+                return "<button class='btn btn-default btn-block opcion' data-i='" + i + "'>" + texto + "</button>";
+            }).join("");
+
+            $("#vista").html(
+                "<div class='meta'>Nivel " + (estado.nivel + 1) + ": " + nivel.nombre + "</div>" +
+                "<p class='pregunta'>" + p.question + "</p>" +
+                opciones +
+                "<div id='resultado'></div>"
+            );
+        }
+
+        // ---------- El jugador elige una opción ----------
+        function responder(i) {
+            if (estado.respondida) return;
+            estado.respondida = true;
+
+            var nivel = niveles[estado.nivel];
+            var p = nivel.preguntas[estado.pregunta];
+            var acerto = (i === p.correct);
+            estado.acerto = acerto;
+
+            // Bloquea los botones y pinta la correcta en verde
+            $(".opcion").prop("disabled", true);
+            $(".opcion").eq(p.correct).removeClass("btn-default").addClass("btn-success");
+
+            if (acerto) {
+                toastr.success("Seguí así", "¡CORRECTO!");
+            } else {
+                $(".opcion").eq(i).removeClass("btn-default").addClass("btn-danger");
+                toastr.error("Se termina el viaje", "INCORRECTO");
+            }
+
+            var ultima = (estado.pregunta === nivel.preguntas.length - 1);
+            var textoBoton = !acerto ? "Ver resultado" : (ultima ? "Terminar nivel" : "Siguiente pregunta");
+
+            $("#resultado").html(
+                "<div class='explicacion'><b>" + (acerto ? "¡Correcto!" : "¡Incorrecto!") + "</b> " + p.info + "</div>" +
+                "<div class='acciones'><button class='btn btn-primary btn-lg btn-block' data-accion='siguiente'>" + textoBoton + "</button></div>"
+            );
+        }
+
+        // ---------- Después de ver la explicación ----------
+        function siguiente() {
+            if (!estado.acerto) return perder();   // un error y se termina
+
+            var nivel = niveles[estado.nivel];
+            if (estado.pregunta < nivel.preguntas.length - 1) {
+                estado.pregunta++;
+                return mostrarPregunta();
+            }
+            nivelSuperado();
+        }
+
+        // ---------- Nivel superado: retirarse o seguir ----------
+        function nivelSuperado() {
+            estado.premio = estado.nivel;          // el premio queda asegurado
+            moverBarco(estado.nivel + 1);
+            var actual = niveles[estado.nivel];
+
+            // Último nivel: premio final y celebración
+            if (estado.nivel === niveles.length - 1) {
+                $("#vista").html(
+                    "<h2>¡Llegaste a la Antártida!</h2>" +
+                    "<p>Completaste los 5 niveles sin errores.</p>" +
+                    "<div class='sello'>" + SELLO_SVG + "</div>" +
+                    "<div class='premio'>Premio final: " + actual.premio + "</div>" +
+                    "<div class='acciones'><button class='btn btn-primary btn-lg btn-block' data-accion='reiniciar'>Jugar de nuevo</button></div>"
+                );
+                celebrar();
+                return;
+            }
+
+            var prox = niveles[estado.nivel + 1];
+            $("#vista").html(
+                "<h2>Nivel " + (estado.nivel + 1) + " Desbloqueado</h2>" +
+                "<p>Premio asegurado:</p>" +
+                "<div class='premio'>" + actual.premio + "</div>" +
+                "<p><b>¡Todo o nada!</b> Si seguís y fallás, <span class='riesgo'>perdés este premio</span>.<br>" +
+                "Si acertás, ganás: <i>" + prox.premio + "</i></p>" +
+                "<div class='acciones'>" +
+                "<button class='btn btn-warning btn-lg btn-block' data-accion='seguir'>Seguir y arriesgar</button>" +
+                "<button class='btn btn-success btn-lg btn-block' data-accion='retirarse'>Retirarme con mi premio</button>" +
+                "</div>"
+            );
+        }
+
+        function seguir() {
+            estado.nivel++;
+            empezarNivel();
+        }
+
+        // ---------- Se retira con el premio asegurado ----------
+        function retirarse() {
+            $("#vista").html(
+                "<h2>Te retirás con tu premio</h2>" +
+                "<p>Llegaste hasta el nivel " + (estado.premio + 1) + " y te llevás:</p>" +
+                "<div class='premio'>" + niveles[estado.premio].premio + "</div>" +
+                "<p>Podés volver a jugar y buscar un premio mayor.</p>" +
+                "<div class='acciones'><button class='btn btn-primary btn-lg btn-block' data-accion='reiniciar'>Jugar de nuevo</button></div>"
+            );
+        }
+
+        // ---------- Perdió: también se pierde el premio asegurado ----------
+        function perder() {
+            var teniaPremio = estado.premio >= 0;
+            $("#vista").html(
+                "<h2>El viaje termina acá</h2>" +
+                (teniaPremio
+                    ? "<p>Fallaste en el nivel " + (estado.nivel + 1) + " y perdiste el premio que habías asegurado:</p>" +
+                      "<div class='premio'>" + niveles[estado.premio].premio + "</div>"
+                    : "<p>Fallaste en el nivel " + (estado.nivel + 1) + ". Todavía no habías asegurado ningún premio.</p>") +
+                "<p>Probá de nuevo desde el principio.</p>" +
+                "<div class='acciones'><button class='btn btn-primary btn-lg btn-block' data-accion='reiniciar'>Volver a intentar</button></div>"
+            );
+        }
+
+        // ============================================================
+        // CLICS: un solo lugar para todos los botones
+        // ============================================================
+        $(document).on("click", ".opcion", function () {
+            responder($(this).data("i"));
+        });
+
+        $(document).on("click", "[data-accion]", function () {
+            var acciones = {
+                zarpar: empezarNivel,
+                siguiente: siguiente,
+                seguir: seguir,
+                retirarse: retirarse,
+                reiniciar: iniciar
+            };
+            acciones[$(this).data("accion")]();
+        });
+
+        // ============================================================
+        // SELLO CIRCULAR: el texto sigue la curva del círculo (SVG)
+        // Para cambiar las frases, editá "VIAJE A LA ANTÁRTIDA" y "DESDE USHUAIA"
+        // ============================================================
+        var SELLO_SVG = `
+            <svg viewBox="0 0 200 200" role="img" aria-label="Sello: Viaje a la Antártida">
+                <defs>
+                    <path id="arcoArriba" d="M 34,100 A 66,66 0 0 1 166,100"/>
+                    <path id="arcoAbajo" d="M 20,100 A 80,80 0 0 0 180,100"/>
+                    <filter id="tinta"><!-- bordes irregulares, como un sello de tinta -->
+                        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="ruido"/>
+                        <feDisplacementMap in="SourceGraphic" in2="ruido" scale="2.5"/>
+                    </filter>
+                </defs>
+                <g filter="url(#tinta)" fill="#1F4E8C" stroke="#1F4E8C">
+                    <circle cx="100" cy="100" r="94" fill="none" stroke-width="5"/>
+                    <circle cx="100" cy="100" r="86" fill="none" stroke-width="1.5"/>
+                    <circle cx="100" cy="100" r="56" fill="none" stroke-width="2"/>
+                    <text font-family="Francois One, sans-serif" font-size="14" letter-spacing="1" stroke="none">
+                        <textPath href="#arcoArriba" startOffset="50%" text-anchor="middle">VIAJE A LA ANTÁRTIDA</textPath>
+                    </text>
+                    <text font-family="Francois One, sans-serif" font-size="14" letter-spacing="2" stroke="none">
+                        <textPath href="#arcoAbajo" startOffset="50%" text-anchor="middle">DESDE USHUAIA</textPath>
+                    </text>
+                </g>
+                <image href="img/pinguino.png" x="68" y="70" width="64" height="64"/>
+            </svg>`;
+
+        // ============================================================
+        // CELEBRACIÓN FINAL: nevada con copos y trocitos de hielo (imágenes propias)
+        // (usa el mismo <canvas id="confeti"> de antes)
+        // ============================================================
+
+        // Las imágenes se cargan una sola vez al abrir la página (carpeta img/).
+        // Si alguna no existe o tarda en cargar, se dibuja el emoji en su lugar.
+        function cargarImagen(ruta) {
+            var im = new Image();
+            im.src = ruta;
+            return im;
+        }
+        var IMG_COPO = cargarImagen("img/copo.png");
+        var IMG_HIELO = cargarImagen("img/hielo.png");
+
+        var celebrando = false;
+
+        function celebrar() {
+            if (celebrando) return;
+            // Si la persona pidió menos animaciones en su dispositivo, no se muestra
+            if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+            celebrando = true;
+
+            var canvas = document.getElementById("confeti");
+            var ctx = canvas.getContext("2d");
+            var w = canvas.width = window.innerWidth;
+            var h = canvas.height = window.innerHeight;
+            var escala = Math.max(0.6, Math.min(1, w / 700));   // más chico en el celular
+            var piezas = [];
+            var DURACION = 360;                                  // cuadros que dura la nevada (unos 6 segundos)
+
+            // Crea una pieza arriba de la pantalla que va a caer
+            function nueva(imagen, emoji, tam, velMin, velMax, giro) {
+                piezas.push({
+                    img: imagen,
+                    e: emoji,
+                    x: Math.random() * w, y: -40,
+                    vy: velMin + Math.random() * (velMax - velMin),   // velocidad de caída
+                    t: tam * escala,
+                    fase: Math.random() * 6,                          // para que cada una se mueva distinto
+                    vaiven: 0.5 + Math.random() * 1.2,                // cuánto se mece de lado a lado
+                    ang: Math.random() * 6,
+                    giro: (Math.random() - 0.5) * giro
+                });
+            }
+
+            var cuadros = 0;
+            (function animar() {
+                cuadros++;
+                ctx.clearRect(0, 0, w, h);
+
+                // Mientras dura la nevada, van apareciendo piezas nuevas
+                if (cuadros < DURACION) {
+                    if (Math.random() < 0.4) nueva(IMG_COPO, "❄️", 16 + Math.random() * 18, 1.2, 2.6, 0.04);  // copos
+                    if (cuadros % 24 === 0)  nueva(IMG_HIELO, "🧊", 26 + Math.random() * 10, 2, 3.2, 0.06);     // hielo
+                }
+
+                // Saca las que ya salieron por abajo, mueve y dibuja el resto
+                piezas = piezas.filter(function (p) { return p.y < h + 60; });
+                piezas.forEach(function (p) {
+                    p.y += p.vy;
+                    p.x += Math.sin(cuadros * 0.04 + p.fase) * p.vaiven;
+                    p.ang += p.giro;
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.ang);
+                    if (p.img.complete && p.img.naturalWidth > 0) {
+                        ctx.drawImage(p.img, -p.t / 2, -p.t / 2, p.t, p.t);   // imagen propia
+                    } else {
+                        ctx.font = p.t + "px sans-serif";                      // plan B: emoji
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(p.e, 0, 0);
+                    }
+                    ctx.restore();
+                });
+
+                // Sigue hasta que termina la nevada y cae la última pieza
+                if ((cuadros < DURACION || piezas.length > 0) && cuadros < 1500) {
+                    requestAnimationFrame(animar);
+                } else {
+                    ctx.clearRect(0, 0, w, h);
+                    celebrando = false;
+                }
+            })();
+        }
+
+        // Arranca el juego al cargar la página
+        dibujarRuta();
+        iniciar();
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rumbo a la Antártida</title>
+    <link href="https://fonts.googleapis.com/css?family=Francois+One" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            color: #0B2233;
+            /* Fondo: degradado de hielo. Si tienen una foto antártica propia, usen:
+               background: url(fondo-antartida.jpg) center / cover; */
+            background: linear-gradient(180deg, #9fd0e8 0%, #eaf4f9 100%);
+        }
+
+        .portada { padding: 24px; max-width: 520px; }
+
+        h1 {
+            font-family: 'Francois One', sans-serif;
+            font-size: clamp(34px, 9vw, 56px);
+            margin: 0 0 10px;
+            color: #0B2233;
+        }
+
+        p { font-size: 18px; margin: 0 0 28px; color: #35589D; }
+
+        /* Mismo estilo de botón "JUGAR" que tenían, con otro color */
+        .jugar {
+            display: inline-block;
+            padding: 14px 48px;
+            background: #35589D;
+            color: whitesmoke;
+            text-decoration: none;
+            font-family: 'Francois One', sans-serif;
+            font-size: 20px;
+            letter-spacing: 1px;
+            border-radius: 4px;
+        }
+        .jugar:hover { background: #274273; color: white; }
+    </style>
+</head>
+<body>
+    <div class="portada">
+        <h1>Rumbo a la Antártida</h1>
+        <p>Un viaje de 5 niveles desde Ushuaia. Cuanto más avanzás, mejor el premio, pero un error te lo puede costar todo.</p>
+        <a class="jugar" href="trivia.html">JUGAR</a>
+    </div>
+</body>
+</html>
