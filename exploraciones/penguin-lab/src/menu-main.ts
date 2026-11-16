@@ -25,8 +25,12 @@ setupUiToggle(document.getElementById('toggle-ui') as HTMLButtonElement);
 if(matchMedia('(pointer: coarse)').matches)document.body.classList.add('touch');
 // Terreno: ?terreno=sendero (por defecto), macizo o valle. Relieve sintético, no geografía real.
 const spec=terrainSpec(new URLSearchParams(location.search).get('terreno'));
+const cameraAzimuth=()=>CAMERA_AZIMUTH[spec.id]??spec.viewAzimuth;
 /** Cámara en perspectiva 3/4 elevada: distancia (m), elevación (rad) y altura del punto de mira. */
-const VIEW={distance:15,elevation:.8,lookHeight:.55};
+const VIEW={distance:30.7,elevation:.609,lookHeight:.55}; // vista medio isométrica elegida el 16/11/2026 (antes 15 m y 46°)
+/** Acimut de la cámara al empezar y al restablecer la vista, por isla (rad; 0 = cámara al sur). Sin dato: el de la isla.
+ *  Solo es el punto de partida: la cámara sigue libre (girar, acercar y alejar). */
+const CAMERA_AZIMUTH:Record<string,number>={sendero:2.672};
 const BACKGROUND='#e1e9ed';
 
 async function main(){
@@ -54,7 +58,7 @@ async function main(){
  // punto de aparición. Relieve SINTÉTICO, no REMA.
  const islandTerrain=new IslandTerrain(spec);
  const home=findSpawn(islandTerrain);
- {const look=new THREE.Vector3(home.x,islandTerrain.sample(home.x,home.z)+VIEW.lookHeight,home.z),a=spec.viewAzimuth,h=Math.cos(VIEW.elevation)*VIEW.distance;
+ {const look=new THREE.Vector3(home.x,islandTerrain.sample(home.x,home.z)+VIEW.lookHeight,home.z),a=cameraAzimuth(),h=Math.cos(VIEW.elevation)*VIEW.distance;
   camera.position.set(look.x+Math.sin(a)*h,look.y+Math.sin(VIEW.elevation)*VIEW.distance,look.z+Math.cos(a)*h);controls.target.copy(look);controls.update();}
  const gridCell=2*islandTerrain.half/64; // separación de la malla fina de la precarga (65 nodos por lado)
  const construction=createConstruction({renderer,camera,controls,background:new THREE.Color(BACKGROUND),k:1,reducedMotion,
@@ -83,10 +87,18 @@ async function main(){
  // Una por una: las automáticas no pisan a las ya ubicadas (1 m de separación).
  const structures:{spec:typeof STRUCTURES[number];s:IslandStructure}[]=[];
  structureGltfs.forEach((g,i)=>{if(!g)return;const st=STRUCTURES[i];
-  const s=placeIslandBase(g,terrain,ground.spawn,spec.viewAzimuth,savedPose(st,spec.id),{name:st.name,flag:st.flag,avoid:(x,z)=>structures.some(o=>o.s.blocks(x,z,1))});
+  const s=placeIslandBase(g,terrain,ground.spawn,spec.viewAzimuth,savedPose(st,spec.id),{name:st.name,flag:st.flag,lamps:st.lamps,avoid:(x,z)=>structures.some(o=>o.s.blocks(x,z,1))});
   if(!s.placed)console.warn(st.name+': sin lugar llano en esta isla');scene.add(s.group);structures.push({spec:st,s});});
+ // Reflejo del agua más liviano: cada estructura se dibuja en él con su versión simplificada; las que están lejos del
+ // agua (su reflejo no puede verse), ni eso. Se revisa al mover una estructura.
+ const mirrorSwap=ground.ocean.mirrorSwap!,baseHide=mirrorSwap.hide.slice(),baseShow=mirrorSwap.show.slice();
+ const updateMirrorList=()=>{
+  const near=structures.filter(o=>o.s.nearWater()),far=structures.filter(o=>!o.s.nearWater());
+  mirrorSwap.hide.splice(0,mirrorSwap.hide.length,...baseHide,...far.map(o=>o.s.group),...near.flatMap(o=>o.s.mirror?[o.s.mirror.full]:[]));
+  mirrorSwap.show.splice(0,mirrorSwap.show.length,...baseShow,...near.flatMap(o=>o.s.mirror?[o.s.mirror.low]:[]));};
+ updateMirrorList();
  if(structures.length)setupBaseEditor({items:structures,island:spec.id,islandName:spec.name,canvas:renderer.domElement,camera,controls,ground:scene.getObjectByName('isla')!,seaY:terrain.seaY,
-  container:document.querySelector('.controls') as HTMLElement,onChange:()=>ground.ocean.refresh()});
+  container:document.querySelector('.controls') as HTMLElement,onChange:()=>{updateMirrorList();ground.ocean.refresh();pushOut();}});
  const penguin=gltf.scene;applyKingPenguinColors(penguin);const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);scene.add(character);
  const mixer=new THREE.AnimationMixer(penguin);
  const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip.name.toLowerCase()==='swim'?groundedSlideClip(clip):clip)]));
@@ -101,7 +113,8 @@ async function main(){
  const unlockAudio=()=>stepAudio.unlock();renderer.domElement.addEventListener('pointerdown',unlockAudio);
  // Sin límite circular: la isla decide dónde se puede pisar (agua y laderas de más de 34° bloquean).
  // Hielo (lagunas, glaciares, toboganes): se desliza solo, con inercia (src/penguin-motion.ts, ICE).
- const motion=new PenguinMotion(Infinity,(x,z)=>terrain.canStand(x,z)&&!structures.some(o=>o.s.blocks(x,z)),(x,z)=>terrain.gradient(x,z),(x,z)=>terrain.ice(x,z));motion.setHome(ground.spawn.x,ground.spawn.z,spec.viewAzimuth-.75); // de tres cuartos hacia la cámara
+  // Estructuras: no se entran ni se atraviesan. Si una quedara encima del pingüino (al moverla), pushOut lo saca.
+ const motion=new PenguinMotion(Infinity,(x,z)=>terrain.canStand(x,z)&&!structures.some(o=>o.s.blocks(x,z)),(x,z)=>terrain.gradient(x,z),(x,z)=>terrain.ice(x,z));motion.setHome(ground.spawn.x,ground.spawn.z,cameraAzimuth()-.75); // de tres cuartos hacia la cámara
  // Puede bajar por laderas empinadas y caer de los bordes (no queda trabado arriba de lo que escaló); no al agua ni dentro de una estructura.
  motion.fall={height:(x,z)=>terrain.sample(x,z),canLand:(x,z)=>terrain.canLand(x,z)&&!structures.some(o=>o.s.blocks(x,z))};
  const feet=['LeftHindToe','RightHindToe'].map(name=>({bone:penguin.getObjectByName(name)!,point:new THREE.Vector3(),contact:false,last:new THREE.Vector2(Infinity,Infinity)}));
@@ -120,11 +133,13 @@ async function main(){
  function reset(){
   // Encuadre 3/4 elevado detrás del pingüino según la isla (acimut fijo, no gira con él).
   lookTarget.set(motion.x,ground.height(motion.x,motion.z)+VIEW.lookHeight,motion.z);
-  const a=spec.viewAzimuth,h=Math.cos(VIEW.elevation)*VIEW.distance;
+  const a=cameraAzimuth(),h=Math.cos(VIEW.elevation)*VIEW.distance;
   camera.position.set(lookTarget.x+Math.sin(a)*h,lookTarget.y+Math.sin(VIEW.elevation)*VIEW.distance,lookTarget.z+Math.cos(a)*h);
   controls.target.copy(lookTarget);controls.update();
  }
- motion.reset();placeCharacter();reset();
+ /** Si una estructura quedó encima del pingüino, lo saca por el borde más cercano (a tierra firme). */
+ function pushOut(){for(const o of structures){if(!o.s.blocks(motion.x,motion.z))continue;const out=o.s.exits(motion.x,motion.z).find(([x,z])=>terrain.canStand(x,z)&&!structures.some(q=>q.s.blocks(x,z)));if(out){motion.x=out[0];motion.z=out[1];motion.y=0;motion.verticalSpeed=0;}}}
+ motion.reset();pushOut();placeCharacter();reset();
  const movementStatus=document.getElementById('movement-status')!;let lastState='';
  let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
@@ -145,6 +160,7 @@ async function main(){
   const x=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'))+touch.input.x;
   const z=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'))+touch.input.z;
   direction.copy(right).multiplyScalar(x).addScaledVector(forward,z);
+  pushOut();
   const oldX=motion.x,oldZ=motion.z;
   motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight')||touch.input.run,dt,(keys.has('KeyE')||touch.input.slide)&&!!swim);
   if(motion.sliding&&motion.moving){
@@ -235,8 +251,11 @@ async function main(){
  construction.patch(scene);
  // Dos variantes de cada material: la pantalla y el reflejo del agua (un render target: sin tone mapping ni sRGB).
  // Se compilan las dos ahora, en paralelo; si no, la del reflejo congelaba el primer cuadro (~3 s, medido).
+ // las versiones simplificadas del reflejo están ocultas: se muestran solo para compilarlas con la variante del reflejo
+ for(const o of structures)if(o.s.mirror)o.s.mirror.low.visible=true;
  const mirrorProbe=new THREE.WebGLRenderTarget(1,1);renderer.setRenderTarget(mirrorProbe);
  const compileMirror=renderer.compileAsync(scene,camera);renderer.setRenderTarget(null);
+ for(const o of structures)if(o.s.mirror)o.s.mirror.low.visible=false;
  await Promise.all([compileMirror,renderer.compileAsync(scene,camera)]).catch(()=>{});
  // Primer dibujo fuera de pantalla (todo descartado por el revelado): sube texturas y geometría y arma la sombra y el
  // reflejo (~0,35 s, medido) con la malla todavía en pantalla. Si no, ese tirón caía en el primer cuadro del revelado.

@@ -50,9 +50,24 @@ ESTRUCTURAS EN LAS ISLAS (16/11/2026, prueba): base antartica, estacion de comun
     textura: FlagSwap en STRUCTURES) y se cuelga del mismo mastil una tela de 24 x 14 segmentos (~0,8 x 0,5 m) que
     flamea en el vertex shader (sin costo de CPU), con textura dibujada en canvas: franjas celeste y blanca y el Sol de
     Mayo simplificado (sin rostro).
+  Faroles del vehiculo oruga que titilan (src/island/lamps.ts): los 3 lentes (techo, adelante izquierda y derecha),
+    ubicados por posicion y color crema de la textura, pasan a una malla propia con luz emitida y un halo muy sutil (opacidad 0,22). Cada
+    uno falla a su ritmo (semilla propia): apagones cortos, tartamudeos, bajas de tension y a veces un apagon de ~1 s
+    (prendido ~65-70 % del tiempo). Apagado, el lente se oscurece. Decorativo.
+  Reflejo mas liviano (16/11/2026): en el reflejo del agua cada estructura se dibuja con una version simplificada
+    (agrupacion de vertices en una grilla de 34 celdas, color promedio de la textura por vertice, Lambert): 5.700-9.300
+    triangulos en vez de ~52.000; las que esten a mas de 8 m del agua no se dibujan en el reflejo. Con las cuatro en
+    Sendero: 430.000 -> 250.000 triangulos con el reflejo redibujado; la GPU ahorra poco (~0,2-0,5 ms): lo que pesa es
+    el sombreado de la nieve y el agua en pantalla.
+    El reflejo se redibuja en todos los cuadros: con 1 de cada 2 daba pasos y titilaba con la camara en movimiento, y
+    con la camara quieta dejaba congelado lo animado (~0,5 ms por cuadro con las versiones simplificadas).
+  Las estructuras no se entran ni se atraviesan. Si una queda encima del pinguino (al moverla), se lo saca solo por el
+  borde libre mas cercano. Probado en las cuatro: desde 4 lados no entra; puesto en el centro, sale.
+  Camara: arranca (y "Restablecer vista" vuelve) en una vista medio isometrica elegida a mano: 30,7 m, 35° de
+    elevacion; en Sendero, acimut 2,672 rad (CAMERA_AZIMUTH en menu-main.ts). Sigue libre: girar, acercar y alejar.
   Mover estructuras (boton, src/island/base-editor.ts): arrastrar una estructura (queda elegida), Z / X girar, + / -
   tamaño; se guarda en el navegador y "Copiar ubicacion" da texto y un enlace con ?<id>X, ?<id>Z, ?<id>Giro y ?<id>Alto
-  (ids: base, comunicaciones, antena, oruga). Vehiculo oruga fijo en Sendero: x 18,27, z 13,19 m, giro -25°, 3,5 m de alto. Antena fija en Sendero: x 14,55, z 18,99 m, giro -64°, 4,5 m de alto.
+  (ids: base, comunicaciones, antena, oruga). Vehiculo oruga fijo en Sendero: x 17,92, z 13,96 m, giro -100°, 3,5 m de alto. Antena fija en Sendero: x 14,55, z 18,99 m, giro -64°, 4,5 m de alto.
   Con las tres en Sendero: 60 FPS quieto, caminando y con la camara lejos (~280.000 triangulos en vista lejana). Lugares fijos en Sendero: estacion en x 6,19, z 17,41 m, giro 169°, 6 m de alto.  La camara se aleja hasta 90 m (la niebla se corre con la distancia).
   Medido en el navegador de la app (Sendero): 60 FPS quieto y caminando (cuadro mediano 16,5-16,7 ms).
 

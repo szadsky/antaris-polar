@@ -25,7 +25,11 @@ const WATER_COLOR = 0x103a42;
 // Color propio del agua poco profunda junto a la costa (turquesa claro): color según la profundidad.
 const SHALLOW_COLOR = 0x2f8f95;
 // Reflejo planar con la cámara en movimiento: uno de cada N cuadros (1 = todos), como en el visor.
-const MIRROR_EVERY = 2;
+/** Reflejo planar: se redibuja en todos los cuadros (16/11/2026). Con uno de cada 2 (como en el visor), el cuadro que
+ *  reusaba el anterior quedaba corrido respecto de la cámara que sigue al pingüino (pasos, titileo), y con la cámara quieta
+ *  lo animado (pingüino, faroles, bandera) quedaba congelado en el agua. Con las estructuras simplificadas en el reflejo
+ *  cuesta ~0,5 ms por cuadro. */
+const MIRROR_EVERY = 1;
 /** Alcances (m del visor) de la cercanía a la costa: tinte de orilla (canal G) y color por profundidad (canal A). */
 export const SHORE_M = 160, FAR_SHORE_M = 1500;
 
@@ -196,17 +200,20 @@ export function createOcean(o: { radius: number; sun: THREE.Vector3; mobile: boo
   const world = new THREE.Matrix4(), projection = new THREE.Matrix4();
   mesh.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
     const changed = !world.equals(camera.matrixWorld) || !projection.equals(camera.projectionMatrix);
-    if (!dirty && !changed) return;
     if (!dirty && changed && MIRROR_EVERY > 1 && (++moveFrames % MIRROR_EVERY) !== 0) { u.eye.value.setFromMatrixPosition(camera.matrixWorld); return; }
     const swap = o.mirrorSwap;
+    // se restaura la visibilidad que tenía cada objeto (una estructura sin lugar está oculta y debe seguir así)
+    const was = swap ? swap.hide.map((h) => h.visible) : [];
     if (swap) { for (const h of swap.hide) h.visible = false; for (const v of swap.show) v.visible = true; }
     try { mirror.call(mesh, renderer, scene, camera, geometry, material, group); }
-    finally { if (swap) { for (const h of swap.hide) h.visible = true; for (const v of swap.show) v.visible = false; } }
+    finally { if (swap) { swap.hide.forEach((h, i) => { h.visible = was[i]; }); for (const v of swap.show) v.visible = false; } }
     mirrorRenders++;
     world.copy(camera.matrixWorld); projection.copy(camera.projectionMatrix); dirty = false;
   };
   return {
     mesh,
+    /** Objetos que se cambian durante el dibujo del reflejo (se pueden agregar después). */
+    mirrorSwap: o.mirrorSwap,
     /** Luz del sol (como en el visor: color × luz directa, agua más oscura de noche). */
     setSun(direction: THREE.Vector3, color: THREE.Color, direct = 1, daylight = 1) {
       u.sunDirection.value.copy(direction).normalize();

@@ -160,7 +160,7 @@ export class IslandGround {
 
     // ── Agua ────────────────────────────────────────────────────────────────
     // La del visor de bases (reflejo planar, oleaje sedoso, color por distancia a la costa, espuma), a escala de isla.
-    this.ocean = createOcean({ radius: 125, mirrorSwap: { hide: [ground], show: [reflection] }, sun: new THREE.Vector3(...SUN_DIRECTION), mobile: !!opts.mobile, maxAniso: opts.maxAniso ?? 1,
+    this.ocean = createOcean({ radius: 125, mirrorSwap: { hide: [ground], show: [reflection] as THREE.Object3D[] }, sun: new THREE.Vector3(...SUN_DIRECTION), mobile: !!opts.mobile, maxAniso: opts.maxAniso ?? 1,
       scale: WATER_SCALE, shore: oceanShore(maps.sdf, t.n, t.half, WATER_SCALE) });
     this.ocean.mesh.position.y = t.seaY;
     this.group.add(this.ocean.mesh);

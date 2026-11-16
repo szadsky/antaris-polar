@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { IslandTerrain } from './island-terrain';
 import { createFlag } from './flag';
+import { addLamps, type LampSpec } from './lamps';
 
 /**
  * Estructuras antárticas (modelos 3D decorativos: base, estación de comunicaciones, antena parabólica, vehículo oruga) apoyadas en la isla de práctica.
@@ -22,6 +23,8 @@ export interface StructureSpec {
   poses: Record<string, BasePose>;
   /** Bandera del modelo reemplazada por una que flamea (coordenadas locales de la malla del GLB, ver FlagSwap). */
   flag?: FlagSwap;
+  /** Faroles que titilan con un desperfecto propio (coordenadas locales de la malla del GLB, ver lamps.ts). */
+  lamps?: LampSpec[];
 }
 type Box = { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number };
 /**
@@ -47,13 +50,19 @@ export const STRUCTURES: StructureSpec[] = [
     poses: { sendero: { x: 14.55, z: 18.99, yaw: -1.1236, height: 4.5 } } },
   { id: 'oruga', name: 'Vehículo oruga', url: 'assets/models/vehiculo-oruga-web.glb', height: 2.6,
     // elegido con "Mover estructuras" (16/11/2026; tamaños ajustados el mismo día)
-    poses: { sendero: { x: 18.27, z: 13.19, yaw: -0.4382, height: 3.5 } } },
+    poses: { sendero: { x: 17.92, z: 13.96, yaw: -1.7472, height: 3.5 } },
+    // faroles ubicados en la malla el 16/11/2026 por el color de sus lentes (eje vertical en −z): techo, adelante izq. y der.
+    lamps: [
+      { box: { x0: -0.36, x1: -0.25, y0: 0.38, y1: 0.48, z0: -0.335, z1: -0.24 }, seed: 1.7 },
+      { box: { x0: -0.83, x1: -0.71, y0: 0.385, y1: 0.5, z0: 0.31, z1: 0.4 }, seed: 4.2 },
+      { box: { x0: -0.42, x1: -0.3, y0: 0.75, y1: 0.86, z0: 0.31, z1: 0.4 }, seed: 7.9 },
+    ] },
 ];
 
 const MARGIN = 0.35; // m alrededor de la planta que el pingüino no pisa
 
 export function placeIslandBase(gltf: GLTF, t: IslandTerrain, home: { x: number; z: number }, viewAzimuth: number, pose: Partial<BasePose> & { height: number },
-  o: { name: string; avoid?: (x: number, z: number) => boolean; flag?: FlagSwap } = { name: 'estructura' }) {
+  o: { name: string; avoid?: (x: number, z: number) => boolean; flag?: FlagSwap; lamps?: LampSpec[] } = { name: 'estructura' }) {
   const model = gltf.scene;
   // Planta centrada en el origen del grupo, apoyada en y = 0; la escala se aplica al grupo interior.
   const inner = new THREE.Group();
@@ -65,6 +74,8 @@ export function placeIslandBase(gltf: GLTF, t: IslandTerrain, home: { x: number;
   const group = new THREE.Group(); group.name = `${o.name} (modelo decorativo)`;
   group.add(inner);
   const flag = o.flag ? swapFlag(model, o.flag) : null;
+  const lamps = o.lamps ? addLamps(model, o.lamps) : null;
+  const mirrorProxy = lowPolyProxy(model);
 
   const cur: BasePose = { x: 0, z: 0, yaw: 0, height: pose.height };
   let halfW = 0, halfD = 0;
@@ -112,10 +123,38 @@ export function placeIslandBase(gltf: GLTF, t: IslandTerrain, home: { x: number;
 
   return {
     group, model, name: o.name, get placed() { return placed; },
+    /** Para el reflejo del agua: la malla completa se oculta y se muestra la simplificada. */
+    mirror: mirrorProxy,
     pose: () => ({ ...cur }),
-    /** Anima lo que se mueve (la bandera). */
-    update(t: number) { flag?.update(t); },
+    /** Anima lo que se mueve (la bandera, los faroles). */
+    update(t: number) { flag?.update(t); lamps?.update(t); },
     setPose(p: Partial<BasePose>) { placed = true; group.visible = true; setPose(p); },
+    /**
+     * ¿Puede verse su reflejo? Hay agua a menos de `reach` m de su planta (de 8 m, para una altura de 6,5 m mirada desde
+     * arriba). Si no, en el reflejo del agua no se dibuja: ahorra sus ~52.000 triángulos en el segundo dibujo.
+     */
+    nearWater(reach = 8) {
+      if (!placed) return false;
+      const R = Math.hypot(halfW, halfD) + reach;
+      for (let r = Math.hypot(halfW, halfD); r <= R; r += 0.5) for (let a = 0; a < Math.PI * 2; a += 0.2) {
+        const x = cur.x + Math.cos(a) * r, z = cur.z + Math.sin(a) * r;
+        if (Math.abs(x) > t.half || Math.abs(z) > t.half || t.sample(x, z) < t.seaY) return true;
+      }
+      return false;
+    },
+    /** Cuánto adentro de la planta (con margen) está el punto: distancia al borde más cercano (m); 0 = afuera. */
+    depth(x: number, z: number) {
+      if (!placed) return 0;
+      const dx = x - cur.x, dz = z - cur.z, c = Math.cos(cur.yaw), s = Math.sin(cur.yaw), lx = dx * c - dz * s, lz = dx * s + dz * c;
+      return Math.max(0, Math.min(halfW + MARGIN - Math.abs(lx), halfD + MARGIN - Math.abs(lz)));
+    },
+    /** Salidas de la planta: el punto afuera de cada uno de sus 4 bordes (5 cm de holgura), del más cercano al más lejano. */
+    exits(x: number, z: number): [number, number][] {
+      const dx = x - cur.x, dz = z - cur.z, c = Math.cos(cur.yaw), s = Math.sin(cur.yaw);
+      const lx = dx * c - dz * s, lz = dx * s + dz * c, W = halfW + MARGIN + 0.05, D = halfD + MARGIN + 0.05;
+      const opts: [number, number, number][] = [[W, lz, W - lx], [-W, lz, W + lx], [lx, D, D - lz], [lx, -D, D + lz]];
+      return opts.sort((a, b) => a[2] - b[2]).map(([px, pz]) => [cur.x + px * c + pz * s, cur.z - px * s + pz * c]);
+    },
     /** Planta (con margen) que el pingüino no pisa. */
     blocks(x: number, z: number, extra = 0) {
       if (!placed) return false;
@@ -163,4 +202,59 @@ function swapFlag(model: THREE.Object3D, f: FlagSwap) {
   flag.mesh.matrix.makeBasis(X, Y, Z).setPosition(...f.hoist);
   m.add(flag.mesh);
   return flag;
+}
+
+/**
+ * Versión simplificada para el reflejo del agua: agrupación de vértices en una grilla de ~`cells` celdas por lado
+ * (O(n), unos ms): cada vértice pasa al promedio de su celda y se descartan los triángulos que se aplastan. Lleva el
+ * color promedio de la textura en cada celda (color por vértice, material Lambert): con texturas, al juntar vértices de
+ * partes distintas del mapa, se revolvían. Con el oleaje y a 512 px, el reflejo no deja ver la diferencia y el segundo
+ * dibujo cuesta una fracción.
+ */
+function lowPolyProxy(model: THREE.Object3D, cells = 34) {
+  let mesh: THREE.Mesh | null = null;
+  model.traverse((m) => { if (!mesh && m instanceof THREE.Mesh) mesh = m; });
+  if (!mesh) return null;
+  const m = mesh as THREE.Mesh, g = m.geometry, pos = g.getAttribute('position'), uv = g.getAttribute('uv'), index = g.index;
+  if (!index) return null;
+  // color de la textura (una lectura, en lineal: el material Lambert trabaja en lineal)
+  const img = (m.material as THREE.MeshStandardMaterial).map?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
+  let data: Uint8ClampedArray | null = null, W = 0, H = 0;
+  if (img && uv) { const c = document.createElement('canvas'); W = c.width = img.width; H = c.height = img.height; const ctx = c.getContext('2d', { willReadFrequently: true })!; ctx.drawImage(img, 0, 0); data = ctx.getImageData(0, 0, W, H).data; }
+  const lin = (v: number) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  g.computeBoundingBox();
+  const bb = g.boundingBox!, size = bb.getSize(new THREE.Vector3()), step = Math.max(size.x, size.y, size.z) / cells;
+  const cellOf = new Map<string, number>(), acc: number[] = [], col: number[] = [], count: number[] = [];
+  const v = new THREE.Vector3();
+  const id = (i: number) => {
+    v.fromBufferAttribute(pos, i);
+    const k = Math.floor((v.x - bb.min.x) / step) + ',' + Math.floor((v.y - bb.min.y) / step) + ',' + Math.floor((v.z - bb.min.z) / step);
+    let c = cellOf.get(k);
+    if (c === undefined) { c = count.length; cellOf.set(k, c); count.push(0); acc.push(0, 0, 0); col.push(0, 0, 0); }
+    acc[c * 3] += v.x; acc[c * 3 + 1] += v.y; acc[c * 3 + 2] += v.z; count[c]++;
+    if (data && uv) {
+      const o = (Math.min(H - 1, Math.max(0, Math.floor(uv.getY(i) * H))) * W + Math.min(W - 1, Math.max(0, Math.floor(uv.getX(i) * W)))) * 4;
+      col[c * 3] += lin(data[o]); col[c * 3 + 1] += lin(data[o + 1]); col[c * 3 + 2] += lin(data[o + 2]);
+    } else { col[c * 3] += 0.8; col[c * 3 + 1] += 0.8; col[c * 3 + 2] += 0.8; }
+    return c;
+  };
+  const seen = new Set<string>(), idx: number[] = [];
+  for (let t = 0; t < index.count / 3; t++) {
+    const a = id(index.getX(t * 3)), b = id(index.getX(t * 3 + 1)), c = id(index.getX(t * 3 + 2));
+    if (a === b || b === c || a === c) continue;
+    const key = [a, b, c].sort((p, q) => p - q).join(',');
+    if (seen.has(key)) continue;
+    seen.add(key); idx.push(a, b, c);
+  }
+  const P: number[] = [], C: number[] = [];
+  for (let c = 0; c < count.length; c++) { const n = count[c]; P.push(acc[c * 3] / n, acc[c * 3 + 1] / n, acc[c * 3 + 2] / n); C.push(col[c * 3] / n, col[c * 3 + 1] / n, col[c * 3 + 2] / n); }
+  const proxy = new THREE.BufferGeometry();
+  proxy.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  proxy.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  proxy.setIndex(idx); proxy.computeVertexNormals(); proxy.computeBoundingSphere();
+  const low = new THREE.Mesh(proxy, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  low.name = 'reflejo simplificado'; low.visible = false;
+  low.position.copy(m.position); low.quaternion.copy(m.quaternion); low.scale.copy(m.scale);
+  m.parent!.add(low);
+  return { full: m as THREE.Object3D, low: low as THREE.Object3D, triangles: idx.length / 3 };
 }
