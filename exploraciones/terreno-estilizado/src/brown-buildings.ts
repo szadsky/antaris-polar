@@ -57,6 +57,6 @@ export function createBrownBuildings(scene:THREE.Scene,camera:THREE.PerspectiveC
  }
  panel.querySelector('button')!.onclick=()=>{const target=focus.clone();target.y*=k;controls.target.copy(target);camera.position.copy(target).add(new THREE.Vector3(span*.4,span*.65,span*.8));controls.update();redraw();};
  select.onchange=rebuild;input.onchange=rebuild;
- void fetch('/terreno/brown/buildings.json',{signal:abort.signal}).then(async r=>{if(!r.ok)throw Error('No se pudieron cargar los contornos');const d:Data=await r.json();if(d.crs!=='EPSG:3031')throw Error('Proyección incompatible');if(disposed)return;data=d;rebuild();}).catch(e=>{if(!disposed)result.textContent=String(e);});
+ void fetch(import.meta.env.BASE_URL+'terreno/brown/buildings.json',{signal:abort.signal}).then(async r=>{if(!r.ok)throw Error('No se pudieron cargar los contornos');const d:Data=await r.json();if(d.crs!=='EPSG:3031')throw Error('Proyección incompatible');if(disposed)return;data=d;rebuild();}).catch(e=>{if(!disposed)result.textContent=String(e);});
  return {setTerrain(t:Terrain,m:TerrainMeta,scale:number){terrain=t;meta=m;k=scale;rebuild();},setExaggeration(scale:number){k=scale;root.scale.y=k;},dispose(){disposed=true;abort.abort();clear();scene.remove(root);lineMaterial.dispose();wallMaterial.dispose();roofMaterial.dispose();panel.remove();}};
 }

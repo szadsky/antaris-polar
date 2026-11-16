@@ -1,6 +1,5 @@
 /* Tipografías (OFL, servidas desde el propio sitio con @fontsource): Geist para títulos, textos y navegación;
-   IBM Plex Mono para las coordenadas. La navbar del diseño usa Suisse Intl (licencia comercial, no disponible en el
-   proyecto): se reemplaza por Geist Medium hasta tener la licencia. */
+   IBM Plex Mono para las coordenadas. La navegación entre sitios (con su tipografía) está en compartido/navbar. */
 @import '@fontsource/geist/300.css';
 @import '@fontsource/geist/500.css';
 @import '@fontsource/ibm-plex-mono/500.css';
@@ -13,10 +12,6 @@
   --focus: #ffd166;
   /* Figma (Gamezone · david, nodos 2597:1016 y 2534:25) */
   --texto: #262626;
-  --nav-texto: #232c45;
-  --nav-fondo: rgb(227 230 236 / .8);
-  --nav-sombra: 0 1px 3px rgb(52 68 110 / .25), 0 4px 5px rgb(52 68 110 / .1);
-  --nav-sombra-int: inset 0 -1px 2px rgb(231 235 246 / .6), inset 0 -10px 10px 2px rgb(66 79 116 / .1);
   --sans: Geist, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   color-scheme: light;
@@ -30,52 +25,6 @@ a { color: inherit; }
 
 .skip { position: absolute; left: 12px; top: -48px; z-index: 20; padding: 8px 14px; background: var(--paper); border-radius: 6px; }
 .skip:focus { top: 12px; }
-
-/* ── Navegación entre sitios ─────────────────────────────────────────────────────────────────────────────── */
-.site-header {
-  position: absolute; inset: 0 0 auto 0; z-index: 10; display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; padding: clamp(12px, 1vw, 20px) clamp(16px, 3.33vw, 64px) 0;
-}
-.brand { font: 500 clamp(16px, 1vw, 20px)/1.2 var(--sans); color: #000; text-decoration: none; white-space: nowrap; }
-.site-nav { position: relative; }
-.site-nav__list {
-  position: relative; display: flex; align-items: center; gap: clamp(10px, .83vw, 16px); margin: 0; padding: clamp(9px, .67vw, 13px) clamp(16px, 1.33vw, 26px); list-style: none;
-  border-radius: clamp(11px, .67vw, 13px); background: var(--nav-fondo); box-shadow: var(--nav-sombra), var(--nav-sombra-int); overflow: clip;
-}
-.site-nav__list li { display: flex; align-items: center; gap: clamp(10px, .83vw, 16px); }
-.site-nav__sep { display: block; width: 1px; height: 1em; }
-.site-nav__list { font-size: clamp(12px, .67vw, 14px); }
-.site-nav__list a, .site-nav__pronto { font: 500 1em/1 var(--sans); color: var(--nav-texto); text-decoration: none; white-space: nowrap; }
-.site-nav__list a { position: relative; }
-/* Zona táctil de 44 px sin cambiar el tamaño visual del diseño */
-.site-nav__list a::before { content: ""; position: absolute; inset: -14px -10px; }
-.site-nav__list a:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
-.site-nav__pronto { cursor: default; }
-/* El amarillo general casi no contrasta con la cápsula clara ni con el cielo: foco oscuro en la navegación. */
-.brand:focus-visible, .site-nav__list a:focus-visible, .site-nav__toggle:focus-visible { outline: 2px solid var(--nav-texto); outline-offset: 4px; border-radius: 4px; }
-.site-nav__toggle { display: none; }
-
-@media (max-width: 760px) {
-  .site-header { padding-top: 16px; }
-  .brand { font-size: 17px; }
-  .site-nav__toggle {
-    display: block; min-height: 40px; padding: 0 16px; border: 0; border-radius: 12px; font: 500 15px/1 var(--sans);
-    color: var(--nav-texto); background: var(--nav-fondo); box-shadow: var(--nav-sombra), var(--nav-sombra-int); cursor: pointer;
-  }
-  .site-nav__list {
-    position: absolute; right: 0; top: calc(100% + 8px); flex-direction: column; align-items: stretch; gap: 0;
-    min-width: 220px; padding: 8px 0; background: rgb(227 230 236 / .95);
-  }
-  .site-nav__list li { gap: 0; }
-  .site-nav__sep { display: none; }
-  .site-nav__list { font-size: 15px; }
-  .site-nav__list a, .site-nav__pronto { display: block; width: 100%; padding: 13px 20px; }
-  .site-nav__list a::before { content: none; }
-  .site-nav__pronto { opacity: .6; }
-  /* El aviso que en escritorio solo oye el lector de pantalla, acá también se ve (un solo texto, sin duplicar). */
-  .site-nav__pronto .sr { position: static; width: auto; height: auto; overflow: visible; clip-path: none; font-size: 13px; }
-  .site-nav:not(.is-open) .site-nav__list { display: none; }
-}
 
 /* ── Hero ────────────────────────────────────────────────────────────────────────────────────────────────── */
 .hero { position: relative; height: 100svh; min-height: 520px; overflow: hidden; background: #9bb7d9; }

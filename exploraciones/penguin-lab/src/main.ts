@@ -1,3 +1,5 @@
+import { mountSiteNav } from '../../../compartido/navbar/navbar';
+mountSiteNav({ actual: 'laboratorio' }); // navegación común entre los sitios de Antaris Polar
 import {applyKingPenguinColors} from './king-penguin-colors';
 import {groundedSlideClip,slideSupportWeight} from './slide-animation';
 import {FootstepAudio} from './footstep-audio';

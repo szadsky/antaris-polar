@@ -49,7 +49,7 @@ async function main() {
 
   const params = new URLSearchParams(location.search);
   if (params.get("ui") === "0") document.body.classList.add("no-ui", "captura");
-  const index: { bases: { id: string; nombre: string }[] } = await (await fetch("/terreno/index.json")).json();
+  const index: { bases: { id: string; nombre: string }[] } = await (await fetch(import.meta.env.BASE_URL + "terreno/index.json")).json();
   const baseId = (params.get("base") ?? "brown").replace(/[^a-z0-9-]/g, "");
   for (const b of index.bases) baseEl.add(new Option(b.nombre.replace(/^Base (Antártica )?/, ""), b.id, false, b.id === baseId));
   baseEl.addEventListener("change", () => {
@@ -57,7 +57,7 @@ async function main() {
     location.search = params.toString();
   });
 
-  const dir = `/terreno/${baseId}`;
+  const dir = `${import.meta.env.BASE_URL}terreno/${baseId}`;
   const metaRes = await fetch(`${dir}/terreno.json`);
   if (!metaRes.ok) return showStatus(`No hay terreno procesado para "${baseId}".`);
   const meta: TerrainMeta = await metaRes.json();

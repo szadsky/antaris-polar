@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 // Transcodificador Basis de Three.js (para las texturas KTX2): en desarrollo se sirve desde
 // node_modules; en el build se copia a basis/ junto a la página.
@@ -39,8 +40,11 @@ const reflectionBake = (): Plugin => ({
 // Los terrenos ya procesados son los mismos de terreno-nitidez (alturas 4 m / 8 m,
 // paso 0,5 m): se leen de ahí para no duplicar ~8,5 MB en el repositorio.
 export default defineConfig({
+  // En el sitio armado el visor vive en /descubrir/ (scripts/build-site.mjs pasa VISOR_BASE); solo, en la raíz.
+  base: process.env.VISOR_BASE ?? "/",
   publicDir: "../terreno-nitidez/public",
-  server: { port: 3400 },
+  // compartido/navbar (la navegación común) está fuera de esta carpeta: se habilita para el servidor de desarrollo.
+  server: { port: 3400, fs: { allow: [fileURLToPath(new URL(".", import.meta.url)), fileURLToPath(new URL("../../compartido", import.meta.url))] } },
   assetsInclude: ["**/*.ktx2"],
   plugins: [basisTranscoder(), reflectionBake()],
   // Three.js en su propio archivo: cambia poco, así el navegador lo guarda en caché aparte del código del visor.

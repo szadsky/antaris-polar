@@ -1,5 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../penguin-lab ../terreno-nitidez/public ../../scripts"
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../penguin-lab ../terreno-nitidez/public ../../scripts ../../compartido"
 }

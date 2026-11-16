@@ -6,8 +6,8 @@
     "node": ">=22.7.0"
   },
   "scripts": {
-    "setup": "npm --prefix exploraciones/terreno-estilizado ci && npm --prefix exploraciones/penguin-lab ci",
-    "build": "npm --prefix exploraciones/terreno-estilizado run build && node scripts/assemble-site.mjs",
+    "setup": "npm --prefix exploraciones/terreno-estilizado ci && npm --prefix exploraciones/penguin-lab ci && npm --prefix exploraciones/hero ci --omit=dev",
+    "build": "node scripts/build-site.mjs",
     "preview": "node scripts/preview-site.mjs",
     "test:penguin": "npm --prefix exploraciones/penguin-lab test"
   }

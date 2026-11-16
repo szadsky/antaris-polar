@@ -1,0 +1,92 @@
+/* Navegación común de Antaris Polar (Figma «Gamezone · david», nodo 2597:1016), al 80 % del diseño a 1920 px y
+   proporcional al ancho. Selectores con prefijo .site-nav-bar: los sitios tienen reglas genéricas (button, header, a)
+   que no deben alcanzarla. La tipografía del diseño (Suisse Intl) tiene licencia comercial: se usa Geist (OFL). */
+@font-face {
+  font-family: "Geist"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url(./fuentes/geist-latin-500-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+.site-nav-bar {
+  --snb-texto: #232c45;
+  --snb-fondo: rgb(227 230 236 / .8);
+  --snb-sombra: 0 1px 3px rgb(52 68 110 / .25), 0 4px 5px rgb(52 68 110 / .1);
+  --snb-sombra-int: inset 0 -1px 2px rgb(231 235 246 / .6), inset 0 -10px 10px 2px rgb(66 79 116 / .1);
+  --snb-fuente: Geist, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  position: fixed; z-index: 50; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: max(clamp(12px, 1vw, 20px), env(safe-area-inset-top)) max(clamp(16px, 3.33vw, 64px), env(safe-area-inset-right)) 0 max(clamp(16px, 3.33vw, 64px), env(safe-area-inset-left));
+  pointer-events: none; font-family: var(--snb-fuente); color: var(--snb-texto); text-align: left; line-height: 1;
+}
+.site-nav-bar > * { pointer-events: auto; }
+.site-nav-bar ul { margin: 0; padding: 0; list-style: none; }
+.site-nav-bar li { margin: 0; }
+
+.site-nav-bar .site-nav__brand {
+  font: 500 clamp(16px, 1vw, 20px)/1.2 var(--snb-fuente); color: #000; text-decoration: none; white-space: nowrap; letter-spacing: normal;
+}
+.site-nav-bar .site-nav { position: relative; }
+.site-nav-bar .site-nav__list {
+  position: relative; display: flex; align-items: center; gap: clamp(10px, .83vw, 16px);
+  padding: clamp(9px, .67vw, 13px) clamp(16px, 1.33vw, 26px); font-size: clamp(12px, .67vw, 14px);
+  border-radius: clamp(11px, .67vw, 13px); background: var(--snb-fondo); box-shadow: var(--snb-sombra), var(--snb-sombra-int);
+}
+.site-nav-bar .site-nav__list > li { display: flex; align-items: center; gap: clamp(10px, .83vw, 16px); }
+.site-nav-bar .site-nav__sep { display: block; width: 1px; height: 1em; }
+.site-nav-bar .site-nav__list a, .site-nav-bar .site-nav__pronto, .site-nav-bar .site-nav__sub-toggle {
+  all: unset; box-sizing: border-box; position: relative; font: 500 1em/1 var(--snb-fuente); color: var(--snb-texto);
+  white-space: nowrap; cursor: pointer;
+}
+.site-nav-bar .site-nav__pronto { cursor: default; }
+/* Zona táctil más grande sin cambiar el tamaño visual */
+.site-nav-bar .site-nav__list > li > a::before, .site-nav-bar .site-nav__sub-toggle::before { content: ""; position: absolute; inset: -12px -8px; }
+.site-nav-bar a:hover, .site-nav-bar .site-nav__sub-toggle:hover { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+/* Página actual: subrayado fijo (el diseño no tiene estado activo; mínimo y sin cambiar el color) */
+.site-nav-bar a[aria-current="page"], .site-nav-bar .site-nav__sub-toggle[data-actual] {
+  text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1.5px;
+}
+.site-nav-bar a.site-nav__brand[aria-current="page"] { text-decoration: none; }
+.site-nav-bar .site-nav__sub-toggle::after { content: ""; display: inline-block; width: .32em; height: .32em; margin: 0 0 .18em .4em; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.site-nav-bar .site-nav__grupo.is-open .site-nav__sub-toggle::after { transform: rotate(-135deg); margin-bottom: -.05em; }
+.site-nav-bar .site-nav__aviso { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Submenú del laboratorio */
+.site-nav-bar .site-nav__grupo { position: relative; }
+.site-nav-bar .site-nav__sub {
+  position: absolute; top: calc(100% + clamp(14px, 1vw, 20px)); left: 0; display: none; min-width: 190px; padding: 6px 0;
+  border-radius: 12px; background: rgb(236 239 244 / .96); box-shadow: var(--snb-sombra);
+}
+.site-nav-bar .site-nav__grupo.is-open .site-nav__sub { display: block; }
+.site-nav-bar .site-nav__sub a { display: block; padding: 10px 16px; }
+
+.site-nav-bar a:focus-visible, .site-nav-bar button:focus-visible { outline: 2px solid var(--snb-texto); outline-offset: 4px; border-radius: 4px; }
+.site-nav-bar .site-nav__toggle { display: none; }
+
+@media (max-width: 760px) {
+  .site-nav-bar .site-nav__brand { font-size: 17px; }
+  .site-nav-bar .site-nav__toggle {
+    all: unset; box-sizing: border-box; display: block; min-height: 40px; padding: 0 16px; border-radius: 12px;
+    font: 500 15px/40px var(--snb-fuente); color: var(--snb-texto); background: var(--snb-fondo);
+    box-shadow: var(--snb-sombra), var(--snb-sombra-int); cursor: pointer;
+  }
+  .site-nav-bar .site-nav__list {
+    position: absolute; right: 0; top: calc(100% + 8px); flex-direction: column; align-items: stretch; gap: 0;
+    min-width: 230px; padding: 8px 0; font-size: 15px; background: rgb(227 230 236 / .97);
+  }
+  .site-nav-bar .site-nav:not(.is-open) .site-nav__list { display: none; }
+  .site-nav-bar .site-nav__list > li { display: block; }
+  .site-nav-bar .site-nav__sep { display: none; }
+  .site-nav-bar .site-nav__list a, .site-nav-bar .site-nav__pronto, .site-nav-bar .site-nav__sub-toggle { display: block; width: 100%; padding: 13px 20px; }
+  .site-nav-bar .site-nav__list > li > a::before, .site-nav-bar .site-nav__sub-toggle::before { content: none; }
+  /* En el menú del celular el laboratorio muestra sus dos páginas siempre, con sangría */
+  .site-nav-bar .site-nav__sub-toggle { cursor: default; text-decoration: none; }
+  .site-nav-bar .site-nav__sub-toggle::after { content: none; }
+  .site-nav-bar .site-nav__sub { position: static; display: block; min-width: 0; padding: 0; background: none; box-shadow: none; }
+  .site-nav-bar .site-nav__sub a { padding: 11px 20px 11px 36px; }
+  .site-nav-bar .site-nav__pronto { opacity: .6; }
+  .site-nav-bar .site-nav__aviso { position: static; width: auto; height: auto; overflow: visible; clip-path: none; font-size: 13px; }
+}
+
+/* Siempre visible, también con «Ocultar interfaz» (es la forma de ir a otro sitio). Solo se oculta en los modos de
+   captura: visor ?ui=0 (body.captura) y hero ?limpio / ?referencia (html.limpio). */
+body.captura .site-nav-bar, html.limpio .site-nav-bar { display: none; }

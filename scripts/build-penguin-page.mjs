@@ -20,10 +20,5 @@ if (!menuHtml.includes('/laboratorio/pinguino/assets/')) throw Error('Penguin me
 await mkdir(join(out, 'pinguino-menu'), { recursive: true });
 await writeFile(join(out, 'pinguino-menu/index.html'), menuHtml);
 await rm(join(dest, 'pinguino-menu'), { recursive: true, force: true });
-const index = join(out, 'index.html');
-let html = await readFile(index, 'utf8');
-if (!html.includes('</aside>')) throw Error('Viewer navigation anchor missing');
-if (!html.includes('/laboratorio/pinguino/')) html = html.replace('</aside>', '<p class="hud__help"><a href="/laboratorio/pinguino/">Laboratorio · Pingüino y nieve</a></p></aside>');
-if (!html.includes('/pinguino-menu/')) html = html.replace('</aside>', '<p class="hud__help"><a href="/pinguino-menu/">Pingüino · menú (islas de práctica)</a></p></aside>');
-await writeFile(index, html);
+// Los enlaces entre visor, laboratorio y menú los da la navegación común (compartido/navbar).
 console.log('Penguin laboratory (/laboratorio/pinguino/) and penguin menu (/pinguino-menu/) included in viewer deployment.');

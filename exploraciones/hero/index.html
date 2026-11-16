@@ -11,21 +11,7 @@
 </head>
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
-  <!-- Navegación entre los sitios de Antaris Polar (Figma «Gamezone · david», nodo 2597:1016). Las rutas son las de la
-       compilación del sitio (scripts/assemble-site.mjs); en desarrollo src/nav.ts las apunta a npm run preview (:3410). -->
-  <header class="site-header">
-    <a class="brand" href="./" aria-current="page">AntarisPolar</a>
-    <nav class="site-nav" aria-label="Sitios de Antaris Polar">
-      <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="site-nav-lista">Menú</button>
-      <ul id="site-nav-lista" class="site-nav__list">
-        <li><a href="/" data-sitio>Descubrir</a></li>
-        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><a href="/laboratorio/pinguino/" data-sitio>Laboratorio</a></li>
-        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><span class="site-nav__pronto" title="Próximamente">Investigación<span class="sr"> (próximamente)</span></span></li>
-        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><span class="site-nav__pronto" title="Próximamente">Quienes somos<span class="sr"> (próximamente)</span></span></li>
-        <li><img class="site-nav__sep" src="/hero/figma/separador.svg" width="1" height="16" alt="" /><span class="site-nav__pronto" title="Próximamente">Contacto<span class="sr"> (próximamente)</span></span></li>
-      </ul>
-    </nav>
-  </header>
+  <!-- La navegación entre sitios la agrega src/main.ts con compartido/navbar (la misma en todos los sitios). -->
 
   <main>
     <section id="hero" class="hero" data-state="cargando" aria-labelledby="hero-title">

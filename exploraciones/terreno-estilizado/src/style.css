@@ -32,7 +32,7 @@ button:disabled {opacity:.5;cursor:not-allowed}
 .pin[data-side="left"]::after {transform:rotate(-135deg)}
 .pin[data-side="left"] span {transform:translate(calc(-100% - 38px),-48px)}
 .hud,.metrics,.ui-toggle {border:1px solid var(--line);background:var(--panel);box-shadow:0 4px 24px #102a4314,0 1px 3px #102a4308}
-.hud {position:fixed;z-index:2;top:max(16px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));width:min(328px,calc(100vw - 32px));max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#c5d2dd transparent;border-radius:12px;padding:20px;font-size:13px;line-height:1.5}
+.hud {position:fixed;z-index:2;top:max(16px,env(safe-area-inset-top),calc(var(--site-nav-h,0px) + 12px));left:max(16px,env(safe-area-inset-left));width:min(328px,calc(100vw - 32px));max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--site-nav-h,0px));overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#c5d2dd transparent;border-radius:12px;padding:20px;font-size:13px;line-height:1.5}
 .polar-title {display:flex;align-items:center;gap:12px;margin-bottom:24px}
 .polar-mark {display:grid;place-items:center;flex:none;width:40px;height:40px;background:#eaf4fa;border:1px solid #d5e8f3;border-radius:10px;color:var(--accent);font-size:26px;line-height:1}
 .polar-title h1 {font-size:18px;line-height:1.3;letter-spacing:-.025em;font-weight:650}
@@ -55,7 +55,7 @@ summary small {font-size:10px;font-weight:600;line-height:20px;padding:0 6px;bor
 .hud__source,.hud__help {font-size:12px;line-height:1.6;color:var(--ink-soft);overflow-wrap:anywhere}
 .hud__note {font-size:12px;line-height:1.6;color:var(--ink)}
 kbd {padding:1px 4px;border:1px solid var(--line);border-radius:4px;background:var(--surface);font:inherit}
-.ui-toggle {position:fixed;z-index:3;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));font-size:12px;min-height:40px;padding:8px 12px}
+.ui-toggle {position:fixed;z-index:3;top:max(16px,env(safe-area-inset-top),calc(var(--site-nav-h,0px) + 12px));right:max(16px,env(safe-area-inset-right));font-size:12px;min-height:40px;padding:8px 12px}
 .metrics {position:fixed;z-index:2;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:min(340px,calc(100vw - 32px));border-radius:12px;padding:0 16px;font-size:12px}
 .metrics pre {max-height:40vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,Consolas,monospace;color:var(--ink-soft);padding:12px;background:var(--surface);border-radius:8px}
 .metrics__actions {display:flex;gap:8px;padding:12px 0 16px}
@@ -90,13 +90,13 @@ body .dialkit-select-option {min-height:var(--control-height);font-family:inheri
 body .dialkit-select-dropdown {color-scheme:light;max-width:calc(100vw - 24px)}
 @media(max-width:600px) {
  :root {--control-height:44px}
- .hud {top:max(68px,calc(env(safe-area-inset-top) + 60px));left:12px;width:min(328px,calc(100vw - 24px));max-height:calc(65dvh - env(safe-area-inset-bottom));padding:16px}
+ .hud {top:calc(max(68px,calc(env(safe-area-inset-top) + 60px)) + var(--site-nav-h,0px));left:12px;width:min(328px,calc(100vw - 24px));max-height:calc(65dvh - env(safe-area-inset-bottom));padding:16px}
  .polar-title {margin-bottom:16px}
- .ui-toggle {top:max(12px,env(safe-area-inset-top));right:12px;min-height:44px}
+ .ui-toggle {top:max(12px,env(safe-area-inset-top),calc(var(--site-nav-h,0px) + 8px));right:12px;min-height:44px}
  .hud .dialkit-segmented-button {min-height:36px}
  .metrics {display:none}
 }
-@media(max-height:480px) {.hud {max-height:calc(100dvh - 84px)}}
+@media(max-height:480px) {.hud {max-height:calc(100dvh - 84px - var(--site-nav-h,0px))}}
 @media(prefers-reduced-motion:reduce) {.hud *,body .dialkit-select-dropdown * {transition:none !important}}
 
 

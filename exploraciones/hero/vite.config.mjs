@@ -23,7 +23,9 @@ const captures = () => ({
   },
 });
 export default () => ({
-  plugins: [captures()], server: { port: 3420, host: '127.0.0.1', strictPort: true }, cacheDir: '.vite', assetsInclude: ['**/*.ktx2'],
+  plugins: [captures()],
+  // compartido/navbar (la navegación común) está fuera de esta carpeta: se habilita para el servidor de desarrollo.
+  server: { port: 3420, host: '127.0.0.1', strictPort: true, fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../../compartido', import.meta.url))] } }, cacheDir: '.vite', assetsInclude: ['**/*.ktx2'],
   // Las fuentes nunca en base64 dentro del CSS: cada subconjunto (latin, cyrillic…) se baja solo si la página lo usa.
   build: { assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined) },
 });

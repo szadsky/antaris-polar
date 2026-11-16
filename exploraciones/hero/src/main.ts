@@ -1,4 +1,5 @@
-import './nav'; // navegación entre sitios: no depende de WebGL
+import { mountSiteNav } from '../../../compartido/navbar/navbar';
+mountSiteNav({ actual: 'inicio' }); // navegación entre sitios: no depende de WebGL
 import * as THREE from 'three';
 import { CAM_H, IMG, PITCH, VFOV_DEG, ray } from './camara';
 import { createBackdrop } from './backdrop';

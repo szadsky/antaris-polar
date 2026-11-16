@@ -45,20 +45,8 @@ En desarrollo, `__heroCapture('nombre')` guarda el canvas en `capturas/nombre.pn
 
 Diseño: archivo Figma «Gamezone · david», navbar `2597:1016` y hero `2534:25` (marco de 1920 px).
 
-- **Navbar** (`index.html`, `src/nav.ts`, estilos en `src/style.css`): marca «AntarisPolar» y cápsula translúcida
-  (`rgb(227 230 236 / .8)`, radio 16, sombras del diseño) con separadores `public/hero/figma/separador.svg`.
-  Enlaza los sitios que existen en la compilación del repo (`scripts/assemble-site.mjs`):
-
-  | Ítem | Destino |
-  | --- | --- |
-  | AntarisPolar | Este hero (`./`, página actual). |
-  | Descubrir | Visor de bases (`/`, terreno-estilizado). |
-  | Laboratorio | Laboratorio del pingüino (`/laboratorio/pinguino/`). |
-  | Investigación, Quienes somos, Contacto | **Todavía no existen**: se muestran como texto con «próximamente» (no son enlaces rotos). |
-
-  En desarrollo esas rutas no están en este servidor: `src/nav.ts` las apunta al sitio armado (`npm run build` y
-  `npm run preview` en la raíz, http://127.0.0.1:3410). Otro destino: variable `VITE_SITIO`. En pantallas de 760 px o
-  menos la cápsula pasa a un botón «Menú» con lista desplegable (`aria-expanded`, Escape y toque afuera la cierran).
+- **Navbar:** es la navegación común de todos los sitios, en `compartido/navbar/` (ver su README). El hero la monta
+  desde `src/main.ts` con `mountSiteNav({ actual: 'inicio' })`. En el sitio armado el hero está en `/`.
 - **Copys del hero:** título «La Antártida, tan cerca como nunca» (Geist Light), el subtítulo (Geist Medium) y las coordenadas de Ushuaia
   `[-68.30833, -54.80833]` (longitud, latitud; IBM Plex Mono). El lector de pantalla oye «Ushuaia: longitud…, latitud…».
 - **Diferencias con Figma, y por qué:**
