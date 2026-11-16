@@ -19,6 +19,44 @@ Boton "Ocultar interfaz" (o tecla H): deja solo el paisaje, el pinguino y el bot
 la preferencia se recuerda en el navegador (localStorage, si esta disponible). src/ui-toggle.ts.
 En el movil los botones bajan a dos filas para no salirse de la pantalla.
 
+CONTROLES TACTILES (16/11/2026)
+  En celular y tableta (puntero grueso o primer toque; src/touch-controls.ts):
+  - joystick flotante en la mitad izquierda de abajo: nace donde se apoya el pulgar; direccion relativa a la camara
+    (como W A S D); llevandolo al borde (85 %) corre, como Shift;
+  - "Saltar" (toque) y "Deslizar" (mantener, como E) abajo a la derecha, de 66-76 px;
+  - el resto de la pantalla es la camara: un dedo gira, dos dedos acercan o alejan;
+  - interfaz compacta: encabezado corto, botones en una fila deslizable, sin la ayuda de teclado; de costado, el
+    encabezado a la izquierda y los botones arriba a la derecha.
+  Probado en el navegador de la app con vista de celular (375 x 812 y 812 x 375, toque emulado): camina ~0,9 m/s, al
+  borde corre ~1,9 m/s, salta y desliza. No probado en un celular real.
+
+CAIDAS (16/11/2026)
+  El pinguino ya no queda trabado arriba de lo que escalo: puede bajar por laderas demasiado empinadas para caminar
+  (> 34°) y, si baja mas de ~0,9 m por metro (un borde, ~42°), se despega y cae con la gravedad hasta el suelo de abajo
+  (src/penguin-motion.ts, fall/fallMove; en el aire conserva su altura absoluta). Solo hacia abajo y a tierra firme: no
+  trepa paredes, no cae al agua ni dentro de una estructura (IslandTerrain.canLand). Estado "Pinguino cayendo".
+  check-fall.mjs (en npm test). Probado en Sendero: desde 8,1 m bajo 5 m y aterrizo a 3,1 m.
+
+ESTRUCTURAS EN LAS ISLAS (16/11/2026, prueba): base antartica, estacion de comunicaciones, antena parabolica y vehiculo oruga
+  public/assets/models/base-antartica-web.glb, estacion-comunicaciones-web.glb, antena-parabolica-web.glb y vehiculo-oruga-web.glb (700-780 KB cada uno: Meshopt, texturas
+  WebP de 1024 px, ~52.300 triangulos), cargados con MeshoptDecoder; lista en STRUCTURES (island-base.ts). Modelos decorativos: reconstruccion artistica, no una base real ni su ubicacion. Procedencia y
+  licencia del archivo: pendientes de documentar.
+  src/island/island-base.ts: lugar fijo por isla en BASE_POSES (Sendero: x -6,49, z 13,16 m, giro -241°, 6,5 m de alto,
+  elegido a mano el 16/11/2026); en una isla sin lugar fijo se ubica sola en un llano cerca de la aparicion. Apoyada en
+  el relieve (la altura mas baja bajo su planta), sin sombra en el piso. El pinguino no pisa su planta (+0,35 m). Entra
+  en la precarga, el revelado y el reflejo del agua. ?base=no la quita.
+  Bandera que flamea (src/island/flag.ts): la bandera argentina fija del modelo de la base se quita de la malla al cargar
+    (946 triangulos de la tela y 111 restos celestes o blancos junto al mastil, ubicados por posicion y color de la
+    textura: FlagSwap en STRUCTURES) y se cuelga del mismo mastil una tela de 24 x 14 segmentos (~0,8 x 0,5 m) que
+    flamea en el vertex shader (sin costo de CPU), con textura dibujada en canvas: franjas celeste y blanca y el Sol de
+    Mayo simplificado (sin rostro).
+  Mover estructuras (boton, src/island/base-editor.ts): arrastrar una estructura (queda elegida), Z / X girar, + / -
+  tamaño; se guarda en el navegador y "Copiar ubicacion" da texto y un enlace con ?<id>X, ?<id>Z, ?<id>Giro y ?<id>Alto
+  (ids: base, comunicaciones, antena, oruga). Vehiculo oruga fijo en Sendero: x 18,27, z 13,19 m, giro -25°, 3,5 m de alto. Antena fija en Sendero: x 14,55, z 18,99 m, giro -64°, 4,5 m de alto.
+  Con las tres en Sendero: 60 FPS quieto, caminando y con la camara lejos (~280.000 triangulos en vista lejana). Lugares fijos en Sendero: estacion en x 6,19, z 17,41 m, giro 169°, 6 m de alto. Doble clic en la isla: coordenadas del
+  punto. La camara se aleja hasta 90 m (la niebla se corre con la distancia).
+  Medido en el navegador de la app (Sendero): 60 FPS quieto y caminando (cuadro mediano 16,5-16,7 ms).
+
 AJUSTES DEL VISOR EN EL MENU (15/11/2026)
 Los ultimos ajustes del visor de bases (terreno-estilizado, commits 7415c4e y 2488fba) llevados al menu, a escala
 de isla. Son copias: si cambian en el visor, hay que volver a copiarlas.
@@ -30,7 +68,7 @@ de isla. Son copias: si cambian en el visor, hay que volver a copiarlas.
     (m del visor por m de la isla) achica ondas, espuma, distancias a la costa y deformacion del reflejo. Opaca como
     en el visor: los cuadros de la malla bajo el agua ya no se dibujan (Valle: 146.000 -> ~120.000 triangulos).
     El reflejo dibuja una isla 16 veces mas liviana (mismos vertices y material, 1 de cada 4 por lado) y se
-    redibuja 1 de cada 2 cuadros con la camara en movimiento, como en el visor. Textura waternormals.jpg (249 KB).
+    redibuja 1 de cada 2 cuadros con la camara en movimiento, como en el visor. Textura waternormals.jpg (249 KB). Agua mas tranquila que en el visor (16/11/2026): oleaje al 60 % de altura y 70 % de velocidad.
   Icebergs: src/island/island-icebergs.ts, la geometria simple del visor (~280 triangulos cada uno) y su material con
     la nieve de la isla, a 1/22 (el tabular queda de ~3 m). 6 u 8 por isla, a 4-15 m de la costa, ubicacion fija por
     semilla, con la flotacion del visor. Decorativos: no son icebergs observados.

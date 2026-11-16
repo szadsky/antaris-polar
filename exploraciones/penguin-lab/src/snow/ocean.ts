@@ -66,7 +66,7 @@ export function createOcean(o: { radius: number; sun: THREE.Vector3; mobile: boo
   u.uShoreCurve = { value: 0.6 };
   u.uSunGlint = { value: 1 };
   u.uGlintLobes = { value: new THREE.Vector3(0.08, 0.28, 0.9) };
-  u.uSilk = { value: 1.0 };
+  u.uSilk = { value: 0.6 }; // altura del oleaje: más tranquila que en el visor (1,0), pedido el 16/11/2026
   u.uRipple = { value: new THREE.Vector2(0.04, 3) };
   u.uWater = { value: new THREE.Vector3(0.02, 0, 0.03) };
   u.uShallowWater = { value: new THREE.Color(SHALLOW_COLOR) };
@@ -192,7 +192,7 @@ export function createOcean(o: { radius: number; sun: THREE.Vector3; mobile: boo
   // Reflejo planar (segundo dibujo de la escena) con la cadencia del visor: en movimiento, uno de cada MIRROR_EVERY
   // cuadros; en los otros el agua reusa el último.
   const mirror = mesh.onBeforeRender;
-  let dirty = true, moveFrames = 0, mirrorRenders = 0, speed = 1;
+  let dirty = true, moveFrames = 0, mirrorRenders = 0, speed = 0.7; // oleaje más lento que en el visor (1)
   const world = new THREE.Matrix4(), projection = new THREE.Matrix4();
   mesh.onBeforeRender = (renderer, scene, camera, geometry, material, group) => {
     const changed = !world.equals(camera.matrixWorld) || !projection.equals(camera.projectionMatrix);

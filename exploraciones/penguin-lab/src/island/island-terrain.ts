@@ -564,6 +564,10 @@ export class IslandTerrain {
     if (Math.abs(x) > this.half - 0.5 || Math.abs(z) > this.half - 0.5) return false;
     return this.sample(x, z) > this.seaY + SHORE_MARGIN && this.slope(x, z) <= MAX_WALK_SLOPE;
   }
+  /** Donde puede caer o aterrizar el pingüino: dentro de la isla y fuera del agua (la pendiente no importa). */
+  canLand(x: number, z: number) {
+    return Math.abs(x) <= this.half - 0.5 && Math.abs(z) <= this.half - 0.5 && this.sample(x, z) > this.seaY + SHORE_MARGIN;
+  }
   /** Nieve blanda donde quedan huellas: no en hielo ni en laderas casi rocosas. */
   isSoftSnow(x: number, z: number) { return this.ice(x, z) < 0.5 && this.slope(x, z) < 0.6; }
 }

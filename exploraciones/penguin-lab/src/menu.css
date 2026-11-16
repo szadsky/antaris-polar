@@ -8,3 +8,47 @@ header{top:24px;left:24px;padding:16px 18px 6px;border-radius:14px;background:#f
 body.ui-hidden header,body.ui-hidden .back-link,body.ui-hidden .keys,body.ui-hidden footer,body.ui-hidden .controls>:not(#toggle-ui){display:none}
 body.ui-hidden #toggle-ui{background:#ffffffb0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 @media(max-width:650px){.controls{flex-wrap:wrap;gap:6px;bottom:72px}.controls button{padding:9px 11px;font-size:11px}.keys{bottom:176px}body.ui-hidden .controls{justify-content:flex-end}#toggle-ui kbd{display:none}}
+
+/* Mover base (src/island/base-editor.ts): panel abajo a la izquierda mientras se edita. */
+.base-editor{position:fixed;left:24px;bottom:64px;max-width:380px;padding:14px 16px;border-radius:14px;background:#f4f8faeb;box-shadow:0 4px 18px #16334214;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-size:12px;color:#35525e;z-index:2}
+.base-editor p{margin:6px 0}.base-editor kbd{font:600 10px system-ui;padding:1px 5px;border:1px solid #c7d5dc;border-radius:4px}.base-editor__pose{font-variant-numeric:tabular-nums;color:#254958;font-weight:600}
+.base-editor__row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.base-editor__row button{padding:8px 10px;font-size:11px}#move-base[aria-pressed="true"]{background:#254958;color:white;border-color:#254958}
+body.ui-hidden .base-editor{display:none}
+@media(max-width:650px){.base-editor{left:12px;right:12px;bottom:auto;top:12px;max-width:none}}
+
+/* Táctil (src/touch-controls.ts): body.touch con puntero grueso o tras el primer toque. Joystick abajo a la izquierda,
+   Saltar y Deslizar abajo a la derecha; el resto de la pantalla gira la cámara (un dedo) y acerca (dos dedos). */
+.touch-controls{display:none}
+body.touch .touch-controls{display:block}
+.touch-stick{position:fixed;left:0;bottom:44px;width:55%;height:42vh;touch-action:none;-webkit-user-select:none;user-select:none;z-index:3}
+.touch-stick__base{position:absolute;left:84px;top:calc(100% - 96px);width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;background:#ffffff59;border:2px solid #ffffffb3;box-shadow:0 4px 18px #16334226;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);opacity:.75;transition:opacity .15s}
+.touch-stick.active .touch-stick__base{opacity:1;transition:none}
+.touch-stick__knob{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:#fffffff2;box-shadow:0 2px 8px #1633423d}
+.touch-stick__hint{position:absolute;left:28px;bottom:14px;font-size:11px;color:#35525e;background:#ffffffc8;padding:3px 8px;border-radius:999px;pointer-events:none}
+.touch-stick.active .touch-stick__hint{display:none}
+.touch-buttons{position:fixed;right:16px;bottom:64px;display:flex;align-items:flex-end;gap:12px;z-index:3}
+.touch-btn{width:76px;height:76px;padding:0;border-radius:50%;font:600 13px system-ui;color:#254958;background:#ffffffe0;border:2px solid #ffffff;box-shadow:0 4px 14px #1633422e;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.touch-btn--slide{width:66px;height:66px;margin-bottom:46px;font-size:12px}
+.touch-btn.pressed{background:#254958;color:white;border-color:#254958;transform:scale(.95)}
+/* Interfaz compacta en táctil: encabezado corto, botones en una fila deslizable, sin la ayuda de teclado. */
+body.touch .keys{display:none}
+@media(max-width:820px){
+ body.touch header{left:12px;right:12px;top:10px;max-width:none;padding:10px 12px 8px}
+ body.touch header .eyebrow,body.touch header p:not(#island-summary){display:none}
+ body.touch header h1{font-size:17px;letter-spacing:-.4px;margin:0 0 8px;max-width:none}
+ body.touch .controls{top:104px;bottom:auto;left:12px;right:12px;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px}
+ body.touch .controls::-webkit-scrollbar{display:none}
+ body.touch .controls button{flex:none;padding:9px 12px;font-size:12px;touch-action:manipulation}
+ body.touch footer{bottom:6px;font-size:9px;gap:2px}
+ body.touch .base-editor{top:150px}
+}
+body.touch.ui-hidden .controls{top:10px;justify-content:flex-end}
+@media(orientation:landscape) and (max-height:520px){.touch-stick{height:62vh;bottom:30px}.touch-buttons{bottom:36px}.touch-btn--slide{margin-bottom:0}}
+body.touch #island-summary{display:none}
+/* Táctil apaisado (celular de costado): encabezado a la izquierda, botones arriba a la derecha, enlace al visor debajo. */
+@media(orientation:landscape) and (max-height:520px){
+ body.touch header{right:auto;max-width:44%}
+ body.touch .controls{top:10px;left:auto;right:12px;max-width:54%}
+ body.touch .back-link{display:block;top:92px;left:16px;right:auto;bottom:auto;font-size:11px}
+ body.touch .base-editor{top:56px;left:auto;right:12px;max-width:380px}
+}

@@ -20,7 +20,9 @@ const MAX_SUBSTEP = .12;
 /** Local character motion, in metres and seconds; independent of rendering and the DEM.
  * `canStand(x, z)` (optional) rejects positions such as water or slopes that are too steep.
  * `gradient(x, z)` (optional) returns the terrain slope [dh/dx, dh/dz]: the slide accelerates downhill.
- * `ice(x, z)` (optional, 0–1): on ice the penguin skates upright with momentum (see ICE); E: on its belly. */
+ * `ice(x, z)` (optional, 0–1): on ice the penguin skates upright with momentum (see ICE); E: on its belly.
+ * `fall` (optional): with the ground height and where it may land, the penguin can go DOWN slopes too steep to walk and
+ * drop off edges (it falls with gravity and lands lower) instead of getting stuck on top of what it climbed. */
 export class PenguinMotion {
  x=0;z=0;y=0;verticalSpeed=0;yaw=0;moving=false;running=false;sliding=false;
  /** Velocidad actual del deslizamiento o del patinaje (m/s). */
@@ -33,6 +35,8 @@ export class PenguinMotion {
  skating=false;pushing=false;
  private groundSpeed=0;
  homeX=0;homeZ=0;homeYaw=0;
+ /** Caer: altura del suelo (m) y si se puede caer ahí (tierra firme, no agua ni estructuras; la pendiente no importa). */
+ fall?:{height:(x:number,z:number)=>number;canLand:(x:number,z:number)=>boolean};
  constructor(public limit:number,public canStand?:(x:number,z:number)=>boolean,public gradient?:(x:number,z:number)=>[number,number],public ice?:(x:number,z:number)=>number){}
  /** Point used by reset(): the island spawn, or the origin by default. */
  setHome(x:number,z:number,yaw=0){this.homeX=x;this.homeZ=z;this.homeYaw=yaw;this.reset();}
@@ -65,6 +69,7 @@ export class PenguinMotion {
    for(let i=0;i<steps;i++){
     const sx=this.x,sz=this.z;this.x+=dx*each;this.z+=dz*each;
     const distance=Math.hypot(this.x,this.z);if(distance>this.limit){this.x*=this.limit/distance;this.z*=this.limit/distance;}
+    if(this.fallMove(sx,sz,each,dx,dz))continue;
     if(this.canStand&&(this.x!==sx||this.z!==sz)&&!this.canStand(this.x,this.z)){
      this.detour(sx,sz,dx,dz,each);
      // Choque de frente mientras desliza: pierde el impulso.
@@ -99,6 +104,7 @@ export class PenguinMotion {
   for(let i=0;i<steps&&travel>0;i++){
    const sx=this.x,sz=this.z;this.x+=hx*each;this.z+=hz*each;
    const distance=Math.hypot(this.x,this.z);if(distance>this.limit){this.x*=this.limit/distance;this.z*=this.limit/distance;}
+   if(this.fallMove(sx,sz,each,hx,hz))continue;
    if(this.canStand&&!this.canStand(this.x,this.z)){
     this.detour(sx,sz,hx,hz,each);
     if(this.x===sx&&this.z===sz){this.slideSpeed=0;break;} // choque de frente: se frena
@@ -108,6 +114,28 @@ export class PenguinMotion {
   }
   this.moving=Math.hypot(this.x-px,this.z-pz)>1e-6;
   this.groundSpeed=dt>0?Math.hypot(this.x-px,this.z-pz)/dt:0;
+ }
+ /**
+  * Caída (con `fall`): en el aire conserva su altura absoluta (y = altura sobre el suelo nuevo) y aterriza donde el suelo
+  * lo alcanza; en el suelo, un paso hacia ABAJO por una ladera demasiado empinada para caminar se permite, y si baja más
+  * de ~0,9 m por metro (un borde, ~42°) se despega y cae con la gravedad. Devuelve true si el paso queda aceptado.
+  */
+ private fallMove(sx:number,sz:number,step:number,dx:number,dz:number){
+  const f=this.fall;if(!f||(this.x===sx&&this.z===sz))return false;
+  const h0=f.height(sx,sz),h1=f.height(this.x,this.z);
+  if(this.y>0||this.verticalSpeed>0){
+   const y=this.y+h0-h1;
+   if(y>=0&&f.canLand(this.x,this.z)){this.y=y;return true;}
+   // el suelo nuevo está por encima de los pies: aterriza ahí si se puede pisar; si no, choca
+   if(y<0&&(!this.canStand||this.canStand(this.x,this.z))){this.y=0;this.verticalSpeed=0;return true;}
+   return false;
+  }
+  if(this.canStand&&this.canStand(this.x,this.z))return false; // paso normal
+  // solo hacia abajo (también en el borde de arriba, donde el suelo todavía no bajó: se mira 15 cm más adelante) y a tierra firme
+  const ahead=f.height(this.x+dx*.15,this.z+dz*.15);
+  if((h1>=h0-.005&&ahead>=h0-.03)||!f.canLand(this.x,this.z))return false;
+  if(h0-h1>step*.9){this.y=h0-h1;this.verticalSpeed=0;}          // borde: se despega y cae
+  return true;
  }
  /** Blocked: slide along the obstacle (projected step, cos of the detour) unless it is head-on. */
  private detour(px:number,pz:number,dx:number,dz:number,step:number){

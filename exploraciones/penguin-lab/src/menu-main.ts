@@ -5,6 +5,9 @@ import {PenguinMotion,GAIT_SPEED,MOVE_SPEED} from './penguin-motion';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import {placeIslandBase,STRUCTURES,type IslandStructure} from './island/island-base';
+import {savedPose,setupBaseEditor} from './island/base-editor';
 import {loadTerrainTextures} from './snow/terrain-textures';
 import {TERRAINS,terrainSpec,IslandTerrain,findSpawn} from './island/island-terrain';
 import {buildIslandMaps} from './island/island-maps';
@@ -14,9 +17,12 @@ import {createConstruction} from './snow/construction';
 import {IslandGround,SUN_DIRECTION} from './island/island-scene';
 import {SnowParticles} from './snow-particles';
 import {setupUiToggle} from './ui-toggle';
+import {setupTouchControls} from './touch-controls';
 
 const status=document.getElementById('status')!;
 setupUiToggle(document.getElementById('toggle-ui') as HTMLButtonElement);
+// Pantalla táctil: interfaz compacta desde el primer cuadro (los controles táctiles se arman después de cargar).
+if(matchMedia('(pointer: coarse)').matches)document.body.classList.add('touch');
 // Terreno: ?terreno=sendero (por defecto), macizo o valle. Relieve sintético, no geografía real.
 const spec=terrainSpec(new URLSearchParams(location.search).get('terreno'));
 /** Cámara en perspectiva 3/4 elevada: distancia (m), elevación (rad) y altura del punto de mira. */
@@ -31,10 +37,10 @@ async function main(){
  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
  const scene=new THREE.Scene();scene.background=new THREE.Color(BACKGROUND);scene.fog=new THREE.Fog(BACKGROUND,38,120);
- const camera=new THREE.PerspectiveCamera(36,innerWidth/innerHeight,.1,220);
+ const camera=new THREE.PerspectiveCamera(36,innerWidth/innerHeight,.1,320);
  // Pantallas verticales (móvil): se abre el campo visual para conservar ≥ 34° horizontales.
  const fitCamera=()=>{camera.aspect=innerWidth/innerHeight;camera.fov=Math.max(36,2*Math.atan(Math.tan(17*Math.PI/180)/camera.aspect)*180/Math.PI);camera.updateProjectionMatrix();};fitCamera();
- const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=3.5;controls.maxDistance=24;controls.minPolarAngle=.3;controls.maxPolarAngle=1.3;controls.enablePan=false;
+ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=3.5;controls.maxDistance=90; // hasta ver la isla entera (Sendero: ~55 m en diagonal)controls.minPolarAngle=.3;controls.maxPolarAngle=1.3;controls.enablePan=false;
  scene.add(new THREE.HemisphereLight('#e2f1ff','#7f8d9d',1.7));
  // Sol: la sombra del relieve va horneada en la textura de luz; en tiempo real solo proyecta el pingüino,
  // con un mapa pequeño que lo sigue (nítido y barato).
@@ -58,7 +64,14 @@ async function main(){
   scale:{center:[home.x,home.z],landM:.02,tolM:.25*gridCell,liftM:.02,extraM:1,landOnly:true}});
  construction.start();
  let preloading=true;
- const assets=Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy())]);
+ // Base antártica: modelo decorativo (reconstrucción artística), comprimido con Meshopt y texturas WebP.
+ // Estructuras (base antártica, estación de comunicaciones): modelos decorativos, reconstrucciones artísticas.
+ // Lugar: el elegido con "Mover estructuras" (guardado en el navegador), ?<id>X, ?<id>Z, ?<id>Giro, ?<id>Alto o el fijo de la
+ // isla; si no, automático. ?base=no quita todas.
+ const params=new URLSearchParams(location.search),withStructures=params.get('base')!=='no';
+ const structureLoader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+ const structureModels=Promise.all((withStructures?STRUCTURES:[]).map(st=>structureLoader.loadAsync(import.meta.env.BASE_URL+st.url).catch(e=>{console.warn('Sin '+st.name+':',e);return null;})));
+ const assets=Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy()),structureModels]);
  // El trabajo pesado va en tramos, con un cuadro entre cada uno: la malla sigue animada.
  const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r(null)));
  await nextFrame();noiseTexture();await nextFrame();detailTexture();await nextFrame();detailTextureCorrected();await nextFrame();
@@ -66,7 +79,14 @@ async function main(){
  const ground=new IslandGround(spec,{terrain:islandTerrain,maps,mobile:matchMedia("(pointer: coarse)").matches,maxAniso:renderer.capabilities.getMaxAnisotropy()});scene.add(ground.group);
  ground.ocean.setSun(new THREE.Vector3(...SUN_DIRECTION),sun.color);
  const terrain=ground.terrain;
- const [gltf,textures]=await assets;
+ const [gltf,textures,structureGltfs]=await assets;
+ // Una por una: las automáticas no pisan a las ya ubicadas (1 m de separación).
+ const structures:{spec:typeof STRUCTURES[number];s:IslandStructure}[]=[];
+ structureGltfs.forEach((g,i)=>{if(!g)return;const st=STRUCTURES[i];
+  const s=placeIslandBase(g,terrain,ground.spawn,spec.viewAzimuth,savedPose(st,spec.id),{name:st.name,flag:st.flag,avoid:(x,z)=>structures.some(o=>o.s.blocks(x,z,1))});
+  if(!s.placed)console.warn(st.name+': sin lugar llano en esta isla');scene.add(s.group);structures.push({spec:st,s});});
+ if(structures.length)setupBaseEditor({items:structures,island:spec.id,islandName:spec.name,canvas:renderer.domElement,camera,controls,ground:scene.getObjectByName('isla')!,seaY:terrain.seaY,
+  container:document.querySelector('.controls') as HTMLElement,onChange:()=>ground.ocean.refresh()});
  const penguin=gltf.scene;applyKingPenguinColors(penguin);const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);scene.add(character);
  const mixer=new THREE.AnimationMixer(penguin);
  const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip.name.toLowerCase()==='swim'?groundedSlideClip(clip):clip)]));
@@ -81,7 +101,9 @@ async function main(){
  const unlockAudio=()=>stepAudio.unlock();renderer.domElement.addEventListener('pointerdown',unlockAudio);
  // Sin límite circular: la isla decide dónde se puede pisar (agua y laderas de más de 34° bloquean).
  // Hielo (lagunas, glaciares, toboganes): se desliza solo, con inercia (src/penguin-motion.ts, ICE).
- const motion=new PenguinMotion(Infinity,(x,z)=>terrain.canStand(x,z),(x,z)=>terrain.gradient(x,z),(x,z)=>terrain.ice(x,z));motion.setHome(ground.spawn.x,ground.spawn.z,spec.viewAzimuth-.75); // de tres cuartos hacia la cámara
+ const motion=new PenguinMotion(Infinity,(x,z)=>terrain.canStand(x,z)&&!structures.some(o=>o.s.blocks(x,z)),(x,z)=>terrain.gradient(x,z),(x,z)=>terrain.ice(x,z));motion.setHome(ground.spawn.x,ground.spawn.z,spec.viewAzimuth-.75); // de tres cuartos hacia la cámara
+ // Puede bajar por laderas empinadas y caer de los bordes (no queda trabado arriba de lo que escaló); no al agua ni dentro de una estructura.
+ motion.fall={height:(x,z)=>terrain.sample(x,z),canLand:(x,z)=>terrain.canLand(x,z)&&!structures.some(o=>o.s.blocks(x,z))};
  const feet=['LeftHindToe','RightHindToe'].map(name=>({bone:penguin.getObjectByName(name)!,point:new THREE.Vector3(),contact:false,last:new THREE.Vector2(Infinity,Infinity)}));
  let wasAirborne=false;
  let slideTrail:THREE.Vector2|null=null;
@@ -110,6 +132,8 @@ async function main(){
  const relevant=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','Space','KeyR','KeyE']);
  const editable=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable="true"]');
  const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space'&&!keys.has('KeyE'))motion.jump();if(event.code==='KeyR'){keys.clear();slideTrail=null;motion.reset();clearFeet();placeCharacter();reset();}};
+ // Táctil: joystick (caminar; al borde, correr), Saltar y Deslizar (mantener). Ver src/touch-controls.ts.
+ const touch=setupTouchControls({onJump:()=>{if(!keys.has('KeyE')&&!touch.input.slide)motion.jump();},onFirstTouch:()=>stepAudio.unlock()});
  const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();slideTrail=null;stepAudio.stop();};
  window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
  function stampFoot(x:number,z:number,yaw:number){
@@ -118,11 +142,11 @@ async function main(){
  }
  function move(dt:number){
   camera.getWorldDirection(forward);forward.y=0;forward.normalize();right.crossVectors(forward,up).normalize();
-  const x=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
-  const z=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
+  const x=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'))+touch.input.x;
+  const z=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'))+touch.input.z;
   direction.copy(right).multiplyScalar(x).addScaledVector(forward,z);
   const oldX=motion.x,oldZ=motion.z;
-  motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight'),dt,keys.has('KeyE')&&!!swim);
+  motion.step(direction.x,direction.z,keys.has('ShiftLeft')||keys.has('ShiftRight')||touch.input.run,dt,(keys.has('KeyE')||touch.input.slide)&&!!swim);
   if(motion.sliding&&motion.moving){
    slideTrail??=new THREE.Vector2(oldX,oldZ);
    // Estela de nieve al deslizar sobre nieve blanda (más densa cuanto más rápido); en hielo, nada.
@@ -145,7 +169,7 @@ async function main(){
   const animationFloor=ground.height(motion.x,motion.z)+motion.y;
   character.position.set(motion.x,animationFloor,motion.z);
   rotation.setFromAxisAngle(up,motion.yaw);character.quaternion.slerp(rotation,1-Math.exp(-20*dt));
-  const state=motion.y>0?'saltando':motion.sliding?'deslizándose':motion.skating&&motion.moving?'patinando':motion.running?'corriendo':motion.moving?'caminando':'en reposo';
+  const state=motion.y>0?(motion.verticalSpeed>0?'saltando':'cayendo'):motion.sliding?'deslizándose':motion.skating&&motion.moving?'patinando':motion.running?'corriendo':motion.moving?'caminando':'en reposo';
   const groundSpeed=dt>0?Math.hypot(motion.x-oldX,motion.z-oldZ)/dt:0;
   // Patinando en hielo (de pie): con teclas, pasos de caminar o correr; planeando sin teclas, pose de reposo.
   const next=actions.get(motion.sliding?'swim':motion.skating?(motion.pushing?(motion.running?'run':'walk'):'idle'):motion.running?'run':motion.moving?'walk':'idle');
@@ -196,14 +220,25 @@ async function main(){
   // Nunca bajo el relieve ni bajo el agua.
   const floor=Math.max(terrain.sample(camera.position.x,camera.position.z),terrain.seaY)+.7;
   if(camera.position.y<floor)camera.position.y=floor;
+  // Niebla: se corre con la distancia de la cámara (de cerca, como antes: 38–120 m); de lejos la isla no se borra.
+  const extra=Math.max(0,camera.position.distanceTo(controls.target)-24);fog.near=38+extra;fog.far=120+extra*1.5;
   // Sombra del pingüino: la cámara de sombras lo sigue.
   sun.target.position.copy(character.position);sun.position.copy(character.position).add(sunOffset);
  }
+ const fog=scene.fog as THREE.Fog;
+ // Doble clic sobre la isla: muestra las coordenadas del punto (m, origen en el centro de la isla), para ubicar cosas.
+ const pickRay=new THREE.Raycaster(),pickNdc=new THREE.Vector2();let pickTimer=0;
+ renderer.domElement.addEventListener('dblclick',e=>{
+  const r=renderer.domElement.getBoundingClientRect();pickNdc.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);pickRay.setFromCamera(pickNdc,camera);
+  const hit=pickRay.intersectObject(scene.getObjectByName('isla')!,false)[0];if(!hit)return;
+  const text=`Punto en ${spec.name}: x ${hit.point.x.toFixed(1)} · z ${hit.point.z.toFixed(1)} m (altura ${hit.point.y.toFixed(2)} m)`;
+  console.info(text);status.textContent=text;status.hidden=false;clearTimeout(pickTimer);pickTimer=window.setTimeout(()=>{status.hidden=true;},8000);
+ });
  let fadeElapsed=0,perfStarted=performance.now(),perfFrames=0;const perfLabel=document.getElementById('performance')!;
  const setup=performance.now()-started,timing=ground.timings;
  console.info(`${spec.name}: relieve ${timing.terrainMs.toFixed(0)} ms (erosión ${terrain.erosionMs.toFixed(0)} ms) · mapas ${timing.mapsMs.toFixed(0)} ms · texturas procedurales del material ${timing.materialMs.toFixed(0)} ms · malla ${timing.meshMs.toFixed(0)} ms · preparación total ${setup.toFixed(0)} ms · texturas KTX2 ${(textures.bytes/1024).toFixed(0)} KB`);
  // Solo en desarrollo: acceso para pruebas en el navegador (posición, uniforms, teclas simuladas).
- if(import.meta.env.DEV)Object.assign(window,{antarisLab:{motion,ground,terrain,camera,controls,character,keys,renderer,setup,spec,ocean:ground.ocean}});
+ if(import.meta.env.DEV)Object.assign(window,{antarisLab:{motion,ground,terrain,camera,controls,character,keys,renderer,setup,spec,ocean:ground.ocean,structures}});
  if(import.meta.env.DEV)Object.defineProperty((window as unknown as {antarisLab:object}).antarisLab,"preloading",{get:()=>preloading});
  construction.patch(scene);
  // Dos variantes de cada material: la pantalla y el reflejo del agua (un render target: sin tone mapping ni sRGB).
@@ -219,7 +254,7 @@ async function main(){
  function tick(dt:number){
   simTime+=dt;
   fadeElapsed+=dt;if(fadeElapsed>=.1){const remaining=ground.fade(fadeElapsed);fadeElapsed=0;if(!remaining&&footprintCount>0){footprintCount=0;counter.textContent='Nieve sin huellas';}}
-  move(dt);followCamera(dt);snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
+  move(dt);followCamera(dt);snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);for(const o of structures)o.s.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
  }
  if(import.meta.env.DEV)Object.assign((window as unknown as {antarisLab:object}).antarisLab,{tick,scene});
  renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden)return;
