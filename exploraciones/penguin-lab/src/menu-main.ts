@@ -6,7 +6,11 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {loadTerrainTextures} from './snow/terrain-textures';
-import {TERRAINS,terrainSpec} from './island/island-terrain';
+import {TERRAINS,terrainSpec,IslandTerrain,findSpawn} from './island/island-terrain';
+import {buildIslandMaps} from './island/island-maps';
+import {noiseTexture,detailTexture} from './snow/materials';
+import {detailTextureCorrected} from './snow/detail-corrected';
+import {createConstruction} from './snow/construction';
 import {IslandGround,SUN_DIRECTION} from './island/island-scene';
 import {SnowParticles} from './snow-particles';
 import {setupUiToggle} from './ui-toggle';
@@ -38,9 +42,31 @@ async function main(){
  const sun=new THREE.DirectionalLight('#fff4de',2.6);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-2.2,right:2.2,top:2.2,bottom:-2.2,near:2,far:26});sun.shadow.normalBias=.015;sun.shadow.bias=-.0001;scene.add(sun,sun.target);
 
  const started=performance.now();
- const ground=new IslandGround(spec);scene.add(ground.group);
+ const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ // Precarga (la del visor de bases, snow/construction.ts): con las alturas de la isla, una malla que se arma por pasos
+ // mientras se preparan los mapas, el material, el agua y el pingüino; al terminar, se transforma en la isla desde el
+ // punto de aparición. Relieve SINTÉTICO, no REMA.
+ const islandTerrain=new IslandTerrain(spec);
+ const home=findSpawn(islandTerrain);
+ {const look=new THREE.Vector3(home.x,islandTerrain.sample(home.x,home.z)+VIEW.lookHeight,home.z),a=spec.viewAzimuth,h=Math.cos(VIEW.elevation)*VIEW.distance;
+  camera.position.set(look.x+Math.sin(a)*h,look.y+Math.sin(VIEW.elevation)*VIEW.distance,look.z+Math.cos(a)*h);controls.target.copy(look);controls.update();}
+ const gridCell=2*islandTerrain.half/64; // separación de la malla fina de la precarga (65 nodos por lado)
+ const construction=createConstruction({renderer,camera,controls,background:new THREE.Color(BACKGROUND),k:1,reducedMotion,
+  preview:{heights:islandTerrain.heights,width:islandTerrain.n,height:islandTerrain.n,cellM:islandTerrain.cell,seaLevelM:islandTerrain.seaY},
+  // escalas de la isla: tierra desde 2 cm sobre el agua, tolerancia de un cuarto de celda bajo la superficie (en el visor,
+  // 25 m con celdas de ~100 m), malla 2 cm sobre el suelo, 1 m de margen en el radio final y solo la malla de la isla (delimitada por la costa)
+  scale:{center:[home.x,home.z],landM:.02,tolM:.25*gridCell,liftM:.02,extraM:1,landOnly:true}});
+ construction.start();
+ let preloading=true;
+ const assets=Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy())]);
+ // El trabajo pesado va en tramos, con un cuadro entre cada uno: la malla sigue animada.
+ const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r(null)));
+ await nextFrame();noiseTexture();await nextFrame();detailTexture();await nextFrame();detailTextureCorrected();await nextFrame();
+ const maps=buildIslandMaps(islandTerrain,SUN_DIRECTION);await nextFrame();
+ const ground=new IslandGround(spec,{terrain:islandTerrain,maps,mobile:matchMedia("(pointer: coarse)").matches,maxAniso:renderer.capabilities.getMaxAnisotropy()});scene.add(ground.group);
+ ground.ocean.setSun(new THREE.Vector3(...SUN_DIRECTION),sun.color);
  const terrain=ground.terrain;
- const [gltf,textures]=await Promise.all([new GLTFLoader().loadAsync(import.meta.env.BASE_URL+'assets/models/penguin-custom-smooth.glb'),loadTerrainTextures(renderer,renderer.capabilities.getMaxAnisotropy())]);
+ const [gltf,textures]=await assets;
  const penguin=gltf.scene;applyKingPenguinColors(penguin);const box=new THREE.Box3().setFromObject(penguin),extent=box.getSize(new THREE.Vector3());penguin.scale.setScalar(1.25/extent.y);box.setFromObject(penguin);const center=box.getCenter(new THREE.Vector3());penguin.position.set(-center.x,-box.min.y,-center.z);penguin.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});const character=new THREE.Group();character.add(penguin);scene.add(character);
  const mixer=new THREE.AnimationMixer(penguin);
  const actions=new Map(gltf.animations.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip.name.toLowerCase()==='swim'?groundedSlideClip(clip):clip)]));
@@ -177,7 +203,17 @@ async function main(){
  const setup=performance.now()-started,timing=ground.timings;
  console.info(`${spec.name}: relieve ${timing.terrainMs.toFixed(0)} ms (erosión ${terrain.erosionMs.toFixed(0)} ms) · mapas ${timing.mapsMs.toFixed(0)} ms · texturas procedurales del material ${timing.materialMs.toFixed(0)} ms · malla ${timing.meshMs.toFixed(0)} ms · preparación total ${setup.toFixed(0)} ms · texturas KTX2 ${(textures.bytes/1024).toFixed(0)} KB`);
  // Solo en desarrollo: acceso para pruebas en el navegador (posición, uniforms, teclas simuladas).
- if(import.meta.env.DEV)Object.assign(window,{antarisLab:{motion,ground,terrain,camera,controls,character,keys,renderer,setup}});
+ if(import.meta.env.DEV)Object.assign(window,{antarisLab:{motion,ground,terrain,camera,controls,character,keys,renderer,setup,spec,ocean:ground.ocean}});
+ if(import.meta.env.DEV)Object.defineProperty((window as unknown as {antarisLab:object}).antarisLab,"preloading",{get:()=>preloading});
+ construction.patch(scene);
+ // Dos variantes de cada material: la pantalla y el reflejo del agua (un render target: sin tone mapping ni sRGB).
+ // Se compilan las dos ahora, en paralelo; si no, la del reflejo congelaba el primer cuadro (~3 s, medido).
+ const mirrorProbe=new THREE.WebGLRenderTarget(1,1);renderer.setRenderTarget(mirrorProbe);
+ const compileMirror=renderer.compileAsync(scene,camera);renderer.setRenderTarget(null);
+ await Promise.all([compileMirror,renderer.compileAsync(scene,camera)]).catch(()=>{});
+ // Primer dibujo fuera de pantalla (todo descartado por el revelado): sube texturas y geometría y arma la sombra y el
+ // reflejo (~0,35 s, medido) con la malla todavía en pantalla. Si no, ese tirón caía en el primer cuadro del revelado.
+ renderer.setRenderTarget(mirrorProbe);renderer.render(scene,camera);renderer.setRenderTarget(null);mirrorProbe.dispose();await nextFrame();
  const clock=new THREE.Clock();const resize=()=>{fitCamera();renderer.setSize(innerWidth,innerHeight);snowParticles.setViewport(renderer.domElement.height,camera.fov);};window.addEventListener('resize',resize);
  let simTime=0;
  function tick(dt:number){
@@ -189,6 +225,7 @@ async function main(){
  renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden)return;
  tick(dt);
  perfFrames++;const elapsed=performance.now()-perfStarted;if(elapsed>=2000){perfLabel.textContent=Math.round(perfFrames*1000/elapsed)+' FPS · '+renderer.info.render.triangles.toLocaleString('es-AR')+' triángulos · '+renderer.info.render.calls+' llamadas · huellas CPU '+(ground.cpuMs/perfFrames).toFixed(2)+' ms/cuadro';perfStarted=performance.now();perfFrames=0;ground.cpuMs=0;}});status.hidden=true;
+ construction.finish(scene,()=>{}).then(()=>{preloading=false;});
  window.addEventListener('pagehide',()=>{if(disposed)return;disposed=true;stepAudio.dispose();renderer.domElement.removeEventListener('pointerdown',unlockAudio);renderer.setAnimationLoop(null);window.removeEventListener('resize',resize);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);controls.dispose();mixer.stopAllAction();mixer.uncacheRoot(penguin);const materials=new Set<THREE.Material>(),textureSet=new Set<THREE.Texture>();scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textureSet.add(value);m.dispose();}for(const u of Object.values(ground.uniforms))if(u.value instanceof THREE.Texture)textureSet.add(u.value);for(const t of textureSet)t.dispose();snowParticles.dispose();sun.shadow.map?.dispose();renderer.dispose();},{once:true});
 }
 main().catch(error=>{status.hidden=false;status.textContent='No se pudo preparar la prueba: '+String(error);console.error(error);});

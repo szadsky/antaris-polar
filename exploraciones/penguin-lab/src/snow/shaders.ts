@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { detailTexture, lin, noiseTexture, type SharedTextures } from "./materials";
 import { detailTextureCorrected } from "./detail-corrected";
 import { terrainTextureUniforms } from "./terrain-textures";
+import { STYL_RAMP, SNOW_GLINTS, SUN_SHADOW_LIGHTS } from "./snow-light";
 import { snowVolumeUniforms, SNOW_VOL_VERTEX_PARS, SNOW_VOL_COMMON, SNOW_VOL_VERTEX, SNOW_VOL_FRAG_FN, COAST_RAMP_VERTEX } from "./snow-volume";
 
 /**
@@ -46,8 +47,10 @@ export interface VertexPath {
 }
 
 function vertexPath(s: THREE.WebGLProgramParametersWithUniforms, v: VertexPath, extraPars = "") {
-  extraPars += "\nvarying vec3 vClosureNormal;";
-  s.fragmentShader = s.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vClosureNormal;");
+  // vTopY: altura (mundo) del último vértice del triángulo, sin interpolar. En la malla costera horneada ese
+  // vértice es el más alto de la cara: el frente de un acantilado sabe hasta dónde llega su cima.
+  extraPars += "\nvarying vec3 vClosureNormal;\nflat varying float vTopY;";
+  s.fragmentShader = s.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vClosureNormal;\nflat varying float vTopY;");
   if (v.grid) {
     Object.assign(s.uniforms, v.grid, { uSkirt: v.skirt ?? { value: 0 } });
     s.vertexShader = s.vertexShader
@@ -101,7 +104,12 @@ export function baseMaterial(tex: SharedTextures, v: VertexPath = {}) {
 export interface StyleParams {
   halfSize: [number, number];
   seaY: number;
+  /** Tamaño de celda (m) de la textura de superficie (relieve de 4 u 8 m). */
+  texCellM: number;
 }
+/** Escala (m) de las normales REMA con que se sombrea la nieve: 16 m (sesgo 2 con el relieve de 4 m). Se probó
+ *  ~45 m (sin parches, pero la nieve quedaba lisa y el relieve REMA solo se leía de lejos con luz rasante). */
+const SNOW_SMOOTH_M = 16;
 
 /** Uniforms del estilo, compartidos por todas las variantes (cerca, lejos, plano del mar). */
 export function styleUniforms(tex: SharedTextures, p: StyleParams) {
@@ -125,10 +133,14 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     // Nieve: y = oclusión de hondonadas (cavidades); x, z, w sin uso.
     uSnowLook: { value: new THREE.Vector4(0, 0.5, 0, 0) }, // hondonadas al 50 % (al 100 % manchaban la nieve)
     // Reflejo del sol en la nieve (GLSL, en la luz directa del sol), como la nieve real:
-    // x = satinado especular amplio · y = su exponente · z = destellos de cristales · w = densidad de cristales.
-    uSnowGlint: { value: new THREE.Vector4(0.055, 28, 0.65, 0.18) },
-    // Dispersión hacia adelante: la nieve brilla más mirando hacia el sol con ángulo rasante.
-    uSnowFwd: { value: 0.16 },
+    // x = reflejo especular (multiplicado por Fresnel: casi nada de frente, fuerte con ángulo rasante) · y = su
+    // exponente (lóbulo amplio) · z = destellos de cristales · w = densidad de cristales.
+    // 14/11/2026: el satinado parejo (sin Fresnel) hacía ver la nieve plástica; ahora es reflejo con Fresnel. Los
+    // destellos son puntos chicos (~1–2 px, como el reflejo de un cristal) en celdas de ~5 px: intensidad 5 (más que
+    // el blanco de la nieve), 20 % de celdas candidatas y lóbulo 500 (pocos destellos en pantalla, pero se leen).
+    uSnowGlint: { value: new THREE.Vector4(1.0, 16, 5.0, 0.2) },
+    // Dispersión hacia adelante: la nieve brilla más mirando hacia el sol con ángulo rasante (0,16 → 0,25).
+    uSnowFwd: { value: 0.25 },
     uSnowRelief: { value: 0 }, // apagado en el estilizado: moteaba la nieve; el volumen lo da la luz en bandas
     // Fracturas de la roca: intensidad del relieve de detalle generado (el de la prueba C, 0 bytes de
     // descarga) sobre la roca, solo de cerca. 0 = sin fracturas.
@@ -137,7 +149,12 @@ export function styleUniforms(tex: SharedTextures, p: StyleParams) {
     // normales REMA para el sombreado (sesgo de mipmap; la geometría no cambia) · z = suavizado extra
     // de las normales solo en la nieve ·
     // w = microrelieve de la nieve (Snow007A).
-    uStylize: { value: new THREE.Vector4(0, 0.5, 2.0, 0.35) }, // roca: normal REMA con sesgo 0,5 (formas reales) · nieve: sesgo 2 (≈ 16 m), lisa: con 0,5 se veía rugosa
+    // roca: normal REMA con sesgo 0,5 (formas reales) · nieve: sesgo para SNOW_SMOOTH_M (2 con el relieve de 4 m,
+    // 1 con el de 8 m: misma escala en metros; con 0,5 se veía rugosa)
+    uStylize: { value: new THREE.Vector4(0, 0.5, Math.log2(SNOW_SMOOTH_M / p.texCellM), 0.35) },
+    // Contraste del relieve REMA en la luz de la nieve: multiplica la inclinación de su normal (solo sombreado; la
+    // geometría y los datos no cambian). Interpretación: con 1 el relieve solo se leía con luz rasante.
+    uSnowNormalK: { value: 1.4 },
     // Tono de la roca: x = luminancia media lineal objetivo (gris mineral) · y = fracción del color de la
     // foto · z = cuánto se conservan las zonas más claras que la media (1 = todas; menos = sin vetas blancas).
     uRockTone: { value: new THREE.Vector3(0.17, 0, 0.3) },
@@ -198,6 +215,7 @@ uniform vec3 uRockTone;
 uniform vec3 uRockRelief;
 uniform float uRockFrac;
 uniform vec4 uStylize;
+uniform float uSnowNormalK;
 uniform vec4 uSnowLook;
 uniform vec4 uSnowGlint;
 uniform float uSnowFwd;
@@ -229,9 +247,7 @@ vec3 gGlitN = vec3(0.0, 0.0, 1.0); // normal (espacio de vista) del cristal de e
 // de Lambert. Devuelve el factor que reemplaza a dot(N, L).
 ${SNOW_VOL_COMMON}
 ${SNOW_VOL_FRAG_FN}
-float stylRamp(float ndl) {
-  return smoothstep(0.0, 0.2, ndl) * 0.55 + smoothstep(0.3, 0.8, ndl) * 0.45;
-}
+${STYL_RAMP}
 // Ondas del agua: suma de 5 ondas direccionales (solo la normal, sin desplazar geometría), de 6 a 41 m.
 // Cada onda se apaga cuando su longitud baja de ~10 píxeles (sin franjas ni parpadeo a la distancia).
 vec3 seaNormal(vec3 p) {
@@ -343,7 +359,10 @@ if (surf.a < 0.05) discard; // sin dato
 // borde se recorta a ~1 píxel (fwidth): sin escalones de la grilla de 4 m (dientes de sierra).
 float sdfM = (surf.a * 255.0 - 128.0) / 8.0;
 float aaW = max(fwidth(sdfM), 0.05);
-float isSea = (1.0 - smoothstep(-aaW, aaW, sdfM)) * (1.0 - smoothstep(0.1, 1.0, vWorld.y - uSeaY));
+// Solo hasta la altura del plano del agua (3 cm bajo uSeaY): antes contaba como mar hasta 1 m por encima, y el
+// terreno que asoma apenas sobre el agua del lado mar de ADD se pintaba de mar con su propio reflejo, al lado del
+// agua de verdad: una segunda franja de agua (margen turquesa sin espuma, reflejo duplicado).
+float isSea = (1.0 - smoothstep(-aaW, aaW, sdfM)) * (1.0 - smoothstep(-0.1, 0.05, vWorld.y - uSeaY));
 #ifdef EXACT_COAST
 isSea = 0.0;
 #endif
@@ -362,7 +381,12 @@ if (uStylize.y > 0.0) {
 n.y = sqrt(max(0.0, 1.0 - dot(n.xz, n.xz)));
 // Vertical closure faces need their geometric normal, not the overhead DEM normal.
 bool closureFace = dot(vClosureNormal, vClosureNormal) > 0.5;
-if (closureFace) n = normalize(vClosureNormal);
+// Normal de iluminación algo inclinada hacia arriba (~24°), como la de un frente de acantilado del relieve: con la
+// cara exactamente vertical, el corte del diorama del lado sin sol quedaba casi negro (sin luz del cielo).
+if (closureFace) n = normalize(normalize(vClosureNormal) + vec3(0.0, 0.45, 0.0));
+// El corte es roca de arriba abajo: la distancia a la costa (interpolada entre una columna de tierra y una de
+// mar) lo pintaba de mar en una cuña fina bajo cada orilla (líneas claras verticales).
+if (closureFace) isSea = 0.0;
 #ifdef SNOW_VOL_FRAG
 // Paredes de la malla (el frente de un acantilado costero entre la cima y el fondo): la normal REMA cenital
 // dice "plano" y las pintaba de nieve, con vetas verticales de la proyección desde arriba. Donde la cara es
@@ -376,9 +400,13 @@ if (dot(nGeo, cameraPosition - vWorld) < 0.0) nGeo = -nGeo;
 if (coastK > 0.0) {
   vec2 nF0 = surf.rg * 2.0 - 1.0;
   wallK = coastK * smoothstep(0.15, 0.35, (1.0 - abs(nGeo.y)) - (1.0 - sqrt(max(0.0, 1.0 - dot(nF0, nF0)))));
-  // Solo por encima de 6–12 m sobre el agua: en orillas bajas y medianas, las caras hacia el fondo se pasaban
-  // a roca y la silueta salía en dientes. (Con el relieve REMA suavizado no se distinguía: REMA rellena el mar.)
-  wallK *= smoothstep(6.0, 12.0, vWorld.y - uSeaY);
+  // Solo en caras cuya cima está a más de 6–12 m sobre el agua (vTopY: altura del vértice más alto de la cara,
+  // sin interpolar): en orillas bajas y medianas, las caras hacia el fondo se pasaban a roca y la silueta salía
+  // en dientes. Con la altura del píxel (antes), el pie de un acantilado de 75 m quedaba de nieve y cada cinta
+  // vertical asomaba como un diente blanco sobre el agua.
+  // Con la cima de la cara el umbral baja a 3–7 m: en un frente de 7–16 m, las caras con cima de 7 m quedaban de
+  // nieve entre caras de roca (arcos blancos al pie).
+  wallK *= smoothstep(3.0, 7.0, max(vWorld.y, vTopY) - uSeaY);
   if (wallK > 0.0) {
     // Dirección horizontal suave: gradiente de la distancia con signo a la costa (continua a lo largo del
     // frente); la cara triangular solo aporta la inclinación. Con la normal de la cara sola, columnas facetadas.
@@ -399,23 +427,33 @@ if (coastK > 0.0) {
 #endif
 float steep = 1.0 - n.y;
 #ifdef MAT_N
-// Nieve estilizada: normal REMA aún más suavizada (sesgo uStylize.z, 3 ≈ 32 m) solo para sombrear la
-// nieve: superficies amplias y limpias, sin las ondulaciones de 20–40 m. La roca usa n.
+// Nieve estilizada: normal REMA suavizada (sesgo uStylize.z = SNOW_SMOOTH_M, 16 m, fijado en metros desde el tamaño
+// de celda del relieve: styleUniforms) y con más contraste (uSnowNormalK) solo para sombrear la nieve. La roca usa n.
+// El relieve REMA se ve a toda distancia (decisión de dirección de arte, 14/11/2026); su grano no es parejo entre
+// zonas del mosaico, así que puede haber sectores con más textura que sus vecinos (dato, no defecto del visor).
 vec3 nSm = n;
 #ifdef SNOW_VOL_FRAG
-// Nieve de cerca: con la textura de normales ampliada (texel de 4 m más grande que ~1 píxel), filtrado
-// bicúbico B-spline (4 lecturas) en vez de bilineal: sin cuadrados en la luz. Lejos, una lectura con sesgo.
+// Nieve de cerca: con la textura de normales ampliada (texel más grande que ~1 píxel), filtrado bicúbico
+// B-spline (4 lecturas) sobre el mip de la nieve en vez de bilineal: sin cuadrados en la luz. Lejos, una lectura.
 vec2 duvS = vSurfUv * vec2(textureSize(uSurface, 0));
 float lodS = log2(max(max(length(dFdx(duvS)), length(dFdy(duvS))), 1e-4));
-float bicK = 1.0 - smoothstep(1.5, 2.5, lodS + uStylize.z); // de cerca: bicúbico sobre el mip suavizado (2)
-vec4 surfBic = vec4(0.0);
+int mipS = int(uStylize.z + 0.51); // mip del bicúbico (2 con 16 m a 4 m); +0,51: sin depender del redondeo
+float bicK = 1.0 - smoothstep(float(mipS) - 0.5, float(mipS) + 0.5, lodS + uStylize.z); // normales: bicúbico de cerca
+// La cavidad sigue en el mip 2 (≈ 16 m a 4 m), como antes: define el borde nieve-roca, que no debe cambiar.
+float cavK = 1.0 - smoothstep(1.5, 2.5, lodS + 2.0);
+vec4 surfBic = vec4(0.0), surfCav = vec4(0.0);
+// Cavidad con que se tiñe la nieve: a la misma escala que sus normales (16 m), cerca y lejos. Lejos se usaba la de
+// ~6 m (la del borde nieve-roca) y el tono cambiaba al acercarse.
+float cavSnow = 1.0;
 if (!closureFace) {
+  vec4 sSm = texture2D(uSurface, vSurfUv, uStylize.z);
   if (bicK > 0.0) {
-    surfBic = texBSpline(uSurface, vSurfUv, 2); // normal y cavidad del mip 2 (≈ 16 m), sin cuadrados ni rugosidad
-    nSm.xz = mix(texture2D(uSurface, vSurfUv, uStylize.z).rg, surfBic.rg, bicK) * 2.0 - 1.0;
-  } else {
-    nSm.xz = texture2D(uSurface, vSurfUv, uStylize.z).rg * 2.0 - 1.0;
+    surfBic = texBSpline(uSurface, vSurfUv, mipS);
+    sSm = mix(sSm, surfBic, bicK);
   }
+  nSm.xz = (sSm.rg * 2.0 - 1.0) * uSnowNormalK; // relieve REMA más legible en la luz (ver uSnowNormalK)
+  cavSnow = sSm.b;
+  if (cavK > 0.0) surfCav = mipS == 2 ? surfBic : texBSpline(uSurface, vSurfUv, 2);
   nSm.y = sqrt(max(0.0, 1.0 - dot(nSm.xz, nSm.xz)));
 }
 #else
@@ -429,7 +467,7 @@ if (uStylize.z > 0.0 && !closureFace) {
 float cav = cavS;
 #ifdef SNOW_VOL_FRAG
 // cavidad bicúbica de cerca (la de 4 m, bilineal y al 100 %, marcaba cuadrados en la nieve)
-if (bicK > 0.0 && !closureFace) cav = mix(cav, surfBic.b, bicK);
+if (cavK > 0.0 && !closureFace) cav = mix(cav, surfCav.b, cavK);
 #endif
 #else
 float cav = surf.b;
@@ -449,6 +487,14 @@ gSun = mix(gSun, 1.0, wallK);
 // R = manchas suaves (~240 m), G = vetas fbm (~30–120 m).
 vec2 mac = texture2D(uNoise, vWorld.xz * (1.0 / 1900.0)).rg;
 float big = mac.r;
+// Caras de cierre (corte del diorama): el ruido se lee sobre la pared (a lo largo del borde y en altura), no en
+// planta: con x/z era constante en vertical y la roca salía en franjas verticales repetidas. Escala de ~420 m.
+vec2 wallP = vec2(vWorld.x + vWorld.z, vWorld.y);
+// Dos lecturas giradas y a escalas distintas (como la nieve venteada): con una sola se veían las celdas cuadradas.
+if (closureFace) {
+  mac = 0.5 * (texture2D(uNoise, wallP * (1.0 / 420.0) + 0.53).rg + texture2D(uNoise, mat2(0.6, 0.8, -0.8, 0.6) * wallP * (1.0 / 270.0) + 0.21).rg);
+  big = mac.r;
+}
 float fine = mac.g;
 #ifdef SNOW_VOL_FRAG
 // Volumen de la nieve: normal del mismo relieve que desplaza la geometría (misma máscara de pendiente,
@@ -458,7 +504,7 @@ float fine = mac.g;
 // luz del relieve hasta ~50° (la nieve se sostiene en laderas de 30–45°; con el corte a ~35° casi no se veía)
 float snowVolM = closureFace ? 0.0 : uSnowDisp.w * (1.0 - smoothstep(0.25, 0.42, steep)) * smoothstep(4.0, 12.0, sdfM) * smoothstep(1.0, 6.0, vWorld.y - uSeaY) * (1.0 - smoothstep(2000.0, 3500.0, length(cameraPosition - vWorld)));
 vec2 dpxV = dFdx(vWorld.xz), dpyV = dFdy(vWorld.xz); // fuera del if: flujo uniforme
-if (snowVolM > 0.0) {
+if (snowVolM > 0.0 && uSnowDisp.x > 0.0) { // acumulaciones apagadas (x = 0): sin lecturas
   vec2 gS = snowVolGrad(vWorld.xz, snowVolZone(vWorld.xz), dpxV, dpyV);
   nSm = normalize(nSm - vec3(gS.x, 0.0, gS.y) * snowVolM);
 }
@@ -483,7 +529,7 @@ gBw /= max(gBw.x + gBw.y + gBw.z, 1e-4);
 gBw /= max(gBw.x + gBw.y + gBw.z, 1e-4);
 gUvX = vWorld.zy; gUvY = vWorld.xz; gUvZ = vWorld.xy;
 gGXx = dFdx(gUvX); gGXy = dFdy(gUvX); gGYx = dFdx(gUvY); gGYy = dFdy(gUvY); gGZx = dFdx(gUvZ); gGZy = dFdy(gUvZ);
-gK = texture2D(uNoise, vWorld.xz * (1.0 / 37.0)).g;
+gK = texture2D(uNoise, (closureFace ? wallP : vWorld.xz) * (1.0 / 37.0)).g; // en la pared: muestreo aperiódico en 2D
 float dDet = uDetailOn * (1.0 - smoothstep(uDetailFade.x, uDetailFade.y, length(cameraPosition - vWorld))) * (1.0 - isSea);
 // Borde nieve-roca: umbral de pendiente REMA (~47°), corrido por las cavidades del relieve (la nieve
 // queda en hondonadas) y la variación de baja frecuencia; transición de ±0,02 de pendiente
@@ -500,10 +546,6 @@ float tEdge = steep + (big - 0.5) * 0.12 * uColorVar + (cav - 0.82) * 0.25;
 #endif
 float wEdge = max(fwidth(tEdge) * 0.75, uRockLook.w);
 float rockT = smoothstep(0.32 - wEdge, 0.32 + wEdge, tEdge);
-#ifdef SNOW_VOL_FRAG
-// Cobertura con borde ancho para la sombra de contacto.
-float bankF = snowBank(tEdge);
-#endif
 #else
 float rockT = smoothstep(0.30, 0.34, steep + ((big - 0.5) * 0.16 + (fine - 0.5) * 0.05) * uColorVar);
 #endif
@@ -521,13 +563,17 @@ if (rockT > 0.003) {
 #ifndef FAR
   if (dDet > 0.001) rockNw = normalize(mix(n, biNormal(uRockNor, n, S_ROCK, uRockLook.x), dDet));
 #endif
-  if (uRockMacro.y > 0.0) {
-    float SM = 1.0 / uRockMacro.x;
+  // En el corte del diorama (pared plana, sin relieve que quiebre la textura) la capa grande va encendida, a 140 m,
+  // con su relieve en la luz: si no, el mosaico de 12,66 m se leía como un tejido parejo.
+  float macroW = closureFace ? 0.7 : uRockMacro.y;
+  if (macroW > 0.0) {
+    float SM = 1.0 / (closureFace ? 140.0 : uRockMacro.x);
     vec3 macroAlb = biColor(uRockCol, SM);
     // la capa media modula el tono (fracturas grandes) sin cambiar el color medio
-    rockAlb = mix(rockAlb, rockAlb * macroAlb / max(dot(macroAlb, vec3(0.333)), 0.03), uRockMacro.y);
+    rockAlb = mix(rockAlb, rockAlb * macroAlb / max(dot(macroAlb, vec3(0.333)), 0.03), macroW);
 #ifndef FAR
-    if (dDet > 0.001 && uRockRelief.y > 0.0) rockNw = normalize(rockNw + (biNormal(uRockNor, n, SM, uRockLook.x) - n) * uRockMacro.y * uRockRelief.y * dDet);
+    float reliefW = closureFace ? 0.9 : uRockRelief.y;
+    if (dDet > 0.001 && reliefW > 0.0) rockNw = normalize(rockNw + (biNormal(uRockNor, n, SM, uRockLook.x) - n) * macroW * reliefW * dDet);
 #endif
   }
   gGrad = 1.0;
@@ -535,8 +581,9 @@ if (rockT > 0.003) {
 #ifndef FAR
 // Fracturas de la roca: relieve de detalle generado en el navegador (el mismo de la prueba C: caras
 // angulosas de 2–15 m, mosaico de 97 m, aperiódico), solo sobre la roca y solo de cerca. Proyección por
-// eje dominante (2 lecturas). Interpretación artística: no son fracturas medidas.
-if (!closureFace && rockT > 0.003 && dDet > 0.001 && uRockFrac > 0.0) {
+// eje dominante (2 lecturas). Interpretación artística: no son fracturas medidas. También en el corte del
+// diorama: le da caras angulosas a la pared plana.
+if (rockT > 0.003 && dDet > 0.001 && uRockFrac > 0.0) {
   vec3 an = abs(n);
   vec2 puv;
   int ax;
@@ -576,10 +623,16 @@ rock *= mix(1.0, 0.75 + 0.25 * cav, uColorVar);
 #endif
 #ifdef MAT_N
 // Estilizado: el sombreado por cavidades (escalas de 24 y 64 m) moteaba la nieve; queda al 20 %.
-vec3 snow = mix(uSnow, mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cav)), uColorVar * uSnowLook.y);
 #ifdef SNOW_VOL_FRAG
-// sombra de contacto: el pie del banco de nieve, junto a la roca
-snow *= mix(1.0 - uSnowBank.y * uSnowDisp.w, 1.0, smoothstep(0.0, 0.6, bankF));
+float cavN = closureFace ? 1.0 : mix(cavSnow, 1.0, wallK); // cavidad de 16 m, igual cerca y lejos, solo para el tono de la nieve
+#else
+float cavN = cav;
+#endif
+vec3 snow = mix(uSnow, mix(uSnowShade, uSnow, smoothstep(0.55, 0.95, cavN)), uColorVar * uSnowLook.y);
+#ifdef SNOW_VOL_FRAG
+// Sin sombra de contacto en la nieve (14/11/2026): dependía del umbral nieve-roca con la cavidad fina de REMA y,
+// de lejos, dibujaba manchas grises alrededor de las rocas chicas que de cerca desaparecían. La roca recién
+// expuesta conserva su leve sombra (arriba).
 #endif
 #if defined(SNOW_VOL) && NUM_DIR_LIGHTS > 0
 // Forma de la nieve: según cuánto mira al sol (normal de la nieve, con relieve y bancos), de blanco a azul
@@ -609,6 +662,8 @@ snow *= mix(vec3(1.0), vec3(0.9, 0.94, 1.0), crvK);
 // azules en superficies planas (Belgrano II).
 float bigS = 0.5 * (big + texture2D(uNoise, mat2(0.6, 0.8, -0.8, 0.6) * vWorld.xz * (1.0 / 1370.0) + 0.37).r);
 snow *= mix(vec3(1.0), vec3(0.94, 0.965, 0.995), smoothstep(0.4, 0.75, bigS) * uColorVar);
+// Sin "tono de polvo" (14/11/2026): con uNoise marcaba su grilla como líneas rectas y con uSnowVol (mosaicos de 13 y
+// 41 m) se veía el mosaico repetido como un patrón. La nieve queda con el relieve REMA, la luz envolvente y el reflejo.
 #else
 snow *= mix(vec3(1.0), vec3(0.9, 0.94, 0.99), smoothstep(0.45, 0.8, big) * uColorVar);
 #endif
@@ -638,7 +693,14 @@ diffuseColor.rgb = mix(land, sea, isSea);
 // hacia el azul del mar con la profundidad; se ve a través del agua semitransparente de la orilla.
 // La franja a la altura del agua (isSea) también va con el color del fondo de la orilla: con el color del
 // mar profundo dibujaba un borde oscuro en toda la costa (el agua del océano ya la cubre).
-float underW = max(1.0 - smoothstep(-0.8, 0.1, vWorld.y - uSeaY), isSea * uShoreBand);
+// Elevation alone does not classify ocean: ADD land can lie below the datum.
+// Keep terrestrial depressions on the land material, including baked coast meshes.
+// Filter only the coastline pixel footprint; do not blur a band across the terrain.
+float oceanCoverage = 1.0 - smoothstep(-aaW, aaW, sdfM);
+float underW = oceanCoverage * max(1.0 - smoothstep(-0.8, 0.1, vWorld.y - uSeaY), isSea * uShoreBand);
+// Las caras de cierre (el corte del diorama) muestran la roca por dentro, no el fondo visto a través del agua:
+// sin esto, la roca bajo el mar del corte se pintaba del azul profundo del fondo y no se distinguía del agua.
+if (closureFace) underW = 0.0;
 if (underW > 0.0) {
   float depthW = max(uSeaY - vWorld.y, 0.0);
   // orilla clara (grava y arena húmedas vistas a través de poca agua) → turquesa → azul profundo
@@ -712,23 +774,7 @@ vec3 seaN = isSea > 0.0 ? seaNormal(vWorld) : vec3(0.0, 1.0, 0.0);
 gN = mix(nd, seaN, isSea);
 gRefl = isSea * (1.0 - foam) * seaReflection(seaN, vWorld);
 #ifdef MAT_N
-// Cristales de hielo de la nieve: celdas del tamaño de ~1,5 píxeles (potencia de 2 del tamaño en mundo,
-// estable al acercarse), una fracción (uSnowGlint.w) son cristales con una cara orientada al azar
-// alrededor de la normal; en la luz del sol solo brillan los que reflejan el sol hacia la cámara.
-{
-  // lado corto del píxel en el mundo: en ángulo rasante, con el lado largo los destellos salían como rayitas
-  float pxW = min(length(dFdx(vWorld)), length(dFdy(vWorld)));
-  float sparkLod=log2(max(pxW * 1.5,0.02));
-  float cellS=exp2(floor(sparkLod));
-  float sparkBlend=smoothstep(0.0,1.0,fract(sparkLod));
-  vec3 cid = floor(vWorld / cellS);
-  vec3 hr = fract(sin(vec3(dot(cid, vec3(127.1, 311.7, 74.7)), dot(cid, vec3(269.5, 183.3, 246.1)), dot(cid, vec3(113.5, 271.9, 124.6)))) * 43758.5453);
-  vec3 cid2=floor(vWorld/(cellS*2.0));
-  vec3 hr2=fract(sin(vec3(dot(cid2,vec3(127.1,311.7,74.7)),dot(cid2,vec3(269.5,183.3,246.1)),dot(cid2,vec3(113.5,271.9,124.6))))*43758.5453);
-  vec3 facet = normalize(gN + (mix(hr.yzx,hr2.yzx,sparkBlend) * 2.0 - 1.0) * 0.45);
-  gGlitN = normalize((viewMatrix * vec4(facet, 0.0)).xyz);
-  gGlit = gSnowK * mix(step(hr.x,uSnowGlint.w),step(hr2.x,uSnowGlint.w),sparkBlend);
-}
+${SNOW_GLINTS}
 #endif
 `;
 
@@ -738,19 +784,6 @@ float edgeD = min(uHalf.x - abs(vWorld.x), uHalf.y - abs(vWorld.z));
 if(uEdgeHaze > 0.0) gl_FragColor.rgb = mix(fogColor, gl_FragColor.rgb, max(isSea, smoothstep(0.0, uEdgeHaze, edgeD))); // solo tierra
 #endif`;
 
-/** Sombra precalculada del sol: solo afecta a la luz directa; la luz ambiente sigue. */
-const SUN_SHADOW_LIGHTS = THREE.ShaderChunk.lights_fragment_begin.replace(
-  "getDirectionalLightInfo( directionalLight, directLight );",
-  "getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= gSun;\n\t\tfloat ndlS = dot( geometryNormal, directLight.direction );\n\t\tif ( ndlS > 0.0 ) directLight.color *= mix( 1.0, stylRamp( ndlS ) / max( ndlS, 0.04 ), uStylize.x );" +
-    // Reflejo del sol en la nieve: satinado especular amplio + dispersión hacia adelante (mirando al sol,
-    // ángulo rasante) + destellos de cristales (cara del cristal alineada con el reflejo del sol).
-    "\n\t\tif ( gSnowK > 0.0 && ndlS > 0.0 ) {" +
-    "\n\t\t\tfloat aS = max( dot( geometryViewDir, reflect( -directLight.direction, geometryNormal ) ), 0.0 );" +
-    "\n\t\t\tfloat fwd = pow( max( dot( -geometryViewDir, directLight.direction ), 0.0 ), 4.0 ) * pow( 1.0 - max( dot( geometryNormal, geometryViewDir ), 0.0 ), 2.0 );" +
-    "\n\t\t\tfloat cr = pow( max( dot( geometryViewDir, reflect( -directLight.direction, gGlitN ) ), 0.0 ), 1500.0 );" +
-    "\n\t\t\treflectedLight.directSpecular += directLight.color * ndlS * ( gSnowK * ( uSnowGlint.x * pow( aS, uSnowGlint.y ) + uSnowFwd * fwd ) + gGlit * uSnowGlint.z * cr );" +
-    "\n\t\t}"
-);
 
 export interface StyleVariant extends VertexPath {
   /** Bloques lejanos: material más simple (sin vetas finas). */
@@ -789,6 +822,7 @@ export function stylizedMaterial(u: StyleUniforms, v: StyleVariant = {}) {
         SNOW_VOL_VERTEX,
         COAST_RAMP_VERTEX,
         "vWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;",
+        "vTopY = vWorld.y;",
       ].join("\n")
     );
     s.fragmentShader = s.fragmentShader

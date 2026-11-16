@@ -7,7 +7,8 @@ Rutas integradas: /laboratorio/pinguino/ (plataforma original, index.html + src/
 Salida estatica en dist/ en la raiz.
 Pruebas: npm test. Requiere Node.js >=22.7.
 
-La carpeta es independiente del visor: no carga DEMs, agua ni bases del visor.
+La carpeta es independiente del visor: no carga DEMs ni bases del visor. Copia (en src/snow/) su material de nieve,
+su agua y su precarga; ver AJUSTES DEL VISOR EN EL MENU.
 Modelo de Polyfork, CC BY 4.0; se conserva el GLB y su atribucion.
 Huellas: adaptacion MIT de Oguzhan Tufenk / Codrops. Las licencias se conservan.
 En esta maquina node_modules reutiliza un enlace local; no se versiona ni se necesita
@@ -17,6 +18,34 @@ PINGUINO · MENU (/pinguino-menu/)
 Boton "Ocultar interfaz" (o tecla H): deja solo el paisaje, el pinguino y el boton para volver a mostrarla;
 la preferencia se recuerda en el navegador (localStorage, si esta disponible). src/ui-toggle.ts.
 En el movil los botones bajan a dos filas para no salirse de la pantalla.
+
+AJUSTES DEL VISOR EN EL MENU (15/11/2026)
+Los ultimos ajustes del visor de bases (terreno-estilizado, commits 7415c4e y 2488fba) llevados al menu, a escala
+de isla. Son copias: si cambian en el visor, hay que volver a copiarlas.
+  Nieve: src/snow/shaders.ts, snow-volume.ts y snow-light.ts copiados sin cambios del visor (reflejo con Fresnel,
+    destellos, relieve con mas contraste). La isla pasa texCellM = 4 para conservar el suavizado anterior (sesgo 2).
+    Tambien cambia la nieve del laboratorio original (/laboratorio/pinguino/), que usa el mismo material.
+  Agua: src/snow/ocean.ts, el Water del visor (reflejo planar, oleaje sedoso estocastico, color segun la distancia
+    a la costa, tinte de orilla, espuma y brillo del sol en tres lobulos) con los mismos valores. WATER_SCALE = 30
+    (m del visor por m de la isla) achica ondas, espuma, distancias a la costa y deformacion del reflejo. Opaca como
+    en el visor: los cuadros de la malla bajo el agua ya no se dibujan (Valle: 146.000 -> ~120.000 triangulos).
+    El reflejo dibuja una isla 16 veces mas liviana (mismos vertices y material, 1 de cada 4 por lado) y se
+    redibuja 1 de cada 2 cuadros con la camara en movimiento, como en el visor. Textura waternormals.jpg (249 KB).
+  Icebergs: src/island/island-icebergs.ts, la geometria simple del visor (~280 triangulos cada uno) y su material con
+    la nieve de la isla, a 1/22 (el tabular queda de ~3 m). 6 u 8 por isla, a 4-15 m de la costa, ubicacion fija por
+    semilla, con la flotacion del visor. Decorativos: no son icebergs observados.
+  Precarga: src/snow/construction.ts, la del visor con las alturas de la isla (relieve SINTETICO, no REMA): malla que
+    se arma por pasos mientras se preparan mapas, material, agua y pinguino, y se transforma en la isla desde el
+    punto de aparicion. Delimitada por la costa: solo la malla de tierra, y las conexiones que cruzan la costa se
+    cortan donde bajan al nivel del agua. Se compilan antes las dos variantes de cada material (pantalla y reflejo)
+    y se hace un dibujo fuera de pantalla; si no, el primer cuadro se congelaba ~3 s y tapaba el revelado.
+  Medido en el navegador de la app (1357 x 787, misma vista de inicio): 60 FPS quieto y caminando en Macizo, Valle y
+    Sendero (cuadro mediano 16,7 ms, p95 17,0-17,2 ms), como antes. GPU de la escena (EXT_disjoint_timer_query,
+    mediana de 30 cuadros, Valle): ~10,9 ms con el reflejo redibujado contra ~7,1 ms antes; sin el agua, 8,5 ms.
+    Hasta poder caminar: ~4-6 s contra ~1-2,5 s antes (la precarga dura al menos lo que tarda en compilar los shaders).
+    No medido en movil ni en red lenta.
+  Capturas: capturas/v7-macizo-agua-antes.jpg, v7-macizo-agua-icebergs-despues.jpg, v7-precarga-malla-delimitada.jpg,
+    v7-precarga-revelado.jpg.
 
 TERRENOS DE PRACTICA (?terreno=sendero, ?terreno=macizo o ?terreno=valle, o botones del encabezado)
   Sendero se abre por defecto (DEFAULT_TERRAIN_ID).

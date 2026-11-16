@@ -31,7 +31,7 @@ async function main(){
  for(let row=0;row<n;row++)for(let col=0;col<n;col++){const x=(col/(n-1)-.5)*radius*2,z=(row/(n-1)-.5)*radius*2,e=.005;const normal=new THREE.Vector3(-(height(x+e,z)-height(x-e,z))/(2*e),1,-(height(x,z+e)-height(x,z-e))/(2*e)).normalize(),i=(row*n+col)*4;surface.set([Math.round((normal.x*.5+.5)*255),Math.round((normal.z*.5+.5)*255),255,255],i);light.set([255,0,128,255],i);}
  const texture=(data:Uint8Array)=>{const t=new THREE.DataTexture(data,n,n);t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.needsUpdate=true;return t;};
  const maps={surface:texture(surface),light:texture(light)};
- const uniforms=styleUniforms(maps,{halfSize:[1000,1000],seaY:-100});
+ const uniforms=styleUniforms(maps,{halfSize:[1000,1000],seaY:-100,texCellM:4});
  // Same snow shading, grain and glints. This small support uses its explicit geometry:
  // kilometre-scale terrain displacement and shoreline ramp are not applicable here.
  uniforms.uSnowDisp.value.x=0;uniforms.uCoastRamp.value.w=0;

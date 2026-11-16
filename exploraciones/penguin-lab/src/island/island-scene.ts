@@ -1,18 +1,21 @@
 import * as THREE from 'three';
-import { seaPlaneMaterial, styleUniforms, stylizedMaterial } from '../snow/shaders';
+import { styleUniforms, stylizedMaterial } from '../snow/shaders';
+import { createOcean, oceanShore, coastDistanceSampler } from '../snow/ocean';
+import { createIslandIcebergs } from './island-icebergs';
 import { SnowFootprints } from '../snow-footprints';
 import { IslandTerrain, findSpawn, type IslandSpec } from './island-terrain';
-import { buildIslandMaps, writeSurfaceTexel } from './island-maps';
+import { buildIslandMaps, writeSurfaceTexel, type IslandMaps } from './island-maps';
 
 /** Dirección hacia el sol (sin normalizar). La sombra del relieve se hornea con la misma dirección. */
 export const SUN_DIRECTION: [number, number, number] = [-3, 4.5, 3.5];
 
 /**
- * Más allá de esta distancia a la costa (m, mar adentro) el agua es 100 % opaca (su alfa llega a 1 a
- * ~1,96 m): esos triángulos del fondo no se dibujan. Se usa la distancia y no la profundidad para que
- * el borde recortado (escalonado, por cuadros de la malla) nunca quede bajo agua translúcida.
+ * El agua (la del visor, opaca) tapa todo lo que queda bajo el nivel del mar: los cuadros de la malla con sus cuatro
+ * vértices más de 2 cm bajo el agua no se dibujan.
  */
-const OPAQUE_WATER_DISTANCE = 2.4;
+const UNDER_WATER_M = 0.02;
+/** Escala del agua del visor en la isla: metros del visor por metro de la isla (ver snow/ocean.ts). */
+export const WATER_SCALE = 30;
 
 type Region ={ x0: number; x1: number; z0: number; z1: number };
 
@@ -28,6 +31,8 @@ export class IslandGround {
   readonly uniforms: ReturnType<typeof styleUniforms>;
   readonly spawn: { x: number; z: number; yaw: number };
   readonly timings: { terrainMs: number; mapsMs: number; materialMs: number; meshMs: number };
+  readonly ocean: ReturnType<typeof createOcean>;
+  readonly icebergs: ReturnType<typeof createIslandIcebergs>;
   /** Tiempo de CPU acumulado en actualizar huellas (ms), para el indicador de rendimiento. */
   cpuMs = 0;
   private readonly surface: Uint8Array;
@@ -42,12 +47,12 @@ export class IslandGround {
   private readonly mipSizes: number[] = [];
   private pending: Region | null = null;
 
-  constructor(spec: IslandSpec) {
+  constructor(spec: IslandSpec, opts: { terrain?: IslandTerrain; maps?: IslandMaps; mobile?: boolean; maxAniso?: number } = {}) {
     let start = performance.now();
-    const t = (this.terrain = new IslandTerrain(spec));
+    const t = (this.terrain = opts.terrain ?? new IslandTerrain(spec));
     const terrainMs = performance.now() - start;
     start = performance.now();
-    const maps = buildIslandMaps(t, SUN_DIRECTION);
+    const maps = opts.maps ?? buildIslandMaps(t, SUN_DIRECTION);
     const mapsMs = performance.now() - start;
     start = performance.now();
     this.spawn = findSpawn(t);
@@ -72,7 +77,7 @@ export class IslandGround {
     const light = texture(maps.light, maps.lightSize);
     const materialStart = performance.now();
     // Genera (una sola vez) las texturas procedurales del material compartido: ruido y detalle.
-    this.uniforms = styleUniforms({ surface: this.surfaceTexture, light }, { halfSize: [1000, 1000], seaY: t.seaY });
+    this.uniforms = styleUniforms({ surface: this.surfaceTexture, light }, { halfSize: [1000, 1000], seaY: t.seaY, texCellM: 4 } /* nieve suavizada con sesgo 2, como antes */);
     const materialMs = performance.now() - materialStart;
     const u = this.uniforms;
     // Escala de un pingüino: sin desplazamiento kilométrico de la nieve ni rampa costera (como la plataforma).
@@ -98,11 +103,11 @@ export class IslandGround {
     }
     const all = new Uint32Array((m - 1) * (m - 1) * 6);
     let k = 0;
-    const sdf = (v: number) => maps.sdf[Math.floor(v / m) * this.stride * t.n + (v % m) * this.stride];
+    const y = (v: number) => positions[v * 3 + 1], under = t.seaY - UNDER_WATER_M;
     for (let row = 0; row < m - 1; row++) for (let col = 0; col < m - 1; col++) {
       const a = row * m + col, b = a + 1, c = a + m, d = c + 1;
-      // Fondo hondo: siempre bajo agua opaca (ver alfa del agua), no se dibuja ni se sombrea.
-      if (Math.max(sdf(a), sdf(b), sdf(c), sdf(d)) < -OPAQUE_WATER_DISTANCE) continue;
+      // Bajo el agua opaca: no se dibuja ni se sombrea.
+      if (Math.max(y(a), y(b), y(c), y(d)) < under) continue;
       // Diagonal alternada: sin sesgo de dirección en las facetas de la costa.
       if ((row + col) & 1) all.set([a, c, b, b, c, d], k); else all.set([a, c, d, a, d, b], k);
       k += 6;
@@ -138,35 +143,31 @@ export class IslandGround {
     ground.receiveShadow = true;
     ground.name = 'isla';
     this.group.add(ground);
+    // Isla para el reflejo del agua: los mismos vértices y el mismo material (sin programa nuevo), uno de cada 4 por
+    // lado (~1/16 de los triángulos). El reflejo va deformado por el oleaje y a 512 px: no se nota y cuesta mucho menos.
+    const coarse: number[] = [], R = 4;
+    for (let row = 0; row + R < m; row += R) for (let col = 0; col + R < m; col += R) {
+      const a = row * m + col, b = a + R, c = a + R * m, d = c + R;
+      if (Math.max(y(a), y(b), y(c), y(d)) < under) continue;
+      coarse.push(a, c, b, b, c, d);
+    }
+    const reflGeo = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'surfUv']) reflGeo.setAttribute(name, geometry.getAttribute(name));
+    reflGeo.setIndex(coarse); reflGeo.boundingSphere = geometry.boundingSphere!.clone();
+    const reflection = new THREE.Mesh(reflGeo, snow);
+    reflection.name = 'isla-reflejo'; reflection.visible = false;
+    this.group.add(reflection);
 
     // ── Agua ────────────────────────────────────────────────────────────────
-    const water = seaPlaneMaterial(u, {
-      uGridSize: { value: new THREE.Vector2(t.n, t.n) },
-      uTexSize: { value: new THREE.Vector2(t.n, t.n) },
-      uCell: { value: t.cell },
-      uStride: { value: 1 },
-    });
-    const compileWater = water.onBeforeCompile.bind(water);
-    water.onBeforeCompile = (shader, renderer) => {
-      compileWater(shader, renderer);
-      shader.fragmentShader = shader.fragmentShader
-        // Ondas y espuma del visor (6–41 m y 70 m) llevadas a la escala de la isla.
-        .replace('float fine = texture2D(uNoise, vWorld.xz / 70.0).g;', 'float fine = texture2D(uNoise, vWorld.xz / 2.6).g;')
-        // Espuma: línea fina y continua pegada a la orilla (~0,3 m), con variación suave. Cortada por
-        // ruido, como en el visor, a esta escala se leía como manchones de nieve flotando.
-        .replace('foam = smoothstep(0.966, 0.995, shore) * smoothstep(0.50, 0.76, fine);', 'foam = smoothstep(0.984, 0.998, shore) * (0.45 + 0.4 * fine);')
-        .replace('gN = seaNormal(vWorld);', 'gN = seaNormal(vWorld * 5.0);')
-        // Translúcida solo en los ~2 m junto a la orilla (se ve el fondo claro); opaca mar adentro, donde
-        // la malla del fondo ya no se dibuja (OPAQUE_WATER_DISTANCE).
-        .replace('gRough = mix(uSeaLook.w, 0.7, foam);', 'gRough = mix(uSeaLook.w, 0.7, foam);\ndiffuseColor.a = max(mix(1.0, 0.6, smoothstep(0.75, 0.97, lgt.g)), foam);');
-    };
-    water.customProgramCacheKey = () => 'antaris-island-water-v1';
-    water.transparent = true;
-    const sea = new THREE.Mesh(new THREE.CircleGeometry(160, 96).rotateX(-Math.PI / 2), water);
-    sea.position.y = t.seaY;
-    sea.receiveShadow = true;
-    sea.name = 'agua';
-    this.group.add(sea);
+    // La del visor de bases (reflejo planar, oleaje sedoso, color por distancia a la costa, espuma), a escala de isla.
+    this.ocean = createOcean({ radius: 125, mirrorSwap: { hide: [ground], show: [reflection] }, sun: new THREE.Vector3(...SUN_DIRECTION), mobile: !!opts.mobile, maxAniso: opts.maxAniso ?? 1,
+      scale: WATER_SCALE, shore: oceanShore(maps.sdf, t.n, t.half, WATER_SCALE) });
+    this.ocean.mesh.position.y = t.seaY;
+    this.group.add(this.ocean.mesh);
+    // Icebergs del visor alrededor de la isla (decorativos, ubicación fija por isla).
+    const coast = coastDistanceSampler(maps.sdf, t.n, t.half);
+    this.icebergs = createIslandIcebergs(t, u as unknown as Record<string, THREE.IUniform>, (x, z) => Math.max(-coast(x, z), 0));
+    this.group.add(this.icebergs.group);
     this.timings = { terrainMs, mapsMs, materialMs, meshMs: performance.now() - start - materialMs };
   }
 
@@ -272,5 +273,5 @@ export class IslandGround {
     }
   }
 
-  update(elapsed: number) { this.uniforms.uTime.value = elapsed; }
+  update(elapsed: number) { this.uniforms.uTime.value = elapsed; this.ocean.time(elapsed); this.icebergs.animate(elapsed); }
 }
