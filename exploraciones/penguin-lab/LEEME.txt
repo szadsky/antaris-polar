@@ -53,8 +53,7 @@ ESTRUCTURAS EN LAS ISLAS (16/11/2026, prueba): base antartica, estacion de comun
   Mover estructuras (boton, src/island/base-editor.ts): arrastrar una estructura (queda elegida), Z / X girar, + / -
   tamaño; se guarda en el navegador y "Copiar ubicacion" da texto y un enlace con ?<id>X, ?<id>Z, ?<id>Giro y ?<id>Alto
   (ids: base, comunicaciones, antena, oruga). Vehiculo oruga fijo en Sendero: x 18,27, z 13,19 m, giro -25°, 3,5 m de alto. Antena fija en Sendero: x 14,55, z 18,99 m, giro -64°, 4,5 m de alto.
-  Con las tres en Sendero: 60 FPS quieto, caminando y con la camara lejos (~280.000 triangulos en vista lejana). Lugares fijos en Sendero: estacion en x 6,19, z 17,41 m, giro 169°, 6 m de alto. Doble clic en la isla: coordenadas del
-  punto. La camara se aleja hasta 90 m (la niebla se corre con la distancia).
+  Con las tres en Sendero: 60 FPS quieto, caminando y con la camara lejos (~280.000 triangulos en vista lejana). Lugares fijos en Sendero: estacion en x 6,19, z 17,41 m, giro 169°, 6 m de alto.  La camara se aleja hasta 90 m (la niebla se corre con la distancia).
   Medido en el navegador de la app (Sendero): 60 FPS quieto y caminando (cuadro mediano 16,5-16,7 ms).
 
 AJUSTES DEL VISOR EN EL MENU (15/11/2026)

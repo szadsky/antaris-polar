@@ -226,14 +226,6 @@ async function main(){
   sun.target.position.copy(character.position);sun.position.copy(character.position).add(sunOffset);
  }
  const fog=scene.fog as THREE.Fog;
- // Doble clic sobre la isla: muestra las coordenadas del punto (m, origen en el centro de la isla), para ubicar cosas.
- const pickRay=new THREE.Raycaster(),pickNdc=new THREE.Vector2();let pickTimer=0;
- renderer.domElement.addEventListener('dblclick',e=>{
-  const r=renderer.domElement.getBoundingClientRect();pickNdc.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);pickRay.setFromCamera(pickNdc,camera);
-  const hit=pickRay.intersectObject(scene.getObjectByName('isla')!,false)[0];if(!hit)return;
-  const text=`Punto en ${spec.name}: x ${hit.point.x.toFixed(1)} · z ${hit.point.z.toFixed(1)} m (altura ${hit.point.y.toFixed(2)} m)`;
-  console.info(text);status.textContent=text;status.hidden=false;clearTimeout(pickTimer);pickTimer=window.setTimeout(()=>{status.hidden=true;},8000);
- });
  let fadeElapsed=0,perfStarted=performance.now(),perfFrames=0;const perfLabel=document.getElementById('performance')!;
  const setup=performance.now()-started,timing=ground.timings;
  console.info(`${spec.name}: relieve ${timing.terrainMs.toFixed(0)} ms (erosión ${terrain.erosionMs.toFixed(0)} ms) · mapas ${timing.mapsMs.toFixed(0)} ms · texturas procedurales del material ${timing.materialMs.toFixed(0)} ms · malla ${timing.meshMs.toFixed(0)} ms · preparación total ${setup.toFixed(0)} ms · texturas KTX2 ${(textures.bytes/1024).toFixed(0)} KB`);
