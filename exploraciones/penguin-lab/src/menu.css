@@ -52,3 +52,18 @@ body.touch #island-summary{display:none}
  body.touch .back-link{display:block;top:92px;left:16px;right:auto;bottom:auto;font-size:11px}
  body.touch .base-editor{top:calc(56px + var(--site-nav-h,0px));left:auto;right:12px;max-width:380px}
 }
+/* Incrustada en el home (?embed): solo lo esencial (elegir isla y los controles de la escena). La sección del home ya
+   explica la escena, lista las teclas y da los créditos del modelo y de las huellas. */
+html.embed header .eyebrow,html.embed header h1,html.embed header>p,html.embed .keys,html.embed footer,html.embed #move-base,html.embed #animate,html.embed #clear-snow{display:none!important}
+/* Sin caja propia: su borde recto se veía como un recuadro dentro del fundido del home. */
+html.embed header{padding:10px 12px 6px;background:none!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+/* Incrustada en el home: solo la isla Sendero (la de ?embed sin ?terreno), sin selector: el panel de arriba no se muestra.
+   Los controles que quedan («Sonido», «Restablecer vista») van a la esquina superior derecha de la zona nítida de la
+   máscara del home (≈ 38 % del alto, 17 % del borde), lejos del pingüino; en pantallas táctiles, apilados. Los
+   controles táctiles suben por encima del fundido inferior. «Ocultar interfaz» no hace falta (queda la tecla H). */
+html.embed header{display:none!important}
+html.embed .controls{left:auto!important;right:17vw!important;top:38vh!important;bottom:auto!important;translate:none!important;justify-content:flex-end!important;flex-wrap:nowrap!important;max-width:none!important}
+html.embed body.touch .controls{flex-direction:column;align-items:flex-end;right:6vw!important;top:30vh!important;overflow:visible!important}
+html.embed #toggle-ui,html.embed .touch-stick__hint{display:none!important}
+html.embed .touch-stick{bottom:22vh!important}
+html.embed .touch-buttons{bottom:24vh!important}

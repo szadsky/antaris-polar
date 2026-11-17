@@ -1,5 +1,16 @@
 import { mountSiteNav } from '../../../compartido/navbar/navbar';
-mountSiteNav({ actual: 'islas' }); // navegación común entre los sitios de Antaris Polar
+// Navegación común, salvo incrustada en otra página (?embed, la sección del home): ahí la barra es la de esa página.
+const embed = new URLSearchParams(location.search).has('embed');
+if (!embed) mountSiteNav({ actual: 'islas' });
+// Incrustada no hay barra: el mismo margen superior deja la interfaz fuera de la viñeta del home.
+else { document.documentElement.style.setProperty('--site-nav-h', '36px'); document.documentElement.classList.add('embed'); }
+// Incrustada, la página que la contiene la pausa cuando la sección sale de vista (mismo origen): no dibuja de más.
+let embedPausado = false;
+if (embed) window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin) return;
+  if (e.data === 'antaris:pausa') embedPausado = true;
+  else if (e.data === 'antaris:sigue') embedPausado = false;
+});
 import {applyKingPenguinColors} from './king-penguin-colors';
 import {groundedSlideClip,slideSupportWeight} from './slide-animation';
 import {FootstepAudio} from './footstep-audio';
@@ -270,7 +281,7 @@ async function main(){
   move(dt);followCamera(dt);snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);for(const o of structures)o.s.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
  }
  if(import.meta.env.DEV)Object.assign((window as unknown as {antarisLab:object}).antarisLab,{tick,scene});
- renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden)return;
+ renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden||embedPausado)return;
  tick(dt);
  perfFrames++;const elapsed=performance.now()-perfStarted;if(elapsed>=2000){perfLabel.textContent=Math.round(perfFrames*1000/elapsed)+' FPS · '+renderer.info.render.triangles.toLocaleString('es-AR')+' triángulos · '+renderer.info.render.calls+' llamadas · huellas CPU '+(ground.cpuMs/perfFrames).toFixed(2)+' ms/cuadro';perfStarted=performance.now();perfFrames=0;ground.cpuMs=0;}});status.hidden=true;
  construction.finish(scene,()=>{}).then(()=>{preloading=false;});

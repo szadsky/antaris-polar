@@ -1,5 +1,8 @@
 import { mountSiteNav } from '../../../compartido/navbar/navbar';
 mountSiteNav({ actual: 'inicio' }); // navegación entre sitios: no depende de WebGL
+import { conControles } from '../../../compartido/modo';
+import { mountIslas } from './islas';
+mountIslas(); // última sección: las islas del pingüino, con carga diferida
 import * as THREE from 'three';
 import { CAM_H, IMG, PITCH, VFOV_DEG, ray } from './camara';
 import { createBackdrop } from './backdrop';
@@ -7,6 +10,7 @@ import { createWater, type WaterRows } from './water';
 import { createTerrain, loadMasks } from './terrain';
 import { createPenguin } from './penguin';
 import { createGrass } from './grass';
+import { createFrost } from './frost';
 import { loadTerrainTextures } from './snow/terrain-textures';
 
 /**
@@ -135,9 +139,61 @@ async function start() {
     target.set(clamp1((e.clientX / innerWidth) * 2 - 1), clamp1((e.clientY / innerHeight) * 2 - 1));
   }, { passive: true });
   document.addEventListener('pointerleave', () => target.set(0, 0));
-  const onScroll = () => { scrollT = Math.min(1, Math.max(0, scrollY / Math.max(1, hero.clientHeight))); };
-  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  // Transición (src/frost.ts): el hero queda fijo dentro de #hero-track; el avance por ese tramo (0…1) es el progreso
+  // de la escarcha y también sube un poco la cámara.
+  const track = document.getElementById('hero-track') ?? hero;
+  let frostT = 0, frostCur = 0;
+  let frostFijo: number | null = null; // solo desarrollo: __heroFrost(p) fija el progreso sin scrollear (capturas)
+  const onScroll = () => {
+    const span = Math.max(1, track.offsetHeight - innerHeight);
+    frostT = frostFijo ?? Math.min(1, Math.max(0, -track.getBoundingClientRect().top / span));
+    scrollT = frostT;
+  };
+  window.addEventListener('scroll', onScroll, { passive: true }); window.addEventListener('resize', onScroll); onScroll();
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') target.set(0, 0); });
+
+  const frost = createFrost(renderer);
+  // La transición termina en el fondo de la sección de abajo: el primero no transparente desde #contenido hacia arriba
+  // (hoy el de <body>, var(--paper)). Se lee de la página, no está fijo en el código.
+  const leerColorSeccion = () => {
+    for (let el: Element | null = document.getElementById('contenido'); el; el = el.parentElement) {
+      const m = getComputedStyle(el).backgroundColor.match(/rgba?\(([^)]+)\)/);
+      if (!m) continue;
+      const [r, g, b, a = 1] = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+      if (a > 0) { frost.setColor(r / 255, g / 255, b / 255); return; }
+    }
+  };
+  leerColorSeccion();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', leerColorSeccion);
+  // Los textos se apagan cuando el frente (sin su ruido) llega a la esquina más expuesta de cada uno; sus velos con ellos.
+  const copyEls = [...hero.querySelectorAll<HTMLElement>('.hero-copy > h1, .hero-lead, .hero-coords, .hero-note')];
+  let copyReach: number[] = [];
+  const superS = (x: number, y: number) => Math.pow(Math.abs(x) ** 6 + Math.abs(y) ** 6, 1 / 6);
+  const measureCopy = () => {
+    const h = hero.getBoundingClientRect();
+    if (!h.width || !h.height) return;
+    copyReach = copyEls.map((el) => {
+      const b = el.getBoundingClientRect();
+      const xs = [b.left, b.right].map((v) => ((v - h.left) / h.width) * 2 - 1);
+      const ys = [b.top, b.bottom].map((v) => ((v - h.top) / h.height) * 2 - 1);
+      return Math.max(...xs.flatMap((x) => ys.map((y) => superS(x, y))));
+    });
+  };
+  new ResizeObserver(measureCopy).observe(hero);
+  void document.fonts?.ready.then(measureCopy);
+  let lastFade = -1;
+  const fadeCopy = (p: number) => {
+    if (Math.abs(p - lastFade) < 0.002) return;
+    lastFade = p;
+    const e = frost.edgeAt(p);
+    const sm = (a: number, b: number, x: number) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+    // En reposo (p = 0) todo visible; con el primer scroll, cada texto se apaga cuando el frente llega a su esquina.
+    const op = copyReach.map((sMax) => 1 - sm(0, 0.04, p) * sm(-0.06, 0.06, sMax - e));
+    copyEls.forEach((el, i) => { el.style.opacity = String(op[i] ?? 1); });
+    // El velo del título es más ancho que el título: se apaga antes, para no ensuciar de gris lo ya cubierto.
+    hero.style.setProperty('--velo-titulo', String(Math.min(op[0] ?? 1, 1 - sm(0.06, 0.28, p))));
+    hero.style.setProperty('--velo-pie', String(Math.min(op[1] ?? 1, op[2] ?? 1)));
+  };
 
   // ── Bucle ──────────────────────────────────────────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
@@ -162,7 +218,7 @@ async function start() {
       if (recent > 22 && dpr > 0.75) { dpr = Math.max(0.75, dpr - 0.25); renderer.setPixelRatio(dpr); resize(); frames.length = 0; }
     }
     const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
-    if (still()) { current.set(0, 0); scrollCur = 0; }
+    if (still()) { current.set(0, 0); scrollCur = 0; frostCur = frostT; }
     else {
       // en táctil sin arrastre: deriva lenta (alternativa al mouse)
       const drift = animate ? tmp.set(Math.sin(t * 0.9), Math.sin(t * 0.55) * 0.8, 0)
@@ -171,6 +227,8 @@ async function start() {
       current.x += ((drift ? drift.x : target.x) - current.x) * k;
       current.y += ((drift ? drift.y : target.y) - current.y) * k;
       scrollCur += (scrollT - scrollCur) * (1 - Math.exp(-dt * 6));
+      frostCur += (frostT - frostCur) * (1 - Math.exp(-dt * 8));
+      if (Math.abs(frostT - frostCur) < 1e-4) frostCur = frostT;
       // Red de seguridad: un valor no finito se arrastraría a todos los cuadros siguientes.
       if (!Number.isFinite(current.x) || !Number.isFinite(current.y)) { current.set(0, 0); target.set(0, 0); }
       if (!Number.isFinite(scrollCur)) scrollCur = 0;
@@ -179,6 +237,9 @@ async function start() {
     if (!still()) { penguin.update(dt); water.time(t); }
     else if (firstFrame) { penguin.update(0); }
     renderer.render(scene, camera);
+    // Máscara de transición sobre el cuadro (nada con progreso 0). Con «reducir movimiento» sigue al scroll, quieta.
+    frost.render(frostCur, still() ? 0 : t);
+    fadeCopy(frostCur);
     if (firstFrame) {
       firstFrame = false;
       hero.dataset.state = 'listo';
@@ -226,9 +287,14 @@ async function start() {
   };
   if (import.meta.env.DEV || params.has('medir')) Object.assign(window, { __heroBench: bench });
   if (import.meta.env.DEV) Object.assign(window, {
-    __heroDebug: { scene, camera, renderer, base, water, backdrop, penguin, grass },
+    __heroDebug: { scene, camera, renderer, base, water, backdrop, penguin, grass, frost },
     // Captura del canvas (mismo cuadro, sin interfaz) que el servidor de desarrollo guarda en capturas/<nombre>.png.
     // Pose fija de la cámara (x, y: −1…1; scroll: 0…1) para capturar el parallax sin depender del bucle.
+    // Fija el progreso y dibuja un cuadro en el momento (sirve aunque la pestaña esté oculta y el bucle en pausa).
+    __heroFrost: (p: number | null) => {
+      frostFijo = p; onScroll(); frostCur = frostT; scrollCur = scrollT;
+      applyCamera(); renderer.render(scene, camera); frost.render(frostCur, 0); fadeCopy(frostCur);
+    },
     __heroPose: (x: number, y: number, scroll = 0) => { current.set(x, y); scrollCur = scroll; applyCamera(); renderer.render(scene, camera); },
     __heroCapture: (nombre: string) => { penguin.update(0); renderer.render(scene, camera); const png = canvas.toDataURL('image/png'); return fetch('/__captura?nombre=' + encodeURIComponent(nombre), { method: 'POST', body: png }).then((r) => r.text()); },
   });
@@ -237,7 +303,8 @@ async function start() {
   // Panel de profundidad de las montañas (DialKit): en desarrollo o con ?panel; nunca en las capturas (?limpio, ?referencia).
   // Importación dinámica: DialKit (~40 KB gzip) solo se descarga cuando se muestra el panel.
   let panel: { destroy(): void } | null = null;
-  if ((import.meta.env.DEV || params.has('panel')) && !params.has('limpio') && !params.has('referencia')) {
+  // Modo exploración (compartido/modo.ts): en desarrollo, en /exploraciones-home/, o con ?controles / ?panel.
+  if (conControles() && !params.has('limpio') && !params.has('referencia')) {
     import('./panel').then(({ mountDepthPanel }) => {
       panel = mountDepthPanel({
         motion: { horizontal: DEPTH_PARALLAX_PX.x, vertical: DEPTH_PARALLAX_PX.y, camaraX: MOVE.x, camaraY: MOVE.y, animar: false },
@@ -246,7 +313,7 @@ async function start() {
       });
     }).catch((err) => console.error('Panel de profundidad:', err));
   }
-  window.addEventListener('pagehide', () => { panel?.destroy(); renderer.setAnimationLoop(null); backdrop.dispose(); base.dispose(); grass.dispose(); penguin.dispose(); water.dispose(); renderer.dispose(); }, { once: true });
+  window.addEventListener('pagehide', () => { panel?.destroy(); renderer.setAnimationLoop(null); backdrop.dispose(); base.dispose(); grass.dispose(); penguin.dispose(); water.dispose(); frost.dispose(); renderer.dispose(); }, { once: true });
 }
 
 start().catch((err) => {

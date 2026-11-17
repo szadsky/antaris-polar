@@ -55,25 +55,105 @@ Diseño: archivo Figma «Gamezone · david», navbar `2597:1016` y hero `2534:25
     (16 y 672); a 1086 px, título 33 px, barra 12 px y 447 px de ancho. El título reparte sus líneas (`text-wrap: balance`).
   - **Tipografía de la navbar:** el diseño usa Suisse Intl, que tiene licencia comercial y no está en el proyecto. Se
     usa Geist Medium; la cápsula queda 2 px más angosta (670 vs. 672 px).
-  - **Subtítulo y coordenadas más abajo** (84 % y 93 % del alto, en vez de 75,6 % y 84,8 %): en Figma están sobre un
-    degradado liso; sobre esta escena caían encima del pingüino y del agua oscura. Ahora quedan en la nieve de la loma.
-  - **Velos claros** (`.hero::after`) detrás del título y del subtítulo, más un halo suave en el texto. Sin ellos el
-    texto #262626 no llegaba a WCAG AA sobre la escena.
+  - **Copys en blanco** (pedido del usuario: más contraste que el #262626 del Figma), con un velo oscuro suave detrás
+    del título (`.hero::before`) y otro desde el borde inferior (`.hero::after`), más una sombra leve en el texto.
+  - **Subtítulo y coordenadas atados al borde inferior** de la ventana (pedido del usuario): 46 y 22 px desde abajo; en
+    celular, 76 y 54 px, por encima de la nota de reconstrucción artística.
   - **Sin la línea de cumbres** (vector 2587:439, trazo claro detrás del título): se quitó a pedido del usuario.
   - **Foco** de la navbar oscuro (`#232c45`), porque el amarillo general no se ve sobre la cápsula clara.
 
-**Contraste medido** (texto contra la imagen en reposo, percentil 5 de los píxeles detrás de cada texto; «sin velo»
-medido con los tamaños del Figma):
+**Contraste medido** (texto blanco contra la imagen en reposo, 1440 × 900, sobre el 5 % más claro de los píxeles
+detrás de cada texto):
 
-| Texto | Sin velo (1920) | Con velo, 1920 × 1080 | Con velo, 1086 × 630 | Mínimo AA |
-| --- | --- | --- | --- | --- |
-| Título (texto grande) | 1,86:1 | **4,66:1** | **4,68:1** | 3:1 |
-| Subtítulo | 1,67:1 | **7,16:1** | **5,06:1** | 4,5:1 |
-| Coordenadas (11 px) | 1,59:1 | **8,19:1** | **8,68:1** | 4,5:1 |
+| Texto | Sin velo | Con velo | Mínimo AA |
+| --- | --- | --- | --- |
+| Título (texto grande) | 4,49:1 | **6,21:1** | 3:1 |
+| Subtítulo | 1,46:1 | **5,20:1** | 4,5:1 |
+| Coordenadas (11 px) | 1,80:1 | **7,67:1** | 4,5:1 |
 
-**Peso:** se descargan solo los subconjuntos latinos de las fuentes: Geist 300 y 500, 26,5 KB, e IBM Plex Mono 500,
-14,9 KB. El separador SVG pesa 0,2 KB. Las fuentes no se incrustan en el CSS (`assetsInlineLimit` en
-`vite.config.mjs`), que queda en 2,8 KB comprimido.
+## Transición al hacer scroll
+
+Al scrollear, una máscara cubre el hero desde los bordes hacia el centro y termina en el color de fondo de la sección
+de abajo, así no hay corte entre el hero y lo que sigue. La barra y la marca quedan encima. Pedidos del usuario: «al
+hacer scroll… adaptarse al color de la sección de abajo… para evitar el corte abrupto, como una especie de
+enmascaramiento»; sin «nieve» (partículas) y sin el efecto tipo plexus: nada de líneas, triángulos, celdas ni malla.
+
+- **Recorrido:** el hero queda fijo (`position: sticky`) dentro de `#hero-track`, que suma `--frost-scroll` (110 svh)
+  de scroll. El avance por ese tramo (0…1) es el progreso; al terminar, el hero ya es del color de la sección y la
+  página sigue sin corte. La cámara sube un poco con el mismo progreso.
+- **Máscara** (`src/frost.ts`): borde orgánico (ruido de baja frecuencia, lento) y ancho (franja de 0,22 de la distancia
+  borde–centro). En la franja la imagen se esmerila (desenfoque leve de 8 muestras) con un tinte frío, y se funde en el
+  color final. Con progreso 1 todo es ese color (verificado leyendo píxeles: `rgb(244, 247, 251)`).
+- **Color:** se lee de la página, no está fijo. Es el primer fondo no transparente desde `#contenido` hacia arriba (hoy
+  el de `<body>`, `var(--paper)`), y se vuelve a leer si cambia el esquema claro / oscuro.
+- **Cómo:** la escena se dibuja como siempre; si hay progreso, ese cuadro final (ya con tone mapping y en sRGB) se copia
+  a una textura (`copyFramebufferToTexture`) y encima se dibuja un triángulo de pantalla completa con la máscara, en el
+  mismo espacio de color que el CSS. **Con progreso 0 no se hace nada.**
+- **Textos:** cada uno se apaga cuando el frente llega a su esquina más expuesta, y su velo con él. El velo del título,
+  más ancho que el título, se apaga antes para no ensuciar de gris lo ya cubierto. La nota de reconstrucción artística
+  también se apaga; la misma información está en «Sobre esta imagen», debajo del hero.
+- **Reducir movimiento:** la máscara sigue al scroll (la maneja el usuario), pero el borde queda quieto.
+- **Costo** (temporizador de GPU `EXT_disjoint_timer_query_webgl2`, 1009 × 768, GPU AMD Radeon integrada): escena 3,7 ms;
+  escena + máscara 4,4–4,7 ms, o sea **≈ 0,7–1,0 ms** de la máscara. La versión anterior, con cristales y malla, costaba
+  ≈ 3,5 ms. `readPixels` no sirvió para medir: quedaba atado al refresco de la pantalla (16,7 ms).
+- **Desarrollo:** `__heroFrost(p)` fija el progreso y dibuja el cuadro en el momento (capturas, aun con la pestaña
+  oculta); `__heroFrost(null)` vuelve al scroll.
+- **Capturas:** `capturas/11-transicion-mascara-scroll.jpg` (reposo y scroll al 15, 35, 60, 85 y 100 %).
+
+## Última sección: el pingüino en las islas
+
+Pedido del usuario: «que la navegación del pingüino en el terreno 3D esté debajo, en la última sección del home, con
+un efecto medio de vignette así se integra con el sitio». Es la forma de llegar al pingüino desde el home: el
+laboratorio y las islas ya no están en la barra.
+
+- **Qué es:** las islas de práctica de `exploraciones/penguin-lab` (`/pinguino-menu/`), incrustadas con un iframe en
+  `/pinguino-menu/?embed`. Son relieve **sintético** (ruido y erosión), no REMA, y la sección lo dice.
+- **Por qué un iframe:** es otra escena completa, con su propio Three.js, modelos, texturas y bucle. Incrustada no
+  comparte memoria de GPU ni código con el hero, y la ruta es la misma que se publica sola. Montar la escena dentro del
+  bundle del hero habría sumado su código al home y mezclado dos bucles en la misma página.
+- **Carga diferida** (`src/islas.ts`): el iframe recién se crea cuando la sección está a menos de una pantalla
+  (IntersectionObserver). Antes de eso, el home no descarga nada de las islas: verificado, sin ninguna petición a
+  `/pinguino-menu/` ni `/laboratorio/pinguino/`. El hero arranca igual que antes. Con «reducir movimiento» se carga
+  solo con el botón.
+- **Pausa:** cuando la sección sale de vista, el home le pide a las islas que dejen de dibujar (`postMessage`
+  `antaris:pausa` / `antaris:sigue`, solo del mismo origen). Medido contando llamadas de dibujo dentro del iframe:
+  **0** con el hero en pantalla y 1586 en 4 s con la sección en vista. En desarrollo, el home y las islas están en
+  puertos distintos y la pausa no aplica; el navegador ya frena los iframes de otro origen fuera de pantalla.
+- **Rueda y teclado:** sin activar, una capa deja pasar la rueda al scroll de la página, porque si no la rueda haría
+  zoom en la escena y el home quedaría trabado. «Explorar las islas», o un clic en la escena, la activa y le da el
+  foco, así W A S D funcionan. Se desactiva al sacar el puntero o al salir de vista.
+- **Viñeta media (máscara del frame):** una máscara CSS sobre el propio iframe (`mask-image`), no una capa pintada
+  encima: la escena se vuelve transparente hacia afuera y deja ver el fondo real de la página.
+  - Forma: un óvalo suave (sin esquinas ni lados rectos) por un fundido vertical más ancho arriba (37 % del alto) que
+    abajo (24 %).
+  - Grano: es un SVG con ruido `feTurbulence` sumado al alfa (±4 %), que trama los escalones del degradado. Lo
+    genera `scripts/mascara-islas.cjs`.
+  - Medido renderizando la máscara: sin grano, el alfa de una columna tenía mesetas de hasta 30 px con el mismo valor
+    (los escalones visibles); con grano, la más larga es de 6 px.
+  - Historial: la primera versión (sombra interior y degradado radial encima) dejaba un corte recto arriba, y la
+    segunda (dos degradados lineales) todavía se leía como un rectángulo.
+  - El iframe no tiene borde, sombra ni radio. Además, en el modo incrustado el panel del selector de isla ya no tiene
+    caja propia, porque su borde recto también se veía como un recuadro.
+  - Captura: `capturas/14-islas-mascara-con-grano.jpg` (frame completo y borde superior ampliado ×4).
+- **Modo incrustado de las islas** (`penguin-lab/src/menu-main.ts` y `menu.css`, con `?embed`):
+  - sin la barra común (la del home ya está arriba);
+  - la interfaz centrada dentro de la zona nítida (selector de isla y controles a ~27 % del alto) y los controles
+    táctiles por encima del fundido inferior; sin «Ocultar interfaz» (queda la tecla H);
+  - solo el selector de isla y los controles de la escena. El título, la descripción, la ayuda de teclas, el editor de
+    estructuras y el pie quedan en el home: las teclas debajo del marco, y los créditos del pingüino (Polyfork,
+    CC BY 4.0) y de las huellas (Oguzhan Tufenk / Codrops, MIT).
+- **Costo al llegar a la sección:** ≈ 6,1 MB de las islas, medidos en el servidor de prueba, que no comprime: el JS
+  baja menos con gzip. Lo más pesado es el pingüino sin optimizar (`penguin-custom-smooth.glb`, 1,16 MB; en el hero se
+  usa la versión reducida de 351 KB) y cuatro estructuras de ≈ 0,7–0,8 MB cada una.
+- **Capturas:** `capturas/12-islas-en-el-home.jpg` (antes / después, escritorio y celular).
+
+## Imagen de carga
+
+`public/hero/estatica-render.webp` (94 KB) se ve al instante mientras carga el 3D, queda sola sin WebGL y es la
+alternativa sin movimiento. **Es una captura del render final** (`scripts/imagen-estatica.mjs`, 1672 × 941, cámara en
+reposo). Antes era la recomposición de las capas del zip (`estatica.webp`, 318 KB): al recargar se veían un momento el
+pingüino pintado y la loma original. Cambió de nombre para que ningún navegador muestre la versión vieja guardada en
+caché. Verificado recargando varias veces y con `?sinwebgl`.
 
 ## Capas del zip y cómo se usan
 
@@ -260,7 +340,7 @@ Diferencia media por zona (0–255, promedio de |ΔR|, |ΔG|, |ΔB|):
 | --- | --- |
 | Escena 3D completa | **≈ 1,79 MB** (JS 217 KB gzip · transcodificador KTX2 527 KB wasm + 15 KB · pingüino 351 KB · máscaras 96 KB · texturas KTX2 224 KB · capas 150 KB · profundidad + relieve de las montañas 108 KB · fuentes 41 KB · resto < 125 KB) |
 | Panel de profundidad (DialKit, importación dinámica: solo en desarrollo o con `?panel`) | 53 KB |
-| Imagen fija (se ve al instante, LCP y alternativa sin WebGL) | 318 KB |
+| Imagen fija (se ve al instante, LCP y alternativa sin WebGL): captura del render final | 94 KB |
 | Total `dist/` | ≈ 2,12 MB transferidos (2,84 MB en disco), contando el panel |
 
 **Rendimiento**, medido en el navegador de la app (Chromium, ANGLE/Direct3D 11) en esta laptop con GPU integrada

@@ -473,9 +473,12 @@ async function main() {
   addEventListener("keydown", (e) => {
     if ((e.target as HTMLElement).closest("select")) return;
     if (e.key.toLowerCase() === "h" && !document.body.classList.contains("captura")) setUiHidden(!document.body.classList.contains("no-ui"));
-    if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
-    if (e.key.toLowerCase() === "d") setDetail(!detail);
-    if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : variant === "c" ? "n" : "a");
+    // Atajos de prueba (estilo, detalle, material): solo en modo exploración (compartido/modo.ts)
+    if (!document.documentElement.classList.contains("sin-controles")) {
+      if (e.key.toLowerCase() === "a") setStyle(style === "base" ? "estilizado" : "base");
+      if (e.key.toLowerCase() === "d") setDetail(!detail);
+      if (e.key.toLowerCase() === "m") setVariant(variant === "a" ? "b" : variant === "b" ? "c" : variant === "c" ? "n" : "a");
+    }
   });
   let updating=false, pending=false;
   async function updateLighting(){ 

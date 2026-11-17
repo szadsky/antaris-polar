@@ -31,7 +31,8 @@ export const terrainTextureUniforms = {
 };
 
 // En desarrollo, Vite sirve node_modules; en el build, vite.config.ts copia los dos archivos a basis/.
-const TRANSCODER = import.meta.env.DEV ? "/node_modules/three/examples/jsm/libs/basis/" : "./basis/";
+// Ruta absoluta (BASE_URL): la misma página se publica también en /exploraciones-bases/, donde "./basis/" no existe.
+const TRANSCODER = import.meta.env.DEV ? "/node_modules/three/examples/jsm/libs/basis/" : import.meta.env.BASE_URL + "basis/";
 
 let loading: Promise<{ ms: number; bytes: number }> | null = null;
 

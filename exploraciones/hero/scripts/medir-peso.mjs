@@ -14,7 +14,7 @@ const rows = walk('dist').map((f) => {
   const isPanel = /[\\/]assets[\\/]panel-/.test(f);
   // De las fuentes el navegador baja solo el .woff2 del subconjunto latino (unicode-range); el resto queda de reserva.
   const unusedFont = /\.woff$/.test(f) || (/\.woff2$/.test(f) && !/-latin-\d/.test(f));
-  if (!f.includes('LICENSES') && !f.endsWith('estatica.webp') && !isPanel && !unusedFont) hero += t;
+  if (!f.includes('LICENSES') && !f.endsWith('estatica-render.webp') && !isPanel && !unusedFont) hero += t;
   if (isPanel) panelBytes += t;
   return [f.replace(/\\/g, '/'), b.length, t];
 }).sort((a, b) => b[2] - a[2]);

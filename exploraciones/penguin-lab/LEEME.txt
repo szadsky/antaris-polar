@@ -232,3 +232,5 @@ y tobogan, bajando el tobogan, 04 patinando de pie en la laguna helada); v6-menu
 (Pinguino · menu con la interfaz oculta).
 Solo en desarrollo (npm run dev) existe window.antarisLab para pruebas en el navegador; el build no
 lo incluye.
+
+Incrustada (?embed): /pinguino-menu/?embed es la que muestra la ultima seccion del home (exploraciones/hero/src/islas.ts). Sin la barra comun, interfaz reducida (solo elegir isla y controles de la escena) y pausa a pedido de la pagina que la contiene (postMessage antaris:pausa / antaris:sigue, solo del mismo origen).

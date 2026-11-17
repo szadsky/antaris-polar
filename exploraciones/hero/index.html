@@ -6,7 +6,7 @@
   <title>Antaris Polar · Hero (exploración)</title>
   <meta name="description" content="Exploración del hero de Antaris Polar: ilustración en capas con parallax por profundidad, loma de nieve, pingüino y agua en Three.js." />
   <link rel="icon" href="data:," />
-  <link rel="preload" href="/hero/estatica.webp" as="image" />
+  <link rel="preload" href="/hero/estatica-render.webp" as="image" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -14,9 +14,12 @@
   <!-- La navegación entre sitios la agrega src/main.ts con compartido/navbar (la misma en todos los sitios). -->
 
   <main>
+    <!-- Recorrido de la transición: el hero queda fijo (sticky) mientras se scrollea este tramo y una máscara lo cubre
+         de afuera hacia adentro hasta el color de la sección de abajo (src/frost.ts); al terminar, la página sigue. -->
+    <div id="hero-track" class="hero-track">
     <section id="hero" class="hero" data-state="cargando" aria-labelledby="hero-title">
       <!-- Imagen fija: se ve al instante, queda si no hay WebGL y es la alternativa sin movimiento. -->
-      <img class="hero-still" src="/hero/estatica.webp" width="1672" height="941" alt="" />
+      <img class="hero-still" src="/hero/estatica-render.webp" width="1672" height="941" alt="" />
       <canvas id="hero-canvas" aria-hidden="true"></canvas>
       <!-- Copys del hero (Figma, nodo 2534:25). -->
       <div class="hero-copy">
@@ -28,6 +31,7 @@
       <p id="hero-status" class="sr-status" role="status">Preparando la escena…</p>
       <output id="hero-perf" class="hero-perf" hidden></output>
     </section>
+    </div>
 
     <section id="contenido" class="next">
       <h2>Desde un lugar del paisaje, revelar lo invisible</h2>
@@ -38,6 +42,26 @@
         <li>Loma de nieve y roca, agua y reflejos: Three.js con el material de nieve del visor de Antaris; la loma es un terreno generado que sigue la silueta de la ilustración (no es relieve medido).</li>
         <li>Pingüino: modelo de <a href="https://polyfork.dev/asset/penguin-base" rel="noopener">Polyfork</a> (<a href="/LICENSES/CC-BY-4.0.txt">CC BY 4.0</a>) con colores de pingüino rey.</li>
       </ul>
+    </section>
+
+    <!-- Última sección: el pingüino en las islas de práctica (penguin-lab, /pinguino-menu/?embed). src/islas.ts crea el
+         iframe recién al acercarse a la sección: el hero no carga nada de esto. -->
+    <section id="islas" class="islas" aria-labelledby="islas-titulo">
+      <div class="islas-copy">
+        <h2 id="islas-titulo">Recorré la nieve con el pingüino</h2>
+        <p>Islas de práctica para caminar, deslizarse y saltar con el material de nieve de Antaris. <strong>Relieve sintético</strong>
+          (ruido y erosión): no es geografía real ni datos REMA.</p>
+      </div>
+      <div class="islas-marco" data-state="espera">
+        <p class="islas-estado" role="status">La escena se carga al llegar a esta sección.</p>
+        <button class="islas-activar" type="button" hidden>Explorar las islas</button>
+      </div>
+      <p class="islas-ayuda"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> caminar · <kbd>Shift</kbd> correr ·
+        <kbd>E</kbd> deslizar · <kbd>Espacio</kbd> saltar · <kbd>R</kbd> volver al inicio ·
+        <a class="islas-completa" href="/pinguino-menu/">Abrir en pantalla completa</a></p>
+      <p class="islas-creditos">Pingüino: <a href="https://polyfork.dev/asset/penguin-base" rel="noopener">Polyfork</a>
+        (<a href="/LICENSES/CC-BY-4.0.txt">CC BY 4.0</a>) · Huellas en la nieve: adaptación de
+        <a href="https://github.com/oguzhantufenk/dynamic-terrain-deformation" rel="noopener">Oguzhan Tufenk / Codrops</a> (MIT)</p>
     </section>
   </main>
   <script>{ const q = new URLSearchParams(location.search); if (q.has("limpio")) document.documentElement.classList.add("limpio"); if (q.has("referencia")) document.documentElement.classList.add("limpio", "referencia"); }</script>
