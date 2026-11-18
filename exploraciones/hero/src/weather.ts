@@ -50,6 +50,9 @@ function illustration(kind:string, day:boolean) {
 export function mountWeather() {
   const host = document.querySelector<HTMLElement>('.hero-weather');
   if (!host) return;
+  const hero = host.closest<HTMLElement>('.hero')!;
+  const measure = new ResizeObserver(() => hero.style.setProperty('--weather-height', host.getBoundingClientRect().height + 'px'));
+  measure.observe(host);
   host.innerHTML = `<div class="weather-card"><div class="weather-place" data-city><span class="weather-place__name">Ushuaia</span><div class="weather-reading"><span class="weather-art"></span><strong class="weather-temp">—</strong></div><span class="weather-condition">Consultando clima…</span><span class="weather-wind"></span></div><div class="weather-place" data-base><div class="weather-select"></div><div class="weather-reading"><span class="weather-art"></span><strong class="weather-temp">—</strong></div><span class="weather-condition">Consultando clima…</span><span class="weather-wind"></span></div></div><p class="weather-source"><a href="https://www.met.no/en" target="_blank" rel="noopener noreferrer">MET Norway</a> · Pronóstico horario <span class="weather-time"></span> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" title="Datos CC BY 4.0; temperaturas redondeadas y viento convertido a km/h">CC BY 4.0</a></p>`;
   let index=1, paused=matchMedia('(prefers-reduced-motion: reduce)').matches, hovered=false;
   let data: Array<Conditions|null>=[], loading=true, failed=false, inFlight=false;
@@ -93,6 +96,6 @@ export function mountWeather() {
     if(!paused&&!hovered&&!host.contains(document.activeElement)&&!host.querySelector('[aria-expanded="true"]')){index=index%(locations.length-1)+1;render();}
     void refresh();
   },10000);
-  window.addEventListener('pagehide',()=>{clearInterval(timer);select.destroy();},{once:true});
+  window.addEventListener('pagehide',()=>{clearInterval(timer);measure.disconnect();select.destroy();},{once:true});
   render();void refresh();
 }

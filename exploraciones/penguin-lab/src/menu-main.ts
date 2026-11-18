@@ -60,7 +60,12 @@ async function main(){
  const camera=new THREE.PerspectiveCamera(36,innerWidth/innerHeight,.1,320);
  // Pantallas verticales (móvil): se abre el campo visual para conservar ≥ 34° horizontales.
  const fitCamera=()=>{camera.aspect=innerWidth/innerHeight;camera.fov=Math.max(36,2*Math.atan(Math.tan(17*Math.PI/180)/camera.aspect)*180/Math.PI);camera.updateProjectionMatrix();};fitCamera();
- const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=3.5;controls.maxDistance=90; // hasta ver la isla entera (Sendero: ~55 m en diagonal)controls.minPolarAngle=.3;controls.maxPolarAngle=1.3;controls.enablePan=false;
+ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.minDistance=3.5;controls.maxDistance=90;
+ controls.minPolarAngle=.3;controls.maxPolarAngle=1.3;controls.enablePan=true;
+ controls.touches.ONE=THREE.TOUCH.ROTATE;controls.touches.TWO=THREE.TOUCH.DOLLY_PAN;
+ controls.rotateSpeed=.65;controls.zoomSpeed=.8;controls.panSpeed=.7;controls.screenSpacePanning=false;
+ let cameraGesture=false;
+ controls.addEventListener('start',()=>{cameraGesture=true;});controls.addEventListener('end',()=>{cameraGesture=false;});
  scene.add(new THREE.HemisphereLight('#e2f1ff','#7f8d9d',1.7));
  // Sol: la sombra del relieve va horneada en la textura de luz; en tiempo real solo proyecta el pingüino,
  // con un mapa pequeño que lo sigue (nítido y barato).
@@ -221,7 +226,7 @@ async function main(){
   }
  });
 
- const mobileNavigation=matchMedia('(pointer: coarse)').matches;
+ let mobileNavigation=matchMedia('(any-pointer: coarse), (max-width: 760px)').matches;
  let touchExploring=!embed;
  let nearId:string|null=null;
  const proximity=structures.map(o=>({id:o.spec.id,bounds:new THREE.Box3().setFromObject(o.s.group)}));
@@ -248,6 +253,7 @@ async function main(){
   if(e.source!==parent||e.origin!==parentOrigin)return;
   if(e.data?.type==='antaris:touch-input'){
    touchExploring=e.data.active===true;
+   if(touchExploring)mobileNavigation=true;
    const input=e.data.input;
    if(touchExploring&&input&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
     touch.input.x=Math.max(-1,Math.min(1,input.x));touch.input.z=Math.max(-1,Math.min(1,input.z));touch.input.run=input.run===true;touch.input.slide=input.slide===true;
@@ -337,7 +343,7 @@ async function main(){
  /** La cámara acompaña al pingüino conservando el ángulo 3/4 (el usuario puede girarla y acercarla). */
  function followCamera(dt:number){
   follow.set(character.position.x,ground.height(character.position.x,character.position.z)+VIEW.lookHeight,character.position.z);
-  const k=1-Math.exp(-9*dt),dx=(follow.x-controls.target.x)*k,dy=(follow.y-controls.target.y)*k,dz=(follow.z-controls.target.z)*k;
+  const k=!cameraGesture&&motion.moving?1-Math.exp(-9*dt):0,dx=(follow.x-controls.target.x)*k,dy=(follow.y-controls.target.y)*k,dz=(follow.z-controls.target.z)*k;
   controls.target.x+=dx;controls.target.y+=dy;controls.target.z+=dz;camera.position.x+=dx;camera.position.y+=dy;camera.position.z+=dz;
   controls.update();
   // Nunca bajo el relieve ni bajo el agua.

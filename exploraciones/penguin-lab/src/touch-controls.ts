@@ -12,7 +12,7 @@ const RADIUS = 56;      // px: recorrido del joystick
 const DEAD = 0.12;      // fracción del recorrido sin efecto
 const RUN_AT = 0.85;    // fracción a partir de la cual corre
 
-export function setupTouchControls(o: { onJump: () => void; onFirstTouch: () => void }) {
+export function setupTouchControls(o: { onJump: () => void; onFirstTouch: () => void; floating?: boolean; onInput?: (input: TouchInput) => void }) {
   const input: TouchInput = { x: 0, z: 0, run: false, slide: false };
   const root = document.createElement('div');
   root.className = 'touch-controls'; root.setAttribute('aria-hidden', 'false');
@@ -37,34 +37,36 @@ export function setupTouchControls(o: { onJump: () => void; onFirstTouch: () => 
 
   // Joystick flotante
   let stickId = -1, cx = 0, cy = 0;
-  const rest = () => { base.style.removeProperty('left'); base.style.removeProperty('top'); zone.classList.remove('active'); knob.style.transform = ''; input.x = input.z = 0; input.run = false; };
+  const notify = () => o.onInput?.(input);
+  const rest = () => { base.style.removeProperty('left'); base.style.removeProperty('top'); zone.classList.remove('active'); knob.style.transform = ''; input.x = input.z = 0; input.run = false; notify(); };
   zone.addEventListener('pointerdown', (e) => {
     if (stickId !== -1) return;
     touched(); stickId = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch { /* puntero sin captura */ }
     const r = zone.getBoundingClientRect();
-    cx = e.clientX; cy = e.clientY;
+    cx = o.floating === false ? r.left + r.width / 2 : e.clientX; cy = o.floating === false ? r.top + r.height / 2 : e.clientY;
     base.style.left = `${cx - r.left}px`; base.style.top = `${cy - r.top}px`;
-    zone.classList.add('active'); e.preventDefault();
+    zone.classList.add('active'); update(e); e.preventDefault();
   });
-  zone.addEventListener('pointermove', (e) => {
+  const update = (e: PointerEvent) => {
     if (e.pointerId !== stickId) return;
     let dx = e.clientX - cx, dy = e.clientY - cy;
     const len = Math.hypot(dx, dy), k = len > RADIUS ? RADIUS / len : 1;
     dx *= k; dy *= k;
     knob.style.transform = `translate(${dx}px, ${dy}px)`;
     const m = Math.min(1, len / RADIUS);
-    if (m < DEAD) { input.x = input.z = 0; input.run = false; return; }
-    input.x = dx / RADIUS; input.z = -dy / RADIUS; input.run = m >= RUN_AT;
-  });
+    if (m < DEAD) { input.x = input.z = 0; input.run = false; notify(); return; }
+    input.x = dx / RADIUS; input.z = -dy / RADIUS; input.run = m >= RUN_AT; notify();
+  };
+  zone.addEventListener('pointermove', update);
   const endStick = (e: PointerEvent) => { if (e.pointerId !== stickId) return; stickId = -1; rest(); };
-  zone.addEventListener('pointerup', endStick); zone.addEventListener('pointercancel', endStick);
+  zone.addEventListener('pointerup', endStick); zone.addEventListener('pointercancel', endStick); zone.addEventListener('lostpointercapture', endStick);
 
   // Saltar (toque) y deslizar (mantener)
   jump.addEventListener('pointerdown', (e) => { touched(); e.preventDefault(); jump.classList.add('pressed'); o.onJump(); });
   const unJump = () => jump.classList.remove('pressed');
   jump.addEventListener('pointerup', unJump); jump.addEventListener('pointercancel', unJump); jump.addEventListener('pointerleave', unJump);
-  slide.addEventListener('pointerdown', (e) => { touched(); e.preventDefault(); try { slide.setPointerCapture(e.pointerId); } catch { /* puntero sin captura */ } slide.classList.add('pressed'); input.slide = true; });
-  const unSlide = () => { slide.classList.remove('pressed'); input.slide = false; };
+  slide.addEventListener('pointerdown', (e) => { touched(); e.preventDefault(); try { slide.setPointerCapture(e.pointerId); } catch { /* puntero sin captura */ } slide.classList.add('pressed'); input.slide = true; notify(); });
+  const unSlide = () => { slide.classList.remove('pressed'); input.slide = false; notify(); };
   slide.addEventListener('pointerup', unSlide); slide.addEventListener('pointercancel', unSlide);
   // Sin menú contextual ni selección al mantener apretado.
   root.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -72,5 +74,5 @@ export function setupTouchControls(o: { onJump: () => void; onFirstTouch: () => 
   const release = () => { stickId = -1; rest(); unSlide(); };
   window.addEventListener('blur', release); document.addEventListener('visibilitychange', release);
 
-  return { input, release };
+  return { input, release, root };
 }

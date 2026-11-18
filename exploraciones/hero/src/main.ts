@@ -4,7 +4,7 @@ import { mountDeviceParallax } from './device-parallax';
 import { mountJourney } from './journey';
 mountJourney();
 import { mountSiteNav } from '../../../compartido/navbar/navbar';
-mountSiteNav({ actual: 'inicio' }); // navegación entre sitios: no depende de WebGL
+mountSiteNav({ actual: 'inicio' }).classList.add('home-nav'); // navegación entre sitios: no depende de WebGL
 
 import { mountIslas } from './islas';
 mountIslas(); // última sección: las islas del pingüino, con carga diferida

@@ -105,6 +105,10 @@ async function main() {
   // De cerca: hasta 8 m del pivote (antes 60), zoom hacia el cursor y casi horizontal (88°) para mirar el paisaje
   // desde el suelo. El pivote se ancla al terreno al empezar cada gesto (anchorTargetToGround).
   Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, screenSpacePanning: false, minDistance: 8, maxDistance: size * 2.2, keyPanSpeed: 20, zoomToCursor: true, zoomSpeed: 1.8 });
+  const touchCamera = matchMedia('(any-pointer: coarse), (max-width: 760px)').matches;
+  controls.touches.ONE = THREE.TOUCH.ROTATE;
+  controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+  if(touchCamera) { controls.rotateSpeed=.65; controls.zoomSpeed=.8; controls.zoomToCursor=false; controls.dampingFactor=.12; }
   controls.maxPolarAngle = THREE.MathUtils.degToRad(88);
   controls.listenToKeyEvents(window);
   // Movimiento reducido (preferencia del sistema): sin inercia de cámara.
@@ -284,7 +288,7 @@ async function main() {
     if(Math.abs(nextNear-camera.near)>Math.max(.05,camera.near*.1)){camera.near=nextNear;camera.updateProjectionMatrix();dirty=true;}
     // Paneo: MapControls mueve el suelo a la par del cursor (proporcional a la distancia al pivote); de cerca eso
     // es muy lento (a 24 m, 200 px = 8 m). Por debajo de 150 m se acelera, hasta ×4.
-    controls.panSpeed=THREE.MathUtils.clamp(150/Math.max(1,camera.position.distanceTo(controls.target)),1,4);
+    controls.panSpeed=touchCamera ? .8 : THREE.MathUtils.clamp(150/Math.max(1,camera.position.distanceTo(controls.target)),1,4);
     const now = performance.now();
     disc.position.copy(camera.position).addScaledVector(solar.direction,camera.far*.8);
     const waves = wavesOn();

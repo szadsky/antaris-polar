@@ -29,7 +29,7 @@ export function mountIslas() {
 
   let iframe: HTMLIFrameElement | null = null;
   let visible = false;
-  const mobile=matchMedia('(pointer: coarse)').matches;
+  const mobile=matchMedia('(any-pointer: coarse), (max-width: 760px)').matches;
   const origin=ORIGEN?new URL(ORIGEN).origin:location.origin;
   const destinations:Record<string,{label:string;url:string}>={base:{label:'Bases',url:'/descubrir/'},comunicaciones:{label:'Investigaciones',url:'/investigaciones/'},antena:{label:'Noticias',url:'/noticias/'},oruga:{label:'AntarisPlay',url:'/antarisplay/'}};
   const labels=new Map<string,HTMLAnchorElement>();
@@ -45,8 +45,8 @@ export function mountIslas() {
   const mobilePanel=document.createElement('div');mobilePanel.className='islas-mobile-controls';mobilePanel.hidden=true;marco.after(mobilePanel);
   const nearby=document.createElement('button');nearby.type='button';nearby.className='islas-nearby';nearby.hidden=true;mobilePanel.append(nearby);
   nearby.addEventListener('click',()=>{const d=destinations[nearby.dataset.station??''];if(d)location.assign(ORIGEN+d.url);});
-  const touch=mobile?setupTouchControls({onJump:()=>iframe?.contentWindow?.postMessage({type:'antaris:touch-jump'},origin),onFirstTouch:()=>iframe?.contentWindow?.postMessage({type:'antaris:touch-unlock'},origin)}):null;
-  if(touch){const root=document.body.lastElementChild;if(root?.classList.contains('touch-controls'))mobilePanel.append(root);}
+  const touch=mobile?setupTouchControls({floating:false,onInput:(input)=>iframe?.contentWindow?.postMessage({type:'antaris:touch-input',input,active:expanded&&mobile},origin),onJump:()=>iframe?.contentWindow?.postMessage({type:'antaris:touch-jump'},origin),onFirstTouch:()=>iframe?.contentWindow?.postMessage({type:'antaris:touch-unlock'},origin)}):null;
+  if(touch)mobilePanel.append(touch.root);
   let inputTimer:ReturnType<typeof setInterval>|undefined;
   const sendInput=()=>iframe?.contentWindow?.postMessage({type:'antaris:touch-input',input:touch?.input,active:expanded&&mobile},origin);
 
@@ -58,7 +58,7 @@ export function mountIslas() {
   window.addEventListener('keydown',e=>{if(e.key==='Escape')closeExplorer();});
   window.addEventListener('message',e=>{if(e.source===iframe?.contentWindow&&e.origin===origin&&e.data==='antaris:close')closeExplorer();});
   const openExplorer=()=>{
-    expanded=true;mobilePanel.hidden=!mobile;if(mobile){sendInput();clearInterval(inputTimer);inputTimer=setInterval(sendInput,33);}document.documentElement.classList.add('explorando-islas');marco.classList.add('expandida');close.hidden=false;
+    expanded=true;mobilePanel.hidden=!mobile;if(mobile){sendInput();clearInterval(inputTimer);inputTimer=setInterval(sendInput,33);}document.documentElement.classList.add('explorando-islas');marco.classList.add('expandida');marco.classList.toggle('touch-layout',mobile);close.hidden=false;
     setActiva(true);avisar('antaris:sigue');
     marco.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
   };
@@ -70,7 +70,7 @@ export function mountIslas() {
   const setActiva = (on: boolean) => {
     marco.classList.toggle('activa', on);
     activar.hidden = on || !iframe;
-    if (on) iframe?.focus();
+    if (on && !mobile) iframe?.focus();
   };
   const cargar = () => {
     if (iframe) return;
