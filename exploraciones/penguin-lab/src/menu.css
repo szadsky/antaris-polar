@@ -67,3 +67,6 @@ html.embed body.touch .controls{flex-direction:column;align-items:flex-end;right
 html.embed #toggle-ui,html.embed .touch-stick__hint{display:none!important}
 html.embed .touch-stick{bottom:22vh!important}
 html.embed .touch-buttons{bottom:24vh!important}
+.island-station {position:fixed;z-index:5;transform:translate(-50%,-100%);padding:8px 12px;border:1px solid #cbd8e2;border-radius:7px;background:#f4f7bf;color:#18344d;font:500 12px/1.4 system-ui;text-decoration:none;box-shadow:0 3px 16px #15334b22;min-height:36px;white-space:nowrap;}
+.island-station:focus-visible {outline:3px solid #236991;outline-offset:3px;}
+html.embed .controls {display:none!important;}

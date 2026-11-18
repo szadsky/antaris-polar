@@ -75,7 +75,7 @@ const fragmentShader = /* glsl */ `
     }
     vec3 img = acc / 8.0;
     float band = smoothstep(0.0, 0.35, m) * (1.0 - smoothstep(0.55, 1.0, m)); // escarcha solo en la franja
-    vec3 col = mix(img, FROST, 0.35 * band);
+    vec3 col = mix(img, uBg, 0.35 * band);
     col = mix(col, uBg, smoothstep(0.25, 1.0, m));
     gl_FragColor = vec4(col * m, m);                     // premultiplicado: m cubre la imagen
   }

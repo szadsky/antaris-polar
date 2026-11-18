@@ -1,6 +1,8 @@
+import { mountJourney } from './journey';
+mountJourney();
 import { mountSiteNav } from '../../../compartido/navbar/navbar';
 mountSiteNav({ actual: 'inicio' }); // navegación entre sitios: no depende de WebGL
-import { conControles } from '../../../compartido/modo';
+
 import { mountIslas } from './islas';
 mountIslas(); // última sección: las islas del pingüino, con carga diferida
 import * as THREE from 'three';
@@ -145,7 +147,7 @@ async function start() {
   let frostT = 0, frostCur = 0;
   let frostFijo: number | null = null; // solo desarrollo: __heroFrost(p) fija el progreso sin scrollear (capturas)
   const onScroll = () => {
-    const span = Math.max(1, track.offsetHeight - innerHeight);
+    const span = Math.max(1, (track.offsetHeight - innerHeight) * 0.8);
     frostT = frostFijo ?? Math.min(1, Math.max(0, -track.getBoundingClientRect().top / span));
     scrollT = frostT;
   };
@@ -166,7 +168,7 @@ async function start() {
   leerColorSeccion();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', leerColorSeccion);
   // Los textos se apagan cuando el frente (sin su ruido) llega a la esquina más expuesta de cada uno; sus velos con ellos.
-  const copyEls = [...hero.querySelectorAll<HTMLElement>('.hero-copy > h1, .hero-lead, .hero-coords, .hero-note')];
+  const copyEls = [...hero.querySelectorAll<HTMLElement>('.hero-copy > h1, .hero-lead, .hero-coords, .hero-explore, .hero-note')];
   let copyReach: number[] = [];
   const superS = (x: number, y: number) => Math.pow(Math.abs(x) ** 6 + Math.abs(y) ** 6, 1 / 6);
   const measureCopy = () => {
@@ -300,11 +302,11 @@ async function start() {
   });
   if (params.has('medir') && perfEl) { perfEl.hidden = false; setInterval(() => { const s = stats(); perfEl.textContent = `${s.fps} FPS · ${s.medianaMs} ms por cuadro (p95 ${s.p95Ms})`; }, 500); }
 
-  // Panel de profundidad de las montañas (DialKit): en desarrollo o con ?panel; nunca en las capturas (?limpio, ?referencia).
+  // Panel de profundidad: solo con ?panel; oculto en la home normal y en capturas.
   // Importación dinámica: DialKit (~40 KB gzip) solo se descarga cuando se muestra el panel.
   let panel: { destroy(): void } | null = null;
-  // Modo exploración (compartido/modo.ts): en desarrollo, en /exploraciones-home/, o con ?controles / ?panel.
-  if (conControles() && !params.has('limpio') && !params.has('referencia')) {
+  // La vista pública y el desarrollo arrancan sin parámetros visibles.
+  if (params.has('panel') && !params.has('limpio') && !params.has('referencia')) {
     import('./panel').then(({ mountDepthPanel }) => {
       panel = mountDepthPanel({
         motion: { horizontal: DEPTH_PARALLAX_PX.x, vertical: DEPTH_PARALLAX_PX.y, camaraX: MOVE.x, camaraY: MOVE.y, animar: false },

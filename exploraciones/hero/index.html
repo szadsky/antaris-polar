@@ -25,6 +25,7 @@
       <div class="hero-copy">
         <h1 id="hero-title">La Antártida, tan cerca como nunca</h1>
         <p class="hero-lead">Desde Ushuaia, personas, expediciones e investigaciones construyen un vínculo real con la Antártida.</p>
+        <a class="hero-explore" href="#islas">Ir directo a explorar <span aria-hidden="true">↗</span></a>
         <p class="hero-coords"><span aria-hidden="true">[-68.30833, -54.80833]</span><span class="sr">Ushuaia: longitud −68,30833°, latitud −54,80833°</span></p>
       </div>
       <p class="hero-note">Ilustración en capas y escena 3D: reconstrucción artística, no fotografía ni relieve medido.</p>
@@ -33,24 +34,14 @@
     </section>
     </div>
 
-    <section id="contenido" class="next">
-      <h2>Desde un lugar del paisaje, revelar lo invisible</h2>
-      <p>Esta página es una exploración aislada del hero. El recorrido educativo (puntos científicos, páginas con fuentes) vive en el sitio principal.</p>
-      <h3 id="sobre-la-imagen">Sobre esta imagen</h3>
-      <ul>
-        <li>Cielo, cumbres, laderas y barcos: capas de una ilustración (reconstrucción artística). La profundidad de las montañas la estimó Depth Anything V2 Small; no es topografía.</li>
-        <li>Loma de nieve y roca, agua y reflejos: Three.js con el material de nieve del visor de Antaris; la loma es un terreno generado que sigue la silueta de la ilustración (no es relieve medido).</li>
-        <li>Pingüino: modelo de <a href="https://polyfork.dev/asset/penguin-base" rel="noopener">Polyfork</a> (<a href="/LICENSES/CC-BY-4.0.txt">CC BY 4.0</a>) con colores de pingüino rey.</li>
-      </ul>
-    </section>
+    <section id="contenido" class="next journey" aria-label="De Ushuaia a la Antártida"></section>
 
     <!-- Última sección: el pingüino en las islas de práctica (penguin-lab, /pinguino-menu/?embed). src/islas.ts crea el
          iframe recién al acercarse a la sección: el hero no carga nada de esto. -->
     <section id="islas" class="islas" aria-labelledby="islas-titulo">
       <div class="islas-copy">
-        <h2 id="islas-titulo">Recorré la nieve con el pingüino</h2>
-        <p>Islas de práctica para caminar, deslizarse y saltar con el material de nieve de Antaris. <strong>Relieve sintético</strong>
-          (ruido y erosión): no es geografía real ni datos REMA.</p>
+        <h2 id="islas-titulo">Ahora elegís por dónde seguir</h2>
+        <p>Recorré la isla con el pingüino o seleccioná una estación para entrar directo</p>
       </div>
       <div class="islas-marco" data-state="espera">
         <p class="islas-estado" role="status">La escena se carga al llegar a esta sección.</p>

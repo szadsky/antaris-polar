@@ -5,9 +5,11 @@ if (!embed) mountSiteNav({ actual: 'islas' });
 // Incrustada no hay barra: el mismo margen superior deja la interfaz fuera de la viñeta del home.
 else { document.documentElement.style.setProperty('--site-nav-h', '36px'); document.documentElement.classList.add('embed'); }
 // Incrustada, la página que la contiene la pausa cuando la sección sale de vista (mismo origen): no dibuja de más.
+const parentOrigin=new URLSearchParams(location.search).get('parentOrigin')||location.origin;
 let embedPausado = false;
 if (embed) window.addEventListener('message', (e) => {
-  if (e.origin !== location.origin) return;
+  if (e.source!==parent || e.origin !== parentOrigin) return;
+  if(e.data?.type==='antaris:control' && ['step-sound','reset'].includes(e.data.id)){document.getElementById(e.data.id)?.click();parent.postMessage({type:'antaris:sound',text:document.getElementById('step-sound')?.textContent},parentOrigin);}
   if (e.data === 'antaris:pausa') embedPausado = true;
   else if (e.data === 'antaris:sigue') embedPausado = false;
 });
@@ -153,6 +155,22 @@ async function main(){
  /** Si una estructura quedó encima del pingüino, lo saca por el borde más cercano (a tierra firme). */
  function pushOut(){for(const o of structures){if(!o.s.blocks(motion.x,motion.z))continue;const out=o.s.exits(motion.x,motion.z).find(([x,z])=>terrain.canStand(x,z)&&!structures.some(q=>q.s.blocks(x,z)));if(out){motion.x=out[0];motion.z=out[1];motion.y=0;motion.verticalSpeed=0;}}}
  motion.reset();pushOut();placeCharacter();reset();
+ const destinations:Record<string,{label:string;url:string}>={base:{label:'Bases',url:'/descubrir/'},comunicaciones:{label:'Investigaciones',url:'/investigaciones/'},antena:{label:'Noticias',url:'/noticias/'},oruga:{label:'AntarisPlay',url:'/antarisplay/'}};
+ const stations=structures.map(o=>{
+  const destination=destinations[o.spec.id],a=document.createElement('a');a.className='island-station';a.textContent=destination.label;a.href=destination.url;a.target='_top';a.setAttribute('aria-label',destination.label+' · '+o.spec.name);
+  if(!embed)document.body.append(a);
+  const bounds=new THREE.Box3().setFromObject(o.s.group),anchor=bounds.getCenter(new THREE.Vector3());anchor.y=bounds.max.y+.4;
+  return {id:o.spec.id,a,anchor};
+ });
+ function updateStations(){
+  // Project against the same camera matrices as the frame being rendered.
+  camera.updateMatrixWorld();
+  const positions=stations.map(st=>{const v=st.anchor.clone().project(camera);const shown=v.z>=-1&&v.z<=1&&Math.abs(v.x)<.90&&v.y>-.84&&v.y<.78;
+   st.a.hidden=!shown;st.a.style.left=((v.x+1)*innerWidth/2)+'px';st.a.style.top=((1-v.y)*innerHeight/2)+'px';return {id:st.id,x:(v.x+1)/2,y:(1-v.y)/2,shown};
+  });
+  if(embed)parent.postMessage({type:'antaris:stations',positions},parentOrigin);
+ }
+
  const movementStatus=document.getElementById('movement-status')!;let lastState='';
  let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
@@ -278,7 +296,7 @@ async function main(){
  function tick(dt:number){
   simTime+=dt;
   fadeElapsed+=dt;if(fadeElapsed>=.1){const remaining=ground.fade(fadeElapsed);fadeElapsed=0;if(!remaining&&footprintCount>0){footprintCount=0;counter.textContent='Nieve sin huellas';}}
-  move(dt);followCamera(dt);snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);for(const o of structures)o.s.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
+  move(dt);followCamera(dt);updateStations();snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);for(const o of structures)o.s.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
  }
  if(import.meta.env.DEV)Object.assign((window as unknown as {antarisLab:object}).antarisLab,{tick,scene});
  renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden||embedPausado)return;

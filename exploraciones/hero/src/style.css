@@ -119,3 +119,33 @@ a { color: inherit; }
 .islas { scroll-margin-top: calc(var(--site-nav-h, 0px) + 12px); }
 /* En pantallas angostas el borde inferior de la escena tiene la palanca táctil: el botón va al centro. */
 @media (max-width: 760px) { .islas-activar { bottom: auto; top: 50%; translate: -50% -50%; } }
+
+/* Superficie liquida neutra de la segunda seccion. */
+.next { position: relative; width: 100%; max-width: none; height: 100svh; min-height: 480px; margin: 0; padding: 0; overflow: hidden; }
+.next canvas { display: block; width: 100%; height: 100%; }
+
+/* Journey typography; island layout and rendering restored from commit 24e7623. */
+.hero-copy h1 {top:32%;}
+.hero::before {background:radial-gradient(50% 16% at 50% 37%,rgb(9 24 44 / .25),transparent);}
+.hero-explore {pointer-events:auto;top:calc(32% + clamp(48px, 4vw, 76px));font-size:13px;color:white;text-underline-offset:5px;min-height:44px;padding:12px;}
+.journey.next {height:auto;min-height:0;overflow:visible;background:linear-gradient(to bottom, transparent, var(--paper) 120px);color:var(--ink);padding:140px 24px 0;margin-top:-85svh;z-index:6;}
+.journey-stop {max-width:620px;margin:0 auto;text-align:center;padding:24px 0;}
+.journey-place {font:500 12px var(--mono);letter-spacing:.08em;margin:0 0 24px;color:#4a5a70;}
+.journey-stop h2 {font:300 clamp(30px,4vw,52px)/1.13 var(--sans);letter-spacing:-.035em;text-wrap:balance;margin:0 0 24px;}
+.journey-text {font-size:clamp(16px,1.3vw,19px);line-height:1.7;text-wrap:pretty;margin:0 auto 24px;max-width:570px;}
+.journey-stop a {display:inline-block;max-width:100%;padding:12px 0;min-height:44px;font-size:13px;line-height:1.6;text-underline-offset:5px;}
+.journey-connector {height:180px;margin:12px auto;width:160px;color:#d1dce7;pointer-events:none;filter:drop-shadow(0 1.5px 0 #fff);}
+.journey-connector svg {display:block;width:100%;height:100%;}
+.islas-copy {text-align:center;color:var(--ink);}
+@media(max-width:640px){.hero-copy h1{top:30%;font-size:32px;}.hero-explore{top:calc(30% + 100px);width:max-content;max-width:calc(100% - 32px);}.journey.next{padding-top:120px;}.journey-connector{height:130px;}.journey-stop{padding:16px 0;}}
+@media(prefers-reduced-motion:reduce){.hero-track{height:100svh;min-height:520px;}.journey.next{margin-top:0;padding-top:60px;background:var(--paper);}}
+/* Controls outside the landscape; station links stay attached to their buildings. */
+.islas-toolbar {display:flex;justify-content:flex-end;gap:8px;max-width:1100px;margin:0 auto;padding:0 24px 8px;}
+.islas-toolbar button {min-height:40px;padding:8px 13px;font:500 12px var(--sans);color:#344b60;background:#fff;border:1px solid #d4dee8;border-radius:8px;cursor:pointer;}
+.islas-actions {display:flex;justify-content:center;min-height:48px;margin:12px 20px;}
+.islas-actions .islas-activar {position:static;translate:none;min-height:44px;}
+.islas-station {position:absolute;z-index:5;transform:translate(-50%,-100%);padding:9px 12px;min-height:38px;border:1px solid #cbd8e2;border-radius:7px;background:#f4f7fbf5;color:#18344d;font:500 12px/1.4 var(--sans);text-decoration:none;white-space:nowrap;box-shadow:0 3px 14px #15334b1a;}
+.islas-station[hidden]{display:none;}
+.islas-station::after {content:'';position:absolute;left:50%;top:100%;height:12px;border-left:1px solid #71889a;}
+.islas-station:hover {background:white;border-color:#637d92;}
+@media(max-width:640px){.islas-toolbar{justify-content:center;padding-inline:12px;}.islas-station{font-size:10px;padding:8px;}.islas-actions .islas-activar{top:auto;bottom:auto;translate:none;}}
