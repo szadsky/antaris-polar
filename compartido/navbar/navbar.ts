@@ -17,13 +17,16 @@ import './navbar.css';
 import separador from './separador.svg';
 import { aplicarModo } from '../modo';
 
-export type SitioActual = 'inicio' | 'descubrir' | 'antarisplay' | 'laboratorio' | 'islas';
+export type SitioActual = 'inicio' | 'descubrir' | 'antarisplay' | 'noticias' | 'investigaciones' | 'laboratorio' | 'islas';
 
-// Rutas del sitio armado. «laboratorio» e «islas» siguen publicados pero ya no están en la barra.
+// Rutas del sitio armado. «laboratorio» e «islas» siguen publicados pero ya no están en la barra. Noticias e
+// investigaciones son páginas del proyecto del hero (multipágina), que se publica en la raíz.
 export const RUTAS: Record<SitioActual, string> = {
   inicio: '/',
   descubrir: '/descubrir/',
   antarisplay: '/antarisplay/',
+  noticias: '/noticias/',
+  investigaciones: '/investigaciones/',
   laboratorio: '/laboratorio/pinguino/',
   islas: '/pinguino-menu/',
 };
@@ -45,14 +48,11 @@ export function mountSiteNav({ actual, base }: OpcionesNavbar): HTMLElement {
   const href = (k: SitioActual) => origen + RUTAS[k];
   const actualAttr = (k: SitioActual) => (k === actual ? ' aria-current="page"' : '');
   const sep = `<img class="site-nav__sep" src="${separador}" width="1" height="16" alt="">`;
-  const pronto = (texto: string) =>
-    `<li>${sep}<span class="site-nav__pronto" title="Próximamente">${texto}<span class="site-nav__aviso"> (próximamente)</span></span></li>`;
   const enlace = (k: SitioActual, texto: string, primero = false) =>
     `<li>${primero ? '' : sep}<a href="${href(k)}"${actualAttr(k)}>${texto}</a></li>`;
 
   // div y no <header>: algunos sitios tienen reglas sobre `header` que no deben alcanzar a la barra.
-  // Ítems: Home (hero), AntarisPlay (trivia), Bases (visor), Noticias e Investigaciones (sin página todavía: se
-  // agregan cuando estén sus diseños de Figma).
+  // Ítems: Home (hero), AntarisPlay (trivia), Bases (visor), Noticias e Investigaciones (páginas del hero).
   const bar = document.createElement('div');
   bar.className = 'site-nav-bar';
   bar.innerHTML = `
@@ -61,7 +61,7 @@ export function mountSiteNav({ actual, base }: OpcionesNavbar): HTMLElement {
       <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="site-nav-lista">Menú</button>
       <ul id="site-nav-lista" class="site-nav__list">
         ${enlace('inicio', 'Home', true)}${enlace('antarisplay', 'AntarisPlay')}${enlace('descubrir', 'Bases')}
-        ${pronto('Noticias')}${pronto('Investigaciones')}
+        ${enlace('noticias', 'Noticias')}${enlace('investigaciones', 'Investigaciones')}
       </ul>
     </nav>`;
   // Primera en el orden de tabulación, salvo un enlace «Saltar al contenido» (a.skip), que va antes.

@@ -27,5 +27,15 @@ export default () => ({
   // compartido/navbar (la navegación común) está fuera de esta carpeta: se habilita para el servidor de desarrollo.
   server: { port: 3420, host: '127.0.0.1', strictPort: true, fs: { allow: [fileURLToPath(new URL('.', import.meta.url)), fileURLToPath(new URL('../../compartido', import.meta.url))] } }, cacheDir: '.vite', assetsInclude: ['**/*.ktx2'],
   // Las fuentes nunca en base64 dentro del CSS: cada subconjunto (latin, cyrillic…) se baja solo si la página lo usa.
-  build: { assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined) },
+  build: {
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+    // Multipágina: el home y las páginas interiores (Figma 2529:5), publicadas en /, /noticias/ y /investigaciones/.
+    rollupOptions: {
+      input: {
+        inicio: fileURLToPath(new URL('./index.html', import.meta.url)),
+        noticias: fileURLToPath(new URL('./noticias/index.html', import.meta.url)),
+        investigaciones: fileURLToPath(new URL('./investigaciones/index.html', import.meta.url)),
+      },
+    },
+  },
 });

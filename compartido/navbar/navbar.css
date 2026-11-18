@@ -70,11 +70,9 @@
 @media (prefers-reduced-motion: reduce) {
   .site-nav-bar .site-nav__list a, .site-nav-bar .site-nav__sub-toggle { transition: none; }
 }
-/* Página actual: subrayado fijo (el diseño no tiene estado activo; mínimo y sin cambiar el color) */
-.site-nav-bar a[aria-current="page"], .site-nav-bar .site-nav__sub-toggle[data-actual] {
-  text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1.5px;
-}
-.site-nav-bar a.site-nav__brand[aria-current="page"] { text-decoration: none; }
+/* Página actual: sin ninguna marca visual (pedido del usuario: «el ítem activo no debe tener un subrayado, que no tenga
+   nada»). Sigue marcada para lectores de pantalla con aria-current="page". */
+.site-nav-bar a[aria-current="page"], .site-nav-bar .site-nav__sub-toggle[data-actual] { text-decoration: none; }
 .site-nav-bar .site-nav__sub-toggle::after { content: ""; display: inline-block; width: .32em; height: .32em; margin: 0 0 .18em .4em; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
 .site-nav-bar .site-nav__grupo.is-open .site-nav__sub-toggle::after { transform: rotate(-135deg); margin-bottom: -.05em; }
 .site-nav-bar .site-nav__aviso { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

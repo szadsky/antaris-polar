@@ -1,0 +1,75 @@
+/* Noticias e Investigaciones (Figma «Gamezone · david», nodo 2529:5). Tamaños al 80 % del diseño a 1920 px y
+   proporcionales al ancho, como el home. Tipografías OFL: Geist y Geist Mono (@fontsource). */
+:root {
+  --sec-fondo: #d5e2e8;
+  --sec-texto: #000;
+  --sec-gris: #5c5b57;
+  --sec-titulo2: #2c3344;
+  --sec-meta: #777d8e;
+  --sec-carbon: #2d2d24;
+  --sec-linea: #bdc3d3;
+  --sec-pad: clamp(16px, 3.33vw, 64px);
+  --sans: Geist, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: 16px/1.5 var(--sans); color: var(--sec-texto); background: var(--sec-fondo); }
+:focus-visible { outline: 2px solid var(--sec-titulo2); outline-offset: 3px; border-radius: 4px; }
+.skip { position: absolute; left: 12px; top: -48px; z-index: 60; padding: 8px 14px; background: #fff; border-radius: 6px; }
+.skip:focus { top: 12px; }
+main { padding: 0 var(--sec-pad) 96px; overflow-x: clip; }
+
+/* ── Hero: título a la izquierda, modelo 3D a la derecha ─────────────────────────────────────────────────────── */
+.sec-hero { position: relative; min-height: clamp(540px, 41.1vw, 790px); margin: 0 calc(-1 * var(--sec-pad)); }
+.sec-hero__texto { position: absolute; z-index: 2; left: var(--sec-pad); top: 50.5%; translate: 0 -30%; max-width: min(46vw, 560px); }
+.sec-hero__titulo { margin: 0; font: 300 clamp(36px, 2.67vw, 64px)/1 var(--sans); letter-spacing: -.03em; color: var(--sec-texto); }
+.sec-hero__bajada { margin: clamp(16px, 1.35vw, 32px) 0 0; max-width: clamp(300px, 23.9vw, 573px); font: 400 clamp(15px, .83vw, 20px)/1.3 var(--sans); color: var(--sec-gris); text-wrap: pretty; }
+.sec-aviso { margin: 16px 0 0; font: 500 11px/1.3 var(--mono); letter-spacing: .02em; text-transform: uppercase; color: var(--sec-meta); }
+.sec-aviso::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: #e0a12b; vertical-align: 1px; }
+/* Figma: imagen de 979 × 653 en x 911, y 86 del marco de 1920 */
+.sec-modelo { position: absolute; z-index: 1; left: 47.45%; top: 10.9%; width: 51vw; max-width: 1180px; aspect-ratio: 979 / 653; }
+.sec-modelo canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sec-modelo__estado { position: absolute; left: 0; right: 0; bottom: 3%; margin: 0; text-align: center; font: 500 12px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--sec-meta); pointer-events: none; }
+.sec-modelo[data-state="listo"] .sec-modelo__estado { display: none; }
+.sec-modelo[data-state="error"] .sec-modelo__estado::after { content: " · no se pudo cargar"; }
+.sec-modelo__nota { position: absolute; z-index: 2; right: var(--sec-pad); bottom: 12px; margin: 0; max-width: 28rem; font-size: .72rem; color: #6a7789; text-align: right; }
+
+/* ── Secciones con carrusel ──────────────────────────────────────────────────────────────────────────────────── */
+.sec-carrusel { margin-top: clamp(24px, 2vw, 48px); padding-top: clamp(20px, 1.33vw, 32px); border-top: 1px solid var(--sec-linea); }
+.sec-carrusel__cab { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: clamp(20px, 1.33vw, 32px); }
+.sec-carrusel__titulo { margin: 0; font: 500 clamp(24px, 1.67vw, 40px)/1.1 var(--sans); letter-spacing: -.04em; color: var(--sec-titulo2); }
+/* Flechas: cápsula de 88 × 40 (Figma: fondo #e3e6ec, borde #c7d2d7, radio 16) */
+.sec-flechas { display: flex; align-items: center; height: 40px; padding: 0 4px; border: 1px solid #c7d2d7; border-radius: 16px; background: #e3e6ec;
+  box-shadow: 0 1px 3px rgb(52 68 110 / .25), 0 4px 5px rgb(52 68 110 / .1), inset 0 -1px 2px rgb(231 235 246 / .6), inset 0 -10px 10px 2px rgb(66 79 116 / .1); }
+.sec-flecha { display: grid; place-items: center; width: 40px; height: 38px; padding: 0; border: 0; background: none; color: #454d51; cursor: pointer; }
+.sec-flecha:disabled { color: #b3bcc1; cursor: default; }
+.sec-flechas__sep { width: 1px; height: 24px; background: #d0d4e0; }
+.sec-pista { display: flex; gap: clamp(12px, .83vw, 20px); margin: 0 calc(-1 * var(--sec-pad)) 0 0; padding: 0 var(--sec-pad) 8px 0; list-style: none;
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; overscroll-behavior-x: contain; }
+.sec-pista::-webkit-scrollbar { display: none; }
+.sec-tarjeta { flex: 0 0 clamp(280px, 30vw, 722px); scroll-snap-align: start; transition: opacity .3s ease; }
+.sec-tarjeta.es-parcial { opacity: .5; }
+.sec-tarjeta__marco { display: block; height: 100%; border: 8px solid #f3fcff; border-radius: 24px; background: #eaf5f9; color: inherit; text-decoration: none;
+  box-shadow: 0 1px 1.5px rgb(52 68 110 / .25), 0 4px 2.5px rgb(52 68 110 / .1), inset 0 1px 1px rgb(255 255 255 / .6); }
+.sec-tarjeta__interior { height: 100%; overflow: hidden; border: 1px solid #d9e1e5; border-radius: 16px; }
+.sec-tarjeta__img { display: block; width: 100%; height: auto; aspect-ratio: 706 / 386; object-fit: cover; background: #ededed; }
+.sec-tarjeta__cuerpo { padding: clamp(16px, 1vw, 24px) clamp(16px, 1vw, 24px) clamp(24px, 1.67vw, 40px); }
+.sec-tarjeta__meta { display: flex; align-items: center; gap: 12px; margin: 0; font: 500 clamp(11px, .58vw, 14px)/1.2 var(--mono); letter-spacing: .01em; text-transform: uppercase; color: var(--sec-meta); }
+.sec-tarjeta__sep { width: 1px; height: 1.2em; background: var(--sec-linea); }
+.sec-tarjeta__titulo { margin: clamp(18px, 1.33vw, 32px) 0 0; font: 500 clamp(18px, 1.33vw, 32px)/1.2 var(--sans); letter-spacing: -.03em; color: var(--sec-carbon); text-wrap: balance; }
+.sec-tarjeta__bajada { margin: clamp(12px, 1vw, 24px) 0 0; font: 400 clamp(13px, .67vw, 16px)/1.5 var(--sans); letter-spacing: .01em; color: var(--sec-gris);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+a.sec-tarjeta__marco:hover .sec-tarjeta__titulo { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.sec-contador { margin: clamp(14px, 1vw, 24px) 0 0; font: 500 clamp(11px, .58vw, 14px)/1.2 var(--mono); letter-spacing: .01em; text-transform: uppercase; color: var(--sec-meta); }
+
+/* ── Pantallas angostas: el modelo arriba, el texto abajo ─────────────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .sec-hero { min-height: 0; padding-top: calc(var(--site-nav-h, 64px) + 8px); }
+  .sec-modelo { position: relative; left: auto; top: auto; width: 100%; }
+  .sec-hero__texto { position: relative; left: auto; top: auto; translate: none; max-width: none; padding: 0 var(--sec-pad); margin-top: -8px; }
+  .sec-modelo__nota { position: relative; right: auto; bottom: auto; max-width: none; padding: 12px var(--sec-pad) 0; text-align: left; }
+  .sec-tarjeta { flex-basis: 82vw; }
+}
+@media (prefers-reduced-motion: reduce) { .sec-pista { scroll-behavior: auto; } .sec-tarjeta { transition: none; } }

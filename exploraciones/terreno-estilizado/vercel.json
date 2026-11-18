@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npm run build",
+  "installCommand": "cd ../.. && npm run setup",
+  "buildCommand": "cd ../.. && npm run build && rm -rf exploraciones/terreno-estilizado/dist && cp -r dist exploraciones/terreno-estilizado/dist",
   "outputDirectory": "dist",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../penguin-lab ../terreno-nitidez/public ../../scripts ../../compartido"
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ../.."
 }

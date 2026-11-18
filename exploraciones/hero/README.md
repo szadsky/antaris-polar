@@ -137,8 +137,11 @@ laboratorio y las islas ya no están en la barra.
   - Captura: `capturas/14-islas-mascara-con-grano.jpg` (frame completo y borde superior ampliado ×4).
 - **Modo incrustado de las islas** (`penguin-lab/src/menu-main.ts` y `menu.css`, con `?embed`):
   - sin la barra común (la del home ya está arriba);
-  - la interfaz centrada dentro de la zona nítida (selector de isla y controles a ~27 % del alto) y los controles
-    táctiles por encima del fundido inferior; sin «Ocultar interfaz» (queda la tecla H);
+  - **solo la isla Sendero**, sin selector (pedido del usuario: «que no esté en el medio, eliminá Macizo y Valle
+    encerrado del home»). `/pinguino-menu/` y `/exploraciones-islas/` siguen con las tres islas;
+  - «Sonido» y «Restablecer vista» en la esquina superior derecha de la zona nítida de la máscara (≈ 38 % del alto,
+    59–83 % del ancho), lejos del pingüino; en pantallas táctiles, apilados. Los controles táctiles quedan por encima
+    del fundido inferior y no hay «Ocultar interfaz» (queda la tecla H). Captura: `capturas/15-islas-solo-sendero.jpg`;
   - solo el selector de isla y los controles de la escena. El título, la descripción, la ayuda de teclas, el editor de
     estructuras y el pie quedan en el home: las teclas debajo del marco, y los créditos del pingüino (Polyfork,
     CC BY 4.0) y de las huellas (Oguzhan Tufenk / Codrops, MIT).
@@ -146,6 +149,43 @@ laboratorio y las islas ya no están en la barra.
   baja menos con gzip. Lo más pesado es el pingüino sin optimizar (`penguin-custom-smooth.glb`, 1,16 MB; en el hero se
   usa la versión reducida de 351 KB) y cuatro estructuras de ≈ 0,7–0,8 MB cada una.
 - **Capturas:** `capturas/12-islas-en-el-home.jpg` (antes / después, escritorio y celular).
+
+## Noticias e Investigaciones
+
+Páginas interiores con la estructura del Figma «Gamezone · david», nodo `2529:5`. El proyecto del hero es multipágina
+(`vite.config.mjs`): `noticias/index.html` e `investigaciones/index.html`. En el sitio armado quedan en `/noticias/` y
+`/investigaciones/` sin tocar `scripts/assemble-site.mjs`, porque el hero se publica en la raíz.
+
+- **Estructura** (`src/secciones/pagina.ts` y `secciones.css`):
+  - fondo `#d5e2e8`;
+  - hero con el título (Geist Light) y la bajada a la izquierda, y el modelo 3D a la derecha;
+  - dos secciones con carrusel: línea divisoria, título `_Sección`, flechas anterior y siguiente, tarjetas con borde
+    blanco de 8 px, imagen, fuente y fecha en Geist Mono, título y bajada de 2 líneas, y contador `01/06`;
+  - las tarjetas que no entran enteras quedan al 50 %, como en el Figma.
+
+  Tamaños al 80 % del diseño a 1920 px y proporcionales al ancho, como el home. El carrusel es una lista con scroll
+  horizontal: las flechas son botones (se apagan en los extremos) y el contador se anuncia con `aria-live`.
+- **Modelos** (`src/secciones/modelo.ts`): Noticias usa la antena parabólica (`antena-parabolica-web.glb`) e
+  Investigaciones, la estación de comunicaciones (`estacion-comunicaciones-web.glb`). Vienen del laboratorio, con
+  Meshopt, texturas WebP y ≈ 52 300 triángulos cada uno. La imagen del Figma (nodo 2574:402) es el mockup del modelo.
+  Son **modelos decorativos**: reconstrucción artística, no estructuras reales. Su procedencia y licencia están
+  pendientes de documentar (`penguin-lab/LEEME.txt`), y la página lo aclara debajo del modelo.
+  - **Escaneo al cargar:** una línea de luz sube por el propio modelo; debajo queda sólido y arriba su malla de alambre.
+    Sin disco ni plano de luz, a pedido del usuario. Con «reducir movimiento», aparece directo.
+  - **Parallax:** rotación leve con el mouse (giro ±0,2 rad e inclinación ±0,05 rad), suavizada.
+  - **Fundido:** fondo transparente, más una máscara elíptica con grano (`scripts/mascara-modelo.cjs`, como la del
+    Figma) que funde los bordes con el fondo de la página.
+  - **Costo:** se dibuja a pedido, solo mientras escanea o mientras la rotación se acomoda, y solo en pantalla. En
+    reposo no dibuja.
+  - **Desarrollo:** `__modeloEscaneo(p)` fija el progreso del escaneo para las capturas.
+- **Contenido:** todavía no hay noticias ni investigaciones verificadas. Las tarjetas tienen texto de plantilla
+  («Título de la noticia», «Fuente», «Fecha») y una imagen del Figma. No hay titulares, autores ni fechas inventados.
+  El usuario no quiere un rótulo «contenido de ejemplo» visible; el texto de plantilla deja claro que no es una noticia.
+  Para cargar contenido real, editar `src/secciones/contenido.ts`: título, bajada, fuente o institución, fecha, imagen
+  con permiso de uso y `enlace` a la fuente original (en investigaciones, la publicación o su registro en OpenAlex).
+- **Barra:** `mountSiteNav({ actual: 'noticias' | 'investigaciones' })`. La página actual no tiene marca visual (pedido
+  del usuario); queda marcada solo con `aria-current`.
+- **Capturas:** `capturas/16-noticias-e-investigaciones.jpg`.
 
 ## Imagen de carga
 

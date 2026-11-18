@@ -11,7 +11,7 @@ Primera importación del punto de entrada de cada sitio:
 
 ```ts
 import { mountSiteNav } from '../../../compartido/navbar/navbar';
-mountSiteNav({ actual: 'descubrir' }); // 'inicio' | 'descubrir' | 'antarisplay' | 'laboratorio' | 'islas'
+mountSiteNav({ actual: 'descubrir' }); // 'inicio' | 'descubrir' | 'antarisplay' | 'noticias' | 'investigaciones' | 'laboratorio' | 'islas'
 ```
 
 Cada `vite.config` habilita esta carpeta en `server.fs.allow`, porque está fuera del proyecto.
@@ -26,8 +26,8 @@ Cada `vite.config` habilita esta carpeta en `server.fs.allow`, porque está fuer
   - Home → hero (`/`).
   - AntarisPlay → trivia «Rumbo a la Antártida» (`/antarisplay/`, copiada tal cual por `scripts/assemble-site.mjs`).
   - Bases → visor de bases (`/descubrir/`).
-  - Noticias e Investigaciones: no tienen página todavía (faltan sus diseños de Figma) y se muestran con
-    «próximamente», sin enlace.
+  - Noticias → `/noticias/` e Investigaciones → `/investigaciones/`: páginas del proyecto del hero (multipágina, Figma
+    2529:5), publicadas en la raíz junto al hero.
   - El laboratorio y las islas siguen publicados en sus rutas, pero ya no están en la barra.
 - **Página actual:** queda subrayada y marcada con `aria-current`.
 - **Pantallas de 760 px o menos:** la barra se convierte en un botón «Menú» con la lista completa.

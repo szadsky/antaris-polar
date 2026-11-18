@@ -48,6 +48,8 @@ Los GeoTIFF REMA crudos (~100 MB) no se versionan: se regeneran con `pipeline/re
 
 ## Compilación web (hero, visor y laboratorio)
 
+> **Vercel:** el proyecto publicado (antaris-polar.vercel.app) tiene como carpeta raíz `exploraciones/terreno-estilizado`. Su `vercel.json` compila el **sitio completo** desde la raíz del repo (`npm run setup` y `npm run build`) y copia `dist/` a la carpeta que publica Vercel, así `/` es el home y todas las rutas existen. Sin eso, Vercel solo publicaba el visor en `/`.
+
 Con Node.js 22.7 o posterior:
 
 ```bash
