@@ -44,7 +44,13 @@ function armar(main: HTMLElement, p: Pagina) {
     intro.setAttribute('aria-labelledby', 'sec-intro-titulo');
     const titulo = el('h2', 'sec-carrusel__titulo', p.introduccion.titulo);
     titulo.id = 'sec-intro-titulo';
-    intro.append(titulo, el('p', 'sec-intro__texto', p.introduccion.texto));
+    const logo = el('img', 'sec-intro__logo');
+    logo.src = '/secciones/conicet-logo.png';
+    logo.alt = 'CONICET';
+    logo.loading = 'lazy';
+    const cuerpo = el('div', 'sec-intro__cuerpo');
+    cuerpo.append(titulo, el('p', 'sec-intro__texto', p.introduccion.texto));
+    intro.append(logo, cuerpo);
     main.append(intro);
   }
 
