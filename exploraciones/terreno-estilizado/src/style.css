@@ -173,3 +173,12 @@ html.sin-controles .base-buildings { display: none !important; }
 
 /* Keep the interface toggle at the bottom of the viewport. */
 .ui-toggle { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); }
+
+.base-location {margin-top:22px;min-width:0}
+.base-location h2 {font-size:15px;font-weight:500;margin-bottom:12px}
+.base-location__map {display:block;width:100%;height:auto;aspect-ratio:5/4;border-radius:12px;background:#eaf1f5;color:#bacdd8;overflow:hidden}
+.base-location figcaption {display:grid;gap:5px;margin-top:12px;font-size:12px;line-height:1.6}
+.base-location figcaption strong {font-weight:500}
+.base-location figcaption span {color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.base-location__credit {margin-top:10px;font-size:10px;line-height:1.7;color:var(--ink-soft)}
+.base-location__credit a {color:inherit;text-underline-offset:3px}

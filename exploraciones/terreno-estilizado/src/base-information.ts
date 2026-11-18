@@ -1,3 +1,4 @@
+import { createBaseLocation } from './base-location';
 import { SelectControl } from 'dialkit/vanilla';
 import 'dialkit/vanilla/styles.css';
 import { conControles } from '../../../compartido/modo';
@@ -33,7 +34,7 @@ export function showBaseCard(base: BaseRecord[], id: string, focus = false) {
   for (const [label, value] of [['Inauguración', date], ['Coordenadas · IGN', b.coordenadas.texto]]) {
     const cell = el('div'); cell.append(el('dt', label), el('dd', value)); facts.append(cell);
   }
-  host.replaceChildren(title, badge, location, description, facts);
+  host.replaceChildren(title, badge, location, description, facts, createBaseLocation(b));
   if (b.historia) { const more = el('details', undefined, 'base-card__history'); more.append(el('summary', 'Historia y actividades'), el('p', b.historia)); host.append(more); }
   const sources = el('footer', undefined, 'base-card__sources'); sources.append(el('h2', 'Fuentes'));
   for (const ref of b.fuentes) { const link = el('a', ref.nombre); link.href = ref.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; sources.append(link); }
