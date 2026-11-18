@@ -35,8 +35,7 @@ function armar(main: HTMLElement, p: Pagina) {
   if (p.ejemplo) texto.append(el('p', 'sec-aviso', 'Contenido de ejemplo: todavía no hay publicaciones verificadas cargadas.'));
   const modelo = el('div', 'sec-modelo');
   modelo.append(el('p', 'sec-modelo__estado', 'Escaneando modelo…'));
-  const nota = el('p', 'sec-modelo__nota', `Modelo 3D decorativo (${p.modelo.nombre}): reconstrucción artística, no una estructura real.`);
-  hero.append(texto, modelo, nota);
+  hero.append(texto, modelo);
   main.append(hero);
   mountModelo(modelo, { url: p.modelo.url, giro: p.modelo.giro, elevacion: p.modelo.elevacion });
 
