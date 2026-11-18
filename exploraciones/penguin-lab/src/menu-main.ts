@@ -7,6 +7,7 @@ else { document.documentElement.style.setProperty('--site-nav-h', '36px'); docum
 // Incrustada, la página que la contiene la pausa cuando la sección sale de vista (mismo origen): no dibuja de más.
 const parentOrigin=new URLSearchParams(location.search).get('parentOrigin')||location.origin;
 let embedPausado = false;
+if(embed)window.addEventListener('keydown',e=>{if(e.key==='Escape')parent.postMessage('antaris:close',parentOrigin);});
 if (embed) window.addEventListener('message', (e) => {
   if (e.source!==parent || e.origin !== parentOrigin) return;
   if(e.data?.type==='antaris:control' && ['step-sound','reset'].includes(e.data.id)){document.getElementById(e.data.id)?.click();parent.postMessage({type:'antaris:sound',text:document.getElementById('step-sound')?.textContent},parentOrigin);}
@@ -206,20 +207,34 @@ async function main(){
  const canvas=renderer.domElement;
  let press:{x:number;y:number;id:string|null;dragged:boolean}|null=null;
  const point=(e:PointerEvent)=>{const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};};
- canvas.addEventListener('pointermove',e=>{if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>6)press.dragged=true;const p=point(e);hoverStation(press?.dragged?null:pickStation(p.x,p.y));});
+ canvas.addEventListener('pointermove',e=>{if(mobileNavigation)return;if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>6)press.dragged=true;const p=point(e);hoverStation(press?.dragged?null:pickStation(p.x,p.y));});
  canvas.addEventListener('pointerleave',()=>hoverStation(null));
  canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=point(e);press={x:e.clientX,y:e.clientY,id:pickStation(p.x,p.y),dragged:false};});
- canvas.addEventListener('pointerup',e=>{const start=press;press=null;if(!start||start.dragged||Math.hypot(e.clientX-start.x,e.clientY-start.y)>6)return;const p=point(e),id=pickStation(p.x,p.y);if(id===start.id)openStation(id);});
+ canvas.addEventListener('pointerup',e=>{if(mobileNavigation){press=null;return;}const start=press;press=null;if(!start||start.dragged||Math.hypot(e.clientX-start.x,e.clientY-start.y)>6)return;const p=point(e),id=pickStation(p.x,p.y);if(id===start.id)openStation(id);});
  canvas.addEventListener('pointercancel',()=>{press=null;hoverStation(null);});
  for(const st of stations){st.a.addEventListener('pointerenter',()=>hoverStation(st.id));st.a.addEventListener('pointerleave',()=>hoverStation(null));st.a.addEventListener('focus',()=>hoverStation(st.id));st.a.addEventListener('blur',()=>hoverStation(null));}
  window.addEventListener('message',e=>{
   if(!embed||e.source!==parent||e.origin!==parentOrigin)return;
-  if(e.data?.type==='antaris:label-hover')hoverStation(destinations[e.data.id]?e.data.id:null);
-  if(e.data?.type==='antaris:pick'&&Number.isFinite(e.data.x)&&Number.isFinite(e.data.y)){
+  if(!matchMedia('(pointer: coarse)').matches&&e.data?.type==='antaris:label-hover')hoverStation(destinations[e.data.id]?e.data.id:null);
+  if(!matchMedia('(pointer: coarse)').matches&&e.data?.type==='antaris:pick'&&Number.isFinite(e.data.x)&&Number.isFinite(e.data.y)){
    const id=pickStation(e.data.x,e.data.y);hoverStation(id);if(e.data.click)openStation(id);
   }
  });
 
+ const mobileNavigation=matchMedia('(pointer: coarse)').matches;
+ let touchExploring=!embed;
+ let nearId:string|null=null;
+ const proximity=structures.map(o=>({id:o.spec.id,bounds:new THREE.Box3().setFromObject(o.s.group)}));
+ function updateProximity(){
+  if(!mobileNavigation)return;
+  let id:string|null=null,best=2.8;
+  if(touchExploring)for(const item of proximity){
+   const b=item.bounds,dx=motion.x-Math.max(b.min.x,Math.min(b.max.x,motion.x)),dz=motion.z-Math.max(b.min.z,Math.min(b.max.z,motion.z));
+   const distance=Math.hypot(dx,dz);if(distance<best){best=distance;id=item.id;}
+  }
+  hoverStation(id);
+  if(id!==nearId){nearId=id;if(embed)parent.postMessage({type:'antaris:nearby',id},parentOrigin);}
+ }
  const movementStatus=document.getElementById('movement-status')!;let lastState='';
  let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
@@ -229,6 +244,18 @@ async function main(){
  const keydown=(event:KeyboardEvent)=>{if(!relevant.has(event.code)||editable(event.target)||event.ctrlKey||event.metaKey||event.altKey)return;if(event.code==='Space'&&event.target instanceof HTMLElement&&event.target.closest('button,a'))return;event.preventDefault();stepAudio.unlock();keys.add(event.code);if(event.repeat)return;if(event.code==='Space'&&!keys.has('KeyE'))motion.jump();if(event.code==='KeyR'){keys.clear();slideTrail=null;motion.reset();clearFeet();placeCharacter();reset();}};
  // Táctil: joystick (caminar; al borde, correr), Saltar y Deslizar (mantener). Ver src/touch-controls.ts.
  const touch=setupTouchControls({onJump:()=>{if(!keys.has('KeyE')&&!touch.input.slide)motion.jump();},onFirstTouch:()=>stepAudio.unlock()});
+ if(embed)window.addEventListener('message',e=>{
+  if(e.source!==parent||e.origin!==parentOrigin)return;
+  if(e.data?.type==='antaris:touch-input'){
+   touchExploring=e.data.active===true;
+   const input=e.data.input;
+   if(touchExploring&&input&&Number.isFinite(input.x)&&Number.isFinite(input.z)){
+    touch.input.x=Math.max(-1,Math.min(1,input.x));touch.input.z=Math.max(-1,Math.min(1,input.z));touch.input.run=input.run===true;touch.input.slide=input.slide===true;
+   }else touch.release();
+  }
+  if(e.data?.type==='antaris:touch-unlock')stepAudio.unlock();
+  if(e.data?.type==='antaris:touch-jump'&&touchExploring)motion.jump();
+ });
  const keyup=(event:KeyboardEvent)=>{keys.delete(event.code);};const clearKeys=()=>{keys.clear();slideTrail=null;stepAudio.stop();};
  window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',clearKeys);
  function stampFoot(x:number,z:number,yaw:number){
@@ -345,7 +372,7 @@ async function main(){
  function tick(dt:number){
   simTime+=dt;
   fadeElapsed+=dt;if(fadeElapsed>=.1){const remaining=ground.fade(fadeElapsed);fadeElapsed=0;if(!remaining&&footprintCount>0){footprintCount=0;counter.textContent='Nieve sin huellas';}}
-  move(dt);followCamera(dt);updateStations();snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);for(const o of structures)o.s.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
+  move(dt);followCamera(dt);updateStations();updateProximity();snowParticles.update(dt,(x,z)=>ground.height(x,z));ground.update(simTime);for(const o of structures)o.s.update(simTime);ground.flush(renderer);renderer.render(scene,camera);
  }
  if(import.meta.env.DEV)Object.assign((window as unknown as {antarisLab:object}).antarisLab,{tick,scene});
  renderer.setAnimationLoop(()=>{const dt=Math.min(clock.getDelta(),.05);if(document.hidden||embedPausado)return;

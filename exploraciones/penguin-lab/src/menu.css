@@ -72,3 +72,5 @@ html.embed .touch-buttons{bottom:24vh!important}
 html.embed .controls {display:none!important;}
 
 .island-station:hover,.island-station.is-hovered {background:#fff;border-color:#45a9d1;box-shadow:0 0 0 2px #6dc9ef55,0 4px 18px #15334b22;}
+
+html.embed body.touch .touch-controls {display:none!important;}

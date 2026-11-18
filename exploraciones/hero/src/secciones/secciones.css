@@ -25,7 +25,7 @@ main { padding: 0 var(--sec-pad) 96px; overflow-x: clip; }
 .sec-hero { position: relative; min-height: clamp(540px, 41.1vw, 790px); margin: 0 calc(-1 * var(--sec-pad)); }
 .sec-hero__texto { position: absolute; z-index: 2; left: var(--sec-pad); top: 50.5%; translate: 0 -30%; max-width: min(46vw, 560px); }
 .sec-hero__titulo { margin: 0; font: 300 clamp(36px, 2.67vw, 64px)/1 var(--sans); letter-spacing: -.03em; color: var(--sec-texto); }
-.sec-hero__bajada { margin: clamp(16px, 1.35vw, 32px) 0 0; max-width: clamp(300px, 23.9vw, 573px); font: 400 clamp(15px, .83vw, 20px)/1.3 var(--sans); color: var(--sec-gris); text-wrap: pretty; }
+.sec-hero__bajada { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: clamp(16px, 1.35vw, 32px) 0 0; max-width: clamp(300px, 23.9vw, 573px); font: 400 clamp(15px, .83vw, 20px)/1.3 var(--sans); color: var(--sec-gris); text-wrap: pretty; }
 .sec-aviso { margin: 16px 0 0; font: 500 11px/1.3 var(--mono); letter-spacing: .02em; text-transform: uppercase; color: var(--sec-meta); }
 .sec-aviso::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: #e0a12b; vertical-align: 1px; }
 /* Figma: imagen de 979 × 653 en x 911, y 86 del marco de 1920 */
@@ -73,3 +73,43 @@ a.sec-tarjeta__marco:hover .sec-tarjeta__titulo { text-decoration: underline; te
   .sec-tarjeta { flex-basis: 82vw; }
 }
 @media (prefers-reduced-motion: reduce) { .sec-pista { scroll-behavior: auto; } .sec-tarjeta { transition: none; } }
+
+/* Metadatos y atribución de noticias verificadas. */
+.sec-tarjeta__meta { flex-wrap: wrap; row-gap: 8px; }
+.sec-tarjeta__meta time { white-space: nowrap; }
+.sec-tarjeta__categoria { margin: 0 0 10px; font: 500 .75rem/1.3 var(--mono); color: var(--sec-meta); }
+.sec-tarjeta__credito { margin: 16px 0 0; font: 400 .75rem/1.4 var(--sans); color: var(--sec-gris); }
+a.sec-tarjeta__marco:focus-visible { outline: 3px solid #245e8d; outline-offset: -3px; }
+.sec-tarjeta:focus-within { opacity: 1; }
+.sec-creditos { margin-top: 40px; font-size: .8rem; color: var(--sec-gris); }
+.sec-creditos summary { cursor: pointer; }
+.sec-creditos a { color: inherit; text-underline-offset: 3px; }
+
+/* Estructura de fila editorial: título, autores, publicación y acceso. */
+.sec-papers { margin-top: clamp(48px, 5vw, 96px); }
+.sec-papers__lista { display: grid; gap: 16px; padding: 0; margin: 28px 0 0; list-style: none; }
+.sec-paper { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.15fr) minmax(0, 1fr) 24px; align-items: start; gap: 28px; padding: 32px; border: 0; border-radius: 24px; background: #eaf5f9; color: var(--sec-carbon); text-decoration: none; transition: background .2s ease; }
+.sec-paper:hover { background: #dfedf3; }
+.sec-paper:focus-visible { outline: 3px solid #245e8d; outline-offset: 3px; }
+.sec-paper__titulo { margin: 0; font: 500 clamp(18px, 1.5vw, 26px)/1.25 var(--sans); letter-spacing: -.025em; text-wrap: pretty; }
+.sec-paper:hover .sec-paper__titulo { text-decoration: underline; text-underline-offset: 4px; }
+.sec-paper__doi { margin: 14px 0 0; font: 400 .75rem/1.5 var(--mono); color: var(--sec-meta); overflow-wrap: anywhere; }
+.sec-paper__etiqueta { display: block; margin-bottom: 8px; font: 500 .7rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--sec-meta); }
+.sec-paper__autores p, .sec-paper__publicacion p { margin: 0; font-size: .875rem; line-height: 1.5; color: var(--sec-gris); }
+.sec-paper__publicacion time { display: block; margin-top: 8px; font: 500 .875rem/1.4 var(--mono); }
+.sec-paper__flecha { align-self: center; }
+@media (max-width: 900px) {
+  .sec-paper { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 24px; gap: 20px; padding: 24px; }
+  .sec-paper__principal { grid-column: 1 / 3; }
+  .sec-paper__autores { grid-column: 1; grid-row: 2; }
+  .sec-paper__publicacion { grid-column: 2; grid-row: 2; }
+  .sec-paper__flecha { grid-column: 3; grid-row: 1 / 3; }
+}
+@media (max-width: 480px) {
+  .sec-paper { grid-template-columns: minmax(0, 1fr) 24px; gap: 18px; padding: 22px; }
+  .sec-paper__principal { grid-column: 1; }
+  .sec-paper__autores { grid-column: 1; grid-row: 2; }
+  .sec-paper__publicacion { grid-column: 1; grid-row: 3; }
+  .sec-paper__flecha { grid-column: 2; grid-row: 1 / 4; }
+}
+@media (prefers-reduced-motion: reduce) { .sec-paper { transition: none; } }

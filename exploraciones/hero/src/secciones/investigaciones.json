@@ -1,0 +1,87 @@
+{
+  "verificadoEl": "2026-11-18",
+  "noticias": [
+    {
+      "id": "fitoplancton",
+      "titulo": "Tres décadas de datos revelan cambios en el fitoplancton antártico",
+      "resumen": "Investigadores del CADIC y la UNLP observaron cambios en las floraciones de caleta Potter. Durante los veranos más cálidos aumentó el predominio de una diatomea pequeña, con posibles consecuencias para la red alimentaria.",
+      "organismo": "CADIC-CONICET",
+      "fecha": "2024-03-18",
+      "categoria": "Ciencia",
+      "tema": "Biodiversidad",
+      "idioma": "es",
+      "url": "https://cadic.conicet.gov.ar/especialistas-del-conicet-observan-alteraciones-en-el-fitoplancton-en-la-antartida-y-lo-vinculan-con-el-cambio-climatico/",
+      "estudioUrl": "https://doi.org/10.1111/gcb.17238",
+      "imagen": null
+    },
+    {
+      "id": "ficotoxinas",
+      "titulo": "Detectaron ficotoxinas en aguas antárticas por primera vez",
+      "resumen": "Un equipo internacional con participación del CADIC registró concentraciones bajas de pectenotoxina-2 cerca de la isla 25 de Mayo. El hallazgo abre preguntas sobre su presencia y refuerza la importancia del monitoreo oceanográfico.",
+      "organismo": "CADIC-CONICET",
+      "fecha": "2020-04-24",
+      "categoria": "Ciencia",
+      "tema": "Biodiversidad",
+      "idioma": "es",
+      "url": "https://cadic.conicet.gov.ar/encuentran-toxinas-en-la-antartida-por-primera-vez/",
+      "estudioUrl": "https://doi.org/10.1007/s00300-020-02628-z",
+      "imagen": null
+    }
+  ],
+  "papers": [
+    {
+      "titulo": "Cosmic Ray Counting Variability From Water‐Cherenkov Detectors as a Proxy of Stratospheric Conditions in Antarctica",
+      "autores": [
+        "N. A. Santos",
+        "N. Gómez",
+        "S. Dasso",
+        "A. M. Gulisano",
+        "L. Rubinstein",
+        "M. Pereira",
+        "O. Areso",
+        "for the LAGO Collaboration"
+      ],
+      "revista": "Earth and Space Science",
+      "anio": 2025,
+      "doi": "10.1029/2025ea004298",
+      "url": "https://doi.org/10.1029/2025ea004298",
+      "fuenteMetadatos": "https://api.crossref.org/works/10.1029/2025EA004298"
+    },
+    {
+      "titulo": "Long‐term studies on West Antarctic Peninsula phytoplankton blooms suggest range shifts between temperate and polar species",
+      "autores": [
+        "Julieta S. Antoni",
+        "Gastón O. Almandoz",
+        "Jesica Goldsmit",
+        "Maximiliano D. Garcia",
+        "Ximena Flores‐Melo",
+        "Marcelo P. Hernando",
+        "Irene R. Schloss"
+      ],
+      "revista": "Global Change Biology",
+      "anio": 2024,
+      "doi": "10.1111/gcb.17238",
+      "url": "https://doi.org/10.1111/gcb.17238",
+      "fuenteMetadatos": "https://api.crossref.org/works/10.1111/gcb.17238"
+    },
+    {
+      "titulo": "Detection of the phycotoxin pectenotoxin-2 in waters around King George Island, Antarctica",
+      "autores": [
+        "Bernd Krock",
+        "Irene R. Schloss",
+        "Nicole Trefault",
+        "Urban Tillmann",
+        "Marcelo Hernando",
+        "Dolores Deregibus",
+        "Julieta Antoni",
+        "Gastón O. Almandoz",
+        "Mona Hoppenrath"
+      ],
+      "revista": "Polar Biology",
+      "anio": 2020,
+      "doi": "10.1007/s00300-020-02628-z",
+      "url": "https://doi.org/10.1007/s00300-020-02628-z",
+      "fuenteMetadatos": "https://api.crossref.org/works/10.1007/s00300-020-02628-z"
+    }
+  ]
+}

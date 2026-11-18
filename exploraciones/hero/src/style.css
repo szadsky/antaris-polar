@@ -125,8 +125,12 @@ a { color: inherit; }
 .next canvas { display: block; width: 100%; height: 100%; }
 
 /* Journey typography; island layout and rendering restored from commit 24e7623. */
-.hero-copy h1 {top:32%;}
-.hero::before {background:radial-gradient(50% 16% at 50% 37%,rgb(9 24 44 / .25),transparent);}
+.hero-center { top: 50%; translate: -50% -50%; width: calc(100% - 32px); display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.hero-center h1 { position: static; margin: 0; }
+.hero-center .hero-lead { position: static; margin: 0; width: min(560px, 100%); }
+.hero-center .hero-explore { position: static; display: inline-flex; align-items: center; gap: 10px; }
+.hero-explore__icon { display: block; flex: 0 0 16px; width: 16px; height: 16px; }
+.hero::before {background:radial-gradient(50% 16% at 50% 50%,rgb(9 24 44 / .25),transparent);}
 .hero-explore {pointer-events:auto;top:calc(32% + clamp(48px, 4vw, 76px));font-size:13px;color:white;text-underline-offset:5px;min-height:44px;padding:12px;}
 .journey.next {height:auto;min-height:0;overflow:visible;background:linear-gradient(to bottom, transparent, var(--paper) 120px);color:var(--ink);padding:140px 24px 0;margin-top:-85svh;z-index:6;}
 .journey-stop {max-width:620px;margin:0 auto;text-align:center;padding:24px 0;}
@@ -137,7 +141,7 @@ a { color: inherit; }
 .journey-connector {height:180px;margin:12px auto;width:160px;color:#d1dce7;pointer-events:none;filter:drop-shadow(0 1.5px 0 #fff);}
 .journey-connector svg {display:block;width:100%;height:100%;}
 .islas-copy {text-align:center;color:var(--ink);}
-@media(max-width:640px){.hero-copy h1{top:30%;}.hero-explore{top:calc(30% + 100px);width:max-content;max-width:calc(100% - 32px);}.journey.next{padding-top:120px;}.journey-connector{height:130px;}.journey-stop{padding:16px 0;}}
+@media(max-width:640px){.hero-center{gap:16px;}.hero-explore{width:max-content;max-width:calc(100% - 32px);}.journey.next{padding-top:120px;}.journey-connector{height:130px;}.journey-stop{padding:16px 0;}}
 @media(prefers-reduced-motion:reduce){.hero-track{height:100svh;min-height:520px;}.journey.next{margin-top:0;padding-top:60px;background:var(--paper);}}
 /* Controls outside the landscape; station links stay attached to their buildings. */
 .islas-toolbar {display:flex;justify-content:flex-end;gap:8px;max-width:1100px;margin:0 auto;padding:0 24px 8px;}
@@ -151,3 +155,35 @@ a { color: inherit; }
 @media(max-width:640px){.islas-toolbar{justify-content:center;padding-inline:12px;}.islas-station{font-size:10px;padding:8px;}.islas-actions .islas-activar{top:auto;bottom:auto;translate:none;}}
 
 .islas-station.is-hovered {background:#fff;border-color:#45a9d1;box-shadow:0 0 0 2px #6dc9ef55,0 4px 18px #15334b22;}
+
+/* Expanded explorer remains in document flow, below the navigation. */
+.islas-marco > .islas-activar {top:50%;bottom:auto;left:50%;translate:-50% -50%;z-index:7;}
+.islas-cerrar {position:absolute;z-index:10;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));padding:12px 18px;border:1px solid #cbd8e2;border-radius:999px;background:#fff;color:var(--ink);font:500 14px var(--sans);cursor:pointer;}
+.hero-motion {position:absolute;z-index:6;right:16px;top:calc(var(--site-nav-h,56px) + 16px);max-width:calc(100% - 32px);padding:10px 14px;border:1px solid #ffffff80;border-radius:999px;background:#17304980;color:#fff;font:500 12px var(--sans);cursor:pointer;}
+
+.islas-marco.expandida {height:100dvh;min-height:0;scroll-margin-top:0;}
+.islas-marco.expandida iframe {mask-image:none;-webkit-mask-image:none;}
+
+.explorando-islas .site-nav-bar::before {opacity:0;}
+.islas-marco.expandida .islas-cerrar {top:calc(var(--site-nav-h,56px) + 16px);}
+.islas-marco .islas-ayuda {display:none;}
+.islas-marco.expandida .islas-ayuda {display:block;position:absolute;z-index:8;bottom:max(16px,env(safe-area-inset-bottom));left:50%;translate:-50% 0;width:max-content;max-width:calc(100% - 32px);margin:0;padding:12px 18px;border:1px solid #ffffff80;border-radius:14px;background:rgb(244 247 251 / .65);backdrop-filter:blur(12px);color:#22394b;font-size:12px;line-height:1.8;text-align:center;opacity:.48;transition:opacity .2s ease,background .2s ease;}
+.islas-marco.expandida .islas-ayuda:hover,.islas-marco.expandida .islas-ayuda:focus-within {opacity:1;background:rgb(244 247 251 / .93);}
+@media(pointer:coarse){.islas-marco.expandida .islas-ayuda {max-width:44%;font-size:10px;line-height:1.6;padding:8px;bottom:max(8px,env(safe-area-inset-bottom));opacity:.7;}}
+@media(prefers-reduced-motion:reduce){.islas-marco.expandida .islas-ayuda {transition:none;}}
+
+.islas-mobile-controls[hidden],.islas-nearby[hidden] {display:none!important;}
+.islas-mobile-controls {position:relative;height:180px;background:var(--paper);padding:8px 16px;}
+.islas-mobile-controls .touch-controls {height:140px;position:relative;}
+.islas-mobile-controls .touch-stick {position:absolute;left:0;top:0;width:48%;height:140px;touch-action:none;user-select:none;}
+.islas-mobile-controls .touch-stick__base {position:absolute;left:50%;top:50%;width:96px;height:96px;margin:-48px;border-radius:50%;border:1px solid #b8cad6;background:#e1e9ed;}
+.islas-mobile-controls .touch-stick__knob {position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px;border-radius:50%;background:white;box-shadow:0 2px 8px #16334225;}
+.islas-mobile-controls .touch-stick__hint {position:absolute;bottom:0;left:0;width:100%;text-align:center;font-size:10px;}
+.islas-mobile-controls .touch-buttons {position:absolute;right:0;top:42px;display:flex;gap:10px;}
+.islas-mobile-controls .touch-btn {min-width:64px;min-height:64px;border-radius:50%;border:1px solid #b8cad6;background:white;color:var(--ink);font:500 11px var(--sans);touch-action:none;}
+.islas-mobile-controls .touch-btn.pressed {background:#254958;color:white;}
+.islas-nearby {position:absolute;z-index:2;top:8px;left:50%;translate:-50% 0;white-space:nowrap;padding:10px 18px;border:0;border-radius:999px;background:#163e51;color:white;font:500 13px var(--sans);}
+@media(pointer:coarse){.islas-marco.expandida{height:calc(100dvh - 180px - env(safe-area-inset-bottom));}.islas-mobile-controls{padding-bottom:env(safe-area-inset-bottom);height:calc(180px + env(safe-area-inset-bottom));}.islas-marco.expandida .islas-ayuda,.islas-station {display:none!important;}}
+
+/* Acceso al recorrido al pie del hero. */
+.hero-copy > .hero-explore { top: auto; bottom: max(32px, env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 8px; width: max-content; max-width: calc(100% - 32px); }

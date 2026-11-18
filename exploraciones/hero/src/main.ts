@@ -1,3 +1,4 @@
+import { mountDeviceParallax } from './device-parallax';
 import { mountJourney } from './journey';
 mountJourney();
 import { mountSiteNav } from '../../../compartido/navbar/navbar';
@@ -130,17 +131,18 @@ async function start() {
 
   // ── Movimiento: puntero (escritorio), arrastre (táctil), scroll; nada con «reducir movimiento» ────────────────
   const target = new THREE.Vector2(), current = new THREE.Vector2();
+  const deviceParallax=mountDeviceParallax(hero,(x,y)=>target.set(x,y),reducedMotion);
   let scrollT = 0, scrollCur = 0;
   let animate = false; // «Animar» del panel: recorre el rango solo (para ajustar sin mover el mouse)
   const still = () => !animate && (reducedMotion.matches || params.has('quieto'));
   window.addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'touch' && e.buttons === 0) return;
+    if (deviceParallax.active() || (e.pointerType === 'touch' && e.buttons === 0)) return;
     // Con la ventana en 0 px la división daba infinito y la cámara quedaba en NaN para siempre (no se movía más).
     if (!(innerWidth > 0 && innerHeight > 0)) return;
     const clamp1 = (v: number) => Math.min(1, Math.max(-1, v));
     target.set(clamp1((e.clientX / innerWidth) * 2 - 1), clamp1((e.clientY / innerHeight) * 2 - 1));
   }, { passive: true });
-  document.addEventListener('pointerleave', () => target.set(0, 0));
+  document.addEventListener('pointerleave', () => {if(!deviceParallax.active())target.set(0, 0);});
   // Transición (src/frost.ts): el hero queda fijo dentro de #hero-track; el avance por ese tramo (0…1) es el progreso
   // de la escarcha y también sube un poco la cámara.
   const track = document.getElementById('hero-track') ?? hero;
@@ -224,7 +226,7 @@ async function start() {
     else {
       // en táctil sin arrastre: deriva lenta (alternativa al mouse)
       const drift = animate ? tmp.set(Math.sin(t * 0.9), Math.sin(t * 0.55) * 0.8, 0)
-        : coarse && target.lengthSq() === 0 ? tmp.set(Math.sin(t * 0.21) * 0.6, Math.sin(t * 0.13) * 0.3, 0) : null;
+        : coarse && !deviceParallax.active() && target.lengthSq() === 0 ? tmp.set(Math.sin(t * 0.21) * 0.6, Math.sin(t * 0.13) * 0.3, 0) : null;
       const k = 1 - Math.exp(-dt * 3.2);
       current.x += ((drift ? drift.x : target.x) - current.x) * k;
       current.y += ((drift ? drift.y : target.y) - current.y) * k;
@@ -315,7 +317,7 @@ async function start() {
       });
     }).catch((err) => console.error('Panel de profundidad:', err));
   }
-  window.addEventListener('pagehide', () => { panel?.destroy(); renderer.setAnimationLoop(null); backdrop.dispose(); base.dispose(); grass.dispose(); penguin.dispose(); water.dispose(); frost.dispose(); renderer.dispose(); }, { once: true });
+  window.addEventListener('pagehide', () => { deviceParallax.dispose(); panel?.destroy(); renderer.setAnimationLoop(null); backdrop.dispose(); base.dispose(); grass.dispose(); penguin.dispose(); water.dispose(); frost.dispose(); renderer.dispose(); }, { once: true });
 }
 
 start().catch((err) => {

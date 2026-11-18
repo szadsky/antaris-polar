@@ -1,0 +1,96 @@
+{
+  "verificadoEl": "2026-11-18",
+  "notas": [
+    {
+      "id": "bahia-agradable",
+      "titulo": "El Bahía Agradable llegó a Ushuaia para la patrulla antártica",
+      "resumen": "El buque argentino se prepara para tareas de búsqueda y rescate junto a la Armada de Chile. Desde Ushuaia brinda apoyo y tiene previsto asumir la segunda etapa de la patrulla el 18 de diciembre.",
+      "organismo": "Armada Argentina",
+      "fecha": "2026-11-17",
+      "categoria": "Campañas",
+      "tema": "Expediciones",
+      "idioma": "es",
+      "url": "https://www.argentina.gob.ar/noticias/el-aviso-ara-bahia-agradable-arribo-ushuaia",
+      "estudioUrl": null,
+      "imagen": {
+        "src": "/secciones/noticias/bahia-agradable.webp",
+        "original": "https://www.argentina.gob.ar/sites/default/files/2026/11/1794873681762.jpg",
+        "credito": "Armada Argentina",
+        "licencia": "CC BY 4.0",
+        "licenciaUrl": "https://creativecommons.org/licenses/by/4.0/",
+        "permisoUrl": "https://www.argentina.gob.ar/terminos-y-condiciones",
+        "modificaciones": "Redimensionada y convertida a WebP; recorte visual para la card."
+      }
+    },
+    {
+      "id": "hielo-octubre",
+      "titulo": "El hielo marino antártico registró su segundo octubre de menor extensión",
+      "resumen": "La extensión media de octubre de 2026 fue de 16,34 millones de km², solo por encima del registro de 2023 para ese mes. El análisis identifica déficits especialmente marcados en los mares de Amundsen y Bellingshausen.",
+      "organismo": "NSIDC",
+      "fecha": "2026-11-12",
+      "categoria": "Monitoreo",
+      "tema": "Glaciología",
+      "idioma": "en",
+      "url": "https://nsidc.org/sea-ice-today/analyses/arctic-and-antarctic-life-cyclonic",
+      "estudioUrl": null,
+      "imagen": null,
+      "motivoRespaldo": "No se incorporó una fotografía con permiso de reutilización verificado."
+    },
+    {
+      "id": "riesgo-temperatura",
+      "titulo": "Qué riesgos enfrenta la Antártida si el calentamiento supera los 1,5 °C",
+      "resumen": "Especialistas australianos advierten que incluso superar temporalmente ese umbral puede aumentar el riesgo de cambios irreversibles en el hielo antártico. La evaluación destaca la necesidad de sostener las observaciones del océano Austral.",
+      "organismo": "Australian Antarctic Program",
+      "fecha": "2026-11-12",
+      "categoria": "Ciencia",
+      "tema": "Glaciología",
+      "idioma": "en",
+      "url": "https://www.antarctica.gov.au/news/2026/what-temperature-overshoot-means-for-antarctica-and-the-southern-ocean/",
+      "estudioUrl": null,
+      "imagen": null,
+      "motivoRespaldo": "No se pudo verificar el permiso de reutilización de la fotografía de Claire Elliott."
+    },
+    {
+      "id": "neurus-marambio",
+      "titulo": "Rayos cósmicos para estudiar la atmósfera desde Marambio",
+      "resumen": "Un equipo del CONICET, la UBA y el Instituto Antártico Argentino vinculó las mediciones del detector Neurus con cambios atmosféricos. Desarrolló un modelo que permite estimar la presión a unos 15 kilómetros de altura a partir de registros tomados en tierra.",
+      "organismo": "CONICET",
+      "fecha": "2026-05-04",
+      "categoria": "Ciencia",
+      "tema": "Atmósfera",
+      "idioma": "es",
+      "url": "https://www.conicet.gov.ar/rayos-cosmicos-y-cambios-atmosfericos-un-innovador-estudio-de-cientificos-del-conicet-en-la-antartida/",
+      "estudioUrl": "https://doi.org/10.1029/2025EA004298",
+      "imagen": {
+        "src": "/secciones/noticias/neurus-marambio.webp",
+        "original": "https://www.conicet.gov.ar/wp-content/uploads/Foto-1-34.jpg",
+        "credito": "CONICET · laboratorio en Base Marambio",
+        "licencia": "CC BY 2.5 AR",
+        "licenciaUrl": "https://creativecommons.org/licenses/by/2.5/ar/",
+        "permisoUrl": "https://www.conicet.gov.ar/rayos-cosmicos-y-cambios-atmosfericos-un-innovador-estudio-de-cientificos-del-conicet-en-la-antartida/",
+        "modificaciones": "Redimensionada y convertida a WebP; recorte visual para la card."
+      }
+    },
+    {
+      "id": "cadic-adn",
+      "titulo": "Científicos del CADIC recorrieron la costa antártica para estudiar su biodiversidad",
+      "resumen": "Sebastián Poljak y Lu Chiberry recolectaron muestras para analizar ADN ambiental durante una circunnavegación antártica. El trabajo busca comparar comunidades biológicas con las de regiones subantárticas, incluido el canal Beagle.",
+      "organismo": "CADIC-CONICET",
+      "fecha": "2026-01-08",
+      "categoria": "Campañas",
+      "tema": "Biodiversidad",
+      "idioma": "es",
+      "url": "https://cadic.conicet.gov.ar/especialistas-del-conicet-participaron-en-la-expedicion-internacional-de-circunnavegacion-costera-antartica/",
+      "estudioUrl": null,
+      "imagen": {
+        "src": "/secciones/noticias/cadic-expedicion.webp",
+        "original": "https://cadic.conicet.gov.ar/wp-content/uploads/sites/19/2026/01/004-web-5-5.jpg",
+        "credito": "Lu Chiberry / CADIC-CONICET",
+        "licencia": "CC BY 2.5 AR",
+        "licenciaUrl": "https://creativecommons.org/licenses/by/2.5/ar/",
+        "permisoUrl": "https://cadic.conicet.gov.ar/especialistas-del-conicet-participaron-en-la-expedicion-internacional-de-circunnavegacion-costera-antartica/",
+        "modificaciones": "Redimensionada y convertida a WebP; recorte visual para la card."
+      }
+    }
+  ]
+}

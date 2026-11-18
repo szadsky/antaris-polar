@@ -1,11 +1,6 @@
-/**
- * Contenido de Noticias e Investigaciones.
- *
- * CONTENIDO DE EJEMPLO: la estructura sigue el Figma (nodo 2529:5), pero todavía no hay noticias ni investigaciones
- * verificadas cargadas. Los textos lo dicen y la página lo avisa; no se inventan autores, fechas ni titulares. Para
- * cargar contenido real, reemplazar cada tarjeta con: título, bajada, autor o institución, fecha, imagen con permiso de
- * uso y `enlace` a la fuente original (para investigaciones, la publicación o su registro en OpenAlex).
- */
+import investigaciones from './investigaciones.json';
+import noticias from './noticias.json';
+
 export interface Tarjeta {
   autor: string;
   fecha: string;
@@ -13,6 +8,11 @@ export interface Tarjeta {
   bajada: string;
   imagen: string;
   enlace?: string;
+  fechaISO?: string;
+  categoria?: string;
+  credito?: string;
+  licencia?: string;
+  licenciaUrl?: string;
 }
 export interface Seccion { titulo: string; tarjetas: Tarjeta[] }
 export interface Pagina {
@@ -21,38 +21,41 @@ export interface Pagina {
   modelo: { url: string; nombre: string; giro?: number; elevacion?: number };
   ejemplo: boolean;
   secciones: Seccion[];
+  papers?: typeof investigaciones.papers;
 }
 
 const IMG = '/secciones/tarjeta-ejemplo.webp';
-// Plantilla: texto genérico de la estructura (sin titulares, autores ni fechas inventados). El usuario no quiere el
-// rótulo «contenido de ejemplo» en la página; por eso el texto es de plantilla y no se parece a una noticia real.
-const ejemplo = (tipo: 'noticia' | 'investigación', n: number): Tarjeta[] => Array.from({ length: n }, () => ({
-  autor: tipo === 'noticia' ? 'Fuente' : 'Institución',
-  fecha: 'Fecha',
-  titulo: tipo === 'noticia' ? 'Título de la noticia' : 'Título de la investigación',
-  bajada: tipo === 'noticia' ? 'Bajada de la noticia, con el enlace a su fuente original.' : 'Resumen del trabajo, con sus autores y el enlace a la publicación original.',
-  imagen: IMG,
-}));
+// Orden global por publicación; las secciones temáticas siguen la primera aparición.
+const seccionesNoticias: Seccion[] = [];
+const tarjetaNoticia = (n: typeof noticias.notas[number] | typeof investigaciones.noticias[number]): Tarjeta => ({
+  autor: n.organismo + (n.idioma === 'en' ? ' (inglés)' : ''),
+  fecha: new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(n.fecha + 'T12:00:00Z')),
+  fechaISO: n.fecha, titulo: n.titulo, bajada: n.resumen, categoria: n.categoria,
+  imagen: n.imagen?.src ?? IMG, enlace: n.url,
+  credito: n.imagen?.credito, licencia: n.imagen?.licencia, licenciaUrl: n.imagen?.licenciaUrl,
+});
+for (const n of [...noticias.notas].sort((a, b) => b.fecha.localeCompare(a.fecha))) {
+  let seccion = seccionesNoticias.find(s => s.titulo === '_' + n.tema);
+  if (!seccion) { seccion = { titulo: '_' + n.tema, tarjetas: [] }; seccionesNoticias.push(seccion); }
+  seccion.tarjetas.push(tarjetaNoticia(n));
+}
 
 export const PAGINAS: Record<'noticias' | 'investigaciones', Pagina> = {
   noticias: {
     titulo: 'Noticias y Novedades',
-    bajada: 'Lo que pasa en la Antártida y en el ecosistema bicontinental, siempre con el enlace a la fuente original.',
+    bajada: 'Actualidad antártica, ciencia y expediciones.',
     modelo: { url: '/assets/models/antena-parabolica-web.glb', nombre: 'antena parabólica', giro: -0.6, elevacion: 0.22 },
     ejemplo: false, // plantilla sin rótulo visible (ver arriba)
-    secciones: [
-      { titulo: '_Ambiente', tarjetas: ejemplo('noticia', 6) },
-      { titulo: '_Expediciones', tarjetas: ejemplo('noticia', 6) },
-    ],
+    secciones: seccionesNoticias,
   },
   investigaciones: {
     titulo: 'Investigaciones',
-    bajada: 'Trabajos científicos sobre la Antártida y Tierra del Fuego, con sus autores, su institución y el acceso a la publicación original.',
+    bajada: 'Ciencia y papers de la Antártida y Tierra del Fuego.',
     modelo: { url: '/assets/models/estacion-comunicaciones-web.glb', nombre: 'estación de comunicaciones', giro: -0.5, elevacion: 0.2 },
     ejemplo: false, // plantilla sin rótulo visible (ver arriba)
+    papers: investigaciones.papers,
     secciones: [
-      { titulo: '_Glaciología', tarjetas: ejemplo('investigación', 6) },
-      { titulo: '_Biodiversidad', tarjetas: ejemplo('investigación', 6) },
+      { titulo: '_Ciencia antártica · CONICET / CADIC', tarjetas: [...noticias.notas.filter(n => /CONICET/.test(n.organismo)), ...investigaciones.noticias].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(tarjetaNoticia) },
     ],
   },
 };

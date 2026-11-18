@@ -41,6 +41,20 @@ function armar(main: HTMLElement, p: Pagina) {
 
   // Secciones con carrusel
   p.secciones.forEach((s, i) => main.append(seccion(s.titulo, s.tarjetas, i)));
+  if (p.papers?.length) main.append(listaPapers(p.papers));
+  const fotos = p.secciones.flatMap(s => s.tarjetas).filter(t => t.credito);
+  if (fotos.length) {
+    const creditos = el('details', 'sec-creditos');
+    creditos.append(el('summary', '', 'Créditos de fotografías'));
+    for (const t of fotos) {
+      const linea = el('p');
+      const fuente = el('a', '', t.credito); fuente.href = t.enlace!;
+      const licencia = el('a', '', t.licencia); licencia.href = t.licenciaUrl!;
+      linea.append(fuente, ' · ', licencia, '. Redimensionada y convertida a WebP; recorte visual en la tarjeta.');
+      creditos.append(linea);
+    }
+    main.append(creditos);
+  }
 }
 
 const CHEVRON_ATRAS = 'M14 17.6538L8.3463 12L14 6.3463L15.0538 7.4L10.4538 12L15.0538 16.6L14 17.6538Z';
@@ -90,17 +104,43 @@ function seccion(titulo: string, tarjetas: Tarjeta[], n: number) {
   return s;
 }
 
+function listaPapers(papers: NonNullable<Pagina['papers']>) {
+  const section = el('section', 'sec-papers');
+  section.setAttribute('aria-labelledby', 'papers-titulo');
+  const titulo = el('h2', 'sec-carrusel__titulo', '_Papers'); titulo.id = 'papers-titulo';
+  const lista = el('ul', 'sec-papers__lista');
+  for (const paper of [...papers].sort((a, b) => b.anio - a.anio)) {
+    const li = el('li');
+    const link = el('a', 'sec-paper'); link.href = paper.url; link.setAttribute('aria-label', paper.titulo);
+    const principal = el('div', 'sec-paper__principal');
+    principal.append(el('h3', 'sec-paper__titulo', paper.titulo), el('p', 'sec-paper__doi', 'DOI · ' + paper.doi));
+    const autores = el('div', 'sec-paper__autores');
+    autores.append(el('span', 'sec-paper__etiqueta', 'Autores'), el('p', '', paper.autores.join(', ')));
+    const publicacion = el('div', 'sec-paper__publicacion');
+    const fecha = el('time', '', String(paper.anio)); fecha.dateTime = String(paper.anio);
+    publicacion.append(el('span', 'sec-paper__etiqueta', 'Publicación'), el('p', '', paper.revista), fecha);
+    const flecha = el('span', 'sec-paper__flecha'); flecha.setAttribute('aria-hidden', 'true'); flecha.innerHTML = icono(CHEVRON_ADELANTE);
+    link.append(principal, autores, publicacion, flecha); li.append(link); lista.append(li);
+  }
+  section.append(titulo, lista); return section;
+}
+
 function tarjeta(t: Tarjeta) {
   const li = el('li', 'sec-tarjeta');
   const a = el(t.enlace ? 'a' : 'div', 'sec-tarjeta__marco') as HTMLElement;
-  if (t.enlace) { (a as HTMLAnchorElement).href = t.enlace; (a as HTMLAnchorElement).rel = 'noopener'; }
+  if (t.enlace) { (a as HTMLAnchorElement).href = t.enlace; (a as HTMLAnchorElement).rel = 'noopener'; a.setAttribute('aria-label', t.titulo); }
   const img = el('img', 'sec-tarjeta__img');
   img.src = t.imagen; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.width = 706; img.height = 386;
+  img.addEventListener('error', () => { img.src = '/secciones/tarjeta-ejemplo.webp'; }, { once: true });
   const cuerpo = el('div', 'sec-tarjeta__cuerpo');
   const meta = el('p', 'sec-tarjeta__meta');
-  meta.append(el('span', '', t.autor), el('span', 'sec-tarjeta__sep'), el('span', '', t.fecha));
+  const fecha = el('time', '', t.fecha);
+  if (t.fechaISO) fecha.dateTime = t.fechaISO;
+  meta.append(el('span', '', t.autor), el('span', 'sec-tarjeta__sep'), fecha);
   const h3 = el('h3', 'sec-tarjeta__titulo', t.titulo);
+  if (t.categoria) cuerpo.append(el('p', 'sec-tarjeta__categoria', t.categoria));
   cuerpo.append(meta, h3, el('p', 'sec-tarjeta__bajada', t.bajada));
+  if (t.credito) cuerpo.append(el('p', 'sec-tarjeta__credito', `Foto: ${t.credito} · ${t.licencia}`));
   // Figma: borde exterior blanco de 8 px (marco) y borde interior de 1 px con radio 16 (interior).
   const interior = el('div', 'sec-tarjeta__interior');
   interior.append(img, cuerpo);

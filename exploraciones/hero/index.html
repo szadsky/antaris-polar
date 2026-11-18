@@ -23,10 +23,13 @@
       <canvas id="hero-canvas" aria-hidden="true"></canvas>
       <!-- Copys del hero (Figma, nodo 2534:25). -->
       <div class="hero-copy">
+        <div class="hero-center">
         <h1 id="hero-title">La Antártida, tan cerca como nunca</h1>
         <p class="hero-lead">Desde Ushuaia, personas, expediciones e investigaciones construyen un vínculo real con la Antártida.</p>
-        <a class="hero-explore" href="#islas">Ir directo a explorar <span aria-hidden="true">↗</span></a>
-        <p class="hero-coords"><span aria-hidden="true">[-68.30833, -54.80833]</span><span class="sr">Ushuaia: longitud −68,30833°, latitud −54,80833°</span></p>
+
+        </div>
+
+        <a class="hero-explore" href="#contenido">Explorar con sonido <svg class="hero-explore__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
       </div>
       <p id="hero-status" class="sr-status" role="status">Preparando la escena…</p>
       <output id="hero-perf" class="hero-perf" hidden></output>
@@ -44,11 +47,10 @@
       </div>
       <div class="islas-marco" data-state="espera">
         <p class="islas-estado" role="status">La escena se carga al llegar a esta sección.</p>
-        <button class="islas-activar" type="button" hidden>Explorar las islas</button>
+        <button class="islas-activar" type="button" hidden>Explorar el terreno</button>
       </div>
       <p class="islas-ayuda"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> caminar · <kbd>Shift</kbd> correr ·
-        <kbd>E</kbd> deslizar · <kbd>Espacio</kbd> saltar · <kbd>R</kbd> volver al inicio ·
-        <a class="islas-completa" href="/pinguino-menu/">Abrir en pantalla completa</a></p>
+        <kbd>E</kbd> deslizar · <kbd>Espacio</kbd> saltar · <kbd>R</kbd> volver al inicio</p>
       <p class="islas-creditos">Pingüino: <a href="https://polyfork.dev/asset/penguin-base" rel="noopener">Polyfork</a>
         (<a href="/LICENSES/CC-BY-4.0.txt">CC BY 4.0</a>) · Huellas en la nieve: adaptación de
         <a href="https://github.com/oguzhantufenk/dynamic-terrain-deformation" rel="noopener">Oguzhan Tufenk / Codrops</a> (MIT)</p>
