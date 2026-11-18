@@ -39,7 +39,7 @@ export function mountViewControls(style:()=>string, setStyle:(value:"base"|"esti
   ButtonGroup(host("dial-solar"),{buttons:[
     {label:"Ahora",onClick:()=>setInstant(new Date())}
   ]});
-  select("base","Base");
+  // The original base SelectControl is mounted with the catalogue, independently of WebGL.
   select("exaggeration","Altura del relieve");
   select("quality","Calidad gráfica");
   const syncMaterial=select("material","Material");

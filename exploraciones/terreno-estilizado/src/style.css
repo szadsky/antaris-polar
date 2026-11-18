@@ -136,3 +136,40 @@ html.sin-controles .solar-panel,
 html.sin-controles .ajustes-panel,
 html.sin-controles details.metrics,
 html.sin-controles [data-building-controls] { display: none !important; }
+
+/* Public base information; exploration keeps its original tools. */
+.base-picker {display:none}
+.base-card {display:none}
+html.sin-controles .polar-title,
+html.sin-controles .data-panel {display:none !important}
+html.sin-controles .base-picker {display:none}
+.base-picker select {width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:14px}
+html.sin-controles .base-card {display:block;margin-top:24px;color:var(--ink)}
+.base-card h1 {font-size:25px;line-height:1.15;font-weight:500;letter-spacing:-.6px;margin-bottom:12px}
+.base-card__badge {display:inline-block;padding:4px 9px;background:var(--surface);border:1px solid var(--line);border-radius:20px;font-size:11px}
+.base-card__location {margin:12px 0 20px;font-size:12px;line-height:1.6;color:var(--ink-soft)}
+.base-card__description {font-size:14px;line-height:1.75;margin-bottom:22px}
+.base-card__facts {display:grid;grid-template-columns:1fr;gap:14px;padding:18px 0;border-block:1px solid var(--line)}
+.base-card__facts dt {font-size:11px;color:var(--ink-soft);margin-bottom:4px}
+.base-card__facts dd {font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums}
+.base-card__history {margin-top:18px;border-bottom:1px solid var(--line);padding-bottom:18px}
+.base-card__history summary {font-size:13px;font-weight:500;min-height:32px}
+.base-card__history p {font-size:13px;line-height:1.7;margin-top:10px}
+.base-card__sources {display:grid;gap:8px;margin-top:22px}
+.base-card__sources h2 {font-size:11px;font-weight:500;color:var(--ink-soft)}
+.base-card__sources a {font-size:11px;line-height:1.6;color:var(--ink-soft);text-underline-offset:3px}
+html.sin-controles .pin {pointer-events:auto;cursor:pointer}
+html.sin-controles .pin span {pointer-events:auto;min-height:32px;padding:7px 10px}
+html.sin-controles .pin:focus-visible span {outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:700px) {
+ html.sin-controles,html.sin-controles body {height:auto;min-height:100%;overflow:auto}
+ html.sin-controles .hud {position:relative;top:auto;left:auto;width:100%;max-height:none;margin-top:54svh;padding:24px 20px max(32px,env(safe-area-inset-bottom));border-radius:20px 20px 0 0;background:var(--panel);overflow:visible}
+ html.sin-controles .base-card__facts {grid-template-columns:1fr 1fr;gap:16px}
+ html.sin-controles .base-card__sources a {padding:6px 0;font-size:12px}
+}
+
+html.sin-controles .base-buildings { display: none !important; }
+
+
+/* Keep the interface toggle at the bottom of the viewport. */
+.ui-toggle { top: auto; bottom: max(16px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); }

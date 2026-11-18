@@ -1,3 +1,4 @@
+import { loadBases, selectedBase } from './base-information';
 import {projectedToTerrain} from "./terrain-coordinates";
 import {createPixelLook,type PixelParams} from "./pixel-look";
 import {createIcebergs} from './icebergs';
@@ -49,18 +50,16 @@ async function main() {
 
   const params = new URLSearchParams(location.search);
   if (params.get("ui") === "0") document.body.classList.add("no-ui", "captura");
-  const index: { bases: { id: string; nombre: string }[] } = await (await fetch(import.meta.env.BASE_URL + "terreno/index.json")).json();
-  const baseId = (params.get("base") ?? "brown").replace(/[^a-z0-9-]/g, "");
-  for (const b of index.bases) baseEl.add(new Option(b.nombre.replace(/^Base (Antártica )?/, ""), b.id, false, b.id === baseId));
-  baseEl.addEventListener("change", () => {
-    params.set("base", baseEl.value);
-    location.search = params.toString();
-  });
+  const { bases } = await loadBases();
+  const selected = selectedBase(bases);
+  const baseId = selected.id;
 
   const dir = `${import.meta.env.BASE_URL}terreno/${baseId}`;
   const metaRes = await fetch(`${dir}/terreno.json`);
   if (!metaRes.ok) return showStatus(`No hay terreno procesado para "${baseId}".`);
   const meta: TerrainMeta = await metaRes.json();
+  // Catalogue owns the identity and original map position; do not move processed terrains.
+  meta.base = { ...meta.base, ...selected.mapa, nombre: selected.nombre };
   document.title = `${meta.base.nombre} · Terreno estilizado · Antaris Polar`;
   // ─── Calidad (fase 4): nivel inicial por dispositivo, o forzado con ?calidad= ───
   const device = guessDevice();
@@ -808,4 +807,3 @@ function describeSource(meta: TerrainMeta, t: Terrain) {
     `Base: ${meta.fuentes.base}`,
   ];
 }
-

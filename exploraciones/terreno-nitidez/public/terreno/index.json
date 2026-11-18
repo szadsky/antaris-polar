@@ -4,57 +4,228 @@
   "bases": [
     {
       "id": "belgrano-ii",
-      "nombre": "Base Antártica Belgrano II",
+      "nombre": "Base Belgrano II",
       "permanente": true,
       "kb": [
         536,
         185
-      ]
+      ],
+      "inauguracion": "1979-02-05",
+      "ubicacion": "Nunatak Bertrab · costa Confín",
+      "descripcion": "Es la base argentina más austral, en una región marcada por la noche polar y las auroras australes. Allí se realizan estudios de la alta atmósfera, glaciología, geodesia y sismografía.",
+      "coordenadas": {
+        "lat": -77.87555555555555,
+        "lon": -34.67944444444444,
+        "texto": "77°52′32″ S · 34°40′46″ O"
+      },
+      "mapa": {
+        "lat": -77.873889,
+        "lon": -34.627778,
+        "projected": [
+          -751371.91,
+          1088046.65
+        ]
+      },
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/cb420fd8-02ad-44c5-91d3-e423e9f15c9d"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "carlini",
-      "nombre": "Base Antártica Carlini",
+      "nombre": "Base Carlini",
       "permanente": true,
       "kb": [
         699,
         228
-      ]
+      ],
+      "inauguracion": "1953-11-21",
+      "ubicacion": "Caleta Potter · isla 25 de Mayo",
+      "descripcion": "La biodiversidad de caleta Potter convierte a Carlini en un lugar clave para estudiar los cambios del ecosistema antártico. Sus investigaciones abarcan biología costera y terrestre, oceanografía, glaciología y microbiología durante todo el año.",
+      "coordenadas": {
+        "lat": -62.23833333333334,
+        "lon": -58.66694444444444,
+        "texto": "62°14′18″ S · 58°40′1″ O"
+      },
+      "mapa": {
+        "lat": -62.2379,
+        "lon": -58.666842,
+        "projected": [
+          -2626084.1,
+          1598766.47
+        ]
+      },
+      "historia": "Su origen fue el Refugio Naval Potter. Más tarde se llamó Jubany y en 2012 recibió el nombre Carlini.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/9b52a2b1-1391-4062-b973-b07d5a7fadf0"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "esperanza",
-      "nombre": "Base Antártica Esperanza",
+      "nombre": "Base Esperanza",
       "permanente": true,
       "kb": [
         584,
         194
-      ]
+      ],
+      "inauguracion": "1952-12-17",
+      "ubicacion": "Punta Foca · bahía Esperanza",
+      "descripcion": "Esperanza combina la investigación antártica con la vida de familias, una escuela y una radio. La base desarrolla observaciones meteorológicas y estudios de glaciología, biología costera y oceanografía.",
+      "coordenadas": {
+        "lat": -63.39805555555556,
+        "lon": -56.99722222222222,
+        "texto": "63°23′53″ S · 56°59′50″ O"
+      },
+      "mapa": {
+        "lat": -63.396959,
+        "lon": -56.998054,
+        "projected": [
+          -2466861.86,
+          1602117.95
+        ]
+      },
+      "historia": "El Fortín Sargento Cabral recibió familias en 1978. Ese año se inauguró la escuela; la radio LRA 36 comenzó a transmitir en 1979.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/c5964ee4-72a9-4559-aef2-9d57d140afce"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "marambio",
-      "nombre": "Base Antártica Marambio",
+      "nombre": "Base Marambio",
       "permanente": true,
       "kb": [
         503,
         182
-      ]
+      ],
+      "inauguracion": "1969-10-29",
+      "ubicacion": "Isla Marambio · mar de Weddell",
+      "descripcion": "La pista de Marambio la convierte en un nodo del transporte aéreo y del abastecimiento de las bases argentinas. También alberga investigaciones y observaciones meteorológicas que apoyan las operaciones antárticas.",
+      "coordenadas": {
+        "lat": -64.24111111111111,
+        "lon": -56.625277777777775,
+        "texto": "64°14′28″ S · 56°37′31″ O"
+      },
+      "mapa": {
+        "lat": -64.241769,
+        "lon": -56.623225,
+        "projected": [
+          -2375693.01,
+          1565099.6
+        ]
+      },
+      "historia": "La Patrulla Soberanía construyó la pista en 1969. Su habilitación permitió conectar la base con aviones equipados con ruedas.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/92a29e70-e9aa-4d7f-b308-c53bf1d2d92d"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "petrel",
-      "nombre": "Base Antártica Petrel",
+      "nombre": "Base Petrel",
       "permanente": true,
       "kb": [
         192,
         64
-      ]
+      ],
+      "inauguracion": "1952-12-01",
+      "ubicacion": "Cabo Welchness · isla Dundee",
+      "descripcion": "Petrel se distingue por su reconversión de base de verano a base permanente, iniciada en 2021. El Atlas documenta observaciones meteorológicas, glaciológicas y de aves y mamíferos marinos.",
+      "coordenadas": {
+        "lat": -63.47777777777778,
+        "lon": -56.22694444444445,
+        "texto": "63°28′40″ S · 56°13′37″ O"
+      },
+      "mapa": {
+        "lat": -63.478303,
+        "lon": -56.230993,
+        "projected": [
+          -2437452.2,
+          1629823.34
+        ]
+      },
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/fe549766-769c-4327-90a2-379b35983e4d"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "san-martin",
-      "nombre": "Base Antártica San Martín",
+      "nombre": "Base San Martín",
       "permanente": true,
       "kb": [
         467,
         157
-      ]
+      ],
+      "inauguracion": "1951-03-21",
+      "ubicacion": "Islote Barry · bahía Margarita",
+      "descripcion": "San Martín fue la primera instalación argentina al sur del círculo polar antártico. Desde su emplazamiento en bahía Margarita se desarrollan estudios de geomagnetismo, glaciología, paleontología y geomorfología.",
+      "coordenadas": {
+        "lat": -68.13,
+        "lon": -67.10083333333333,
+        "texto": "68°7′48″ S · 67°6′3″ O"
+      },
+      "mapa": {
+        "lat": -68.1303,
+        "lon": -67.102931,
+        "projected": [
+          -2214860.17,
+          935460.05
+        ]
+      },
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/8d399fc9-2116-43d2-afd7-984e8c727f3d"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "orcadas",
@@ -63,61 +234,261 @@
       "kb": [
         671,
         224
-      ]
+      ],
+      "inauguracion": "1904-02-22",
+      "ubicacion": "Isla Laurie · Orcadas del Sur",
+      "descripcion": "Orcadas conserva la historia de la presencia argentina ininterrumpida en la Antártida desde 1904. A su trayectoria de observaciones meteorológicas se suman estudios sismológicos, biológicos, geodésicos y glaciológicos.",
+      "coordenadas": {
+        "lat": -60.73777777777778,
+        "lon": -44.74,
+        "texto": "60°44′16″ S · 44°44′24″ O"
+      },
+      "mapa": {
+        "lat": -60.737592,
+        "lon": -44.737387,
+        "projected": [
+          -2285851.9,
+          2306902.76
+        ]
+      },
+      "historia": "La estación meteorológica pasó a manos argentinas en 1904. La Casa Moneta y las ruinas de la Casa Omond forman parte del patrimonio histórico del lugar.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/0b6a1b16-0573-467a-b575-126c300c3f9d"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "brown",
-      "nombre": "Base Antártica Brown",
+      "nombre": "Base Brown",
       "permanente": false,
       "kb": [
         860,
         296
-      ]
+      ],
+      "inauguracion": "1951-04-06",
+      "ubicacion": "Punta Proa · bahía Puerto Paraíso",
+      "descripcion": "Brown es una estación científica de verano situada al pie de un macizo rocoso en la península Sanavirón. Sus investigaciones se centran en la ecología costera y la oceanografía, con mediciones del agua, las corrientes y las mareas.",
+      "coordenadas": {
+        "lat": -64.89527777777778,
+        "lon": -62.870555555555555,
+        "texto": "64°53′43″ S · 62°52′14″ O"
+      },
+      "mapa": {
+        "lat": -64.89537,
+        "lon": -62.870452,
+        "projected": [
+          -2465602.8,
+          1263317.63
+        ]
+      },
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/7c207df1-cbea-48ca-88e1-68969dda69e2"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "camara",
-      "nombre": "Base Antártica Cámara",
+      "nombre": "Base Cámara",
       "permanente": false,
       "kb": [
         283,
         100
-      ]
+      ],
+      "inauguracion": "1953-04-01",
+      "ubicacion": "Isla Media Luna · Shetland del Sur",
+      "descripcion": "Cámara ocupa una bahía resguardada del viento, con paleoplayas que permiten reconocer antiguas posiciones de la costa. Durante las campañas de verano sirve de apoyo a observaciones meteorológicas y estudios de glaciología, geología, oceanografía y biología.",
+      "coordenadas": {
+        "lat": -62.595,
+        "lon": -59.91833333333333,
+        "texto": "62°35′42″ S · 59°55′6″ O"
+      },
+      "mapa": {
+        "lat": -62.593858,
+        "lon": -59.919344,
+        "projected": [
+          -2624998.08,
+          1520474.35
+        ]
+      },
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/95c927a7-d340-40f7-91f1-38137061f5f9"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "decepcion",
-      "nombre": "Base Antártica Decepción",
+      "nombre": "Base Decepción",
       "permanente": false,
       "kb": [
         540,
         189
-      ]
+      ],
+      "inauguracion": "1948-01-25",
+      "ubicacion": "Bahía 1.º de Mayo · isla Decepción",
+      "descripcion": "Decepción está situada dentro de una isla volcánica activa cuya caldera está parcialmente ocupada por el mar. La base funciona en verano y permite investigar la actividad volcánica, la geología y la biología de este ambiente.",
+      "coordenadas": {
+        "lat": -62.97555555555556,
+        "lon": -60.69777777777777,
+        "texto": "62°58′32″ S · 60°41′52″ O"
+      },
+      "mapa": {
+        "lat": -62.97676,
+        "lon": -60.700695,
+        "projected": [
+          -2607163.89,
+          1463030.56
+        ]
+      },
+      "historia": "Una erupción volcánica obligó a evacuar la base en 1967. A partir de entonces pasó a funcionar de manera temporaria.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/18185758-39b7-4cd2-9a0d-8cd80d355ce6"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "matienzo",
-      "nombre": "Base Antártica Matienzo",
+      "nombre": "Base Matienzo",
       "permanente": false,
       "kb": [
         153,
         56
-      ]
+      ],
+      "inauguracion": "1961-03-15",
+      "ubicacion": "Nunatak Larsen · mar de Weddell",
+      "descripcion": "Matienzo se asienta sobre un nunatak, una elevación rocosa que emerge entre los hielos del sector Larsen. Sus campañas científicas incluyen observaciones meteorológicas, estudios de nieve y auroras y relevamientos geológicos y geofísicos.",
+      "coordenadas": {
+        "lat": -64.97583333333334,
+        "lon": -60.07083333333334,
+        "texto": "64°58′33″ S · 60°4′15″ O"
+      },
+      "mapa": {
+        "lat": -64.975865,
+        "lon": -60.070948,
+        "projected": [
+          -2393018.89,
+          1377661.96
+        ]
+      },
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/5a0a0689-7cb2-44c7-8b91-3def7b2ed6b1"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "melchior",
-      "nombre": "Base Antártica Melchior",
+      "nombre": "Base Melchior",
       "permanente": false,
       "kb": [
         375,
         133
-      ]
+      ],
+      "inauguracion": "1947-03-31",
+      "ubicacion": "Isla Observatorio · archipiélago Melchior",
+      "descripcion": "Melchior se ubica junto a una pequeña caleta que ofrece abrigo natural a embarcaciones menores. Fue una estación de observaciones meteorológicas permanente y hoy funciona de forma temporaria, con investigaciones centradas en la biología marina.",
+      "coordenadas": {
+        "lat": -64.32583333333334,
+        "lon": -62.97638888888889,
+        "texto": "64°19′33″ S · 62°58′35″ O"
+      },
+      "mapa": {
+        "lat": -64.325705,
+        "lon": -62.976329,
+        "projected": [
+          -2525759.44,
+          1288253.38
+        ]
+      },
+      "historia": "En 1962 llegaron Irene Bernasconi, Elena Martínez Fontes, María Adela Caria y Carmen Pujals. Fueron las primeras científicas argentinas en trabajar durante una campaña antártica de verano.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/70e78f46-8477-48fb-8334-9b2a8b04047b"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     },
     {
       "id": "primavera",
-      "nombre": "Base Antártica Primavera",
+      "nombre": "Base Primavera",
       "permanente": false,
       "kb": [
         397,
         137
-      ]
+      ],
+      "inauguracion": "1977-03-08",
+      "ubicacion": "Cabo Primavera · costa Danco",
+      "descripcion": "Primavera se encuentra en el área protegida de Punta Cierva, un entorno rocoso con una notable diversidad de flora y fauna. Sus campañas incluyen estudios de biología marina, glaciología, meteorología y cambio climático.",
+      "coordenadas": {
+        "lat": -64.15583333333333,
+        "lon": -60.95472222222222,
+        "texto": "64°9′21″ S · 60°57′17″ O"
+      },
+      "mapa": {
+        "lat": -64.155854,
+        "lon": -60.954256,
+        "projected": [
+          -2495675.61,
+          1385981.45
+        ]
+      },
+      "historia": "El asentamiento tuvo como antecedente el Refugio Naval Capitán Cobbet. Tras su etapa permanente, la base pasó a reactivarse durante las campañas de verano.",
+      "fuentes": [
+        {
+          "nombre": "Atlas de la Antártida Argentina · IGN",
+          "url": "https://antartida-anida.ign.gob.ar/mapstore/#/geostory/4872/section/9e0b28a8-0238-4227-8ba2-a31c351d1cf5"
+        },
+        {
+          "nombre": "Datos geográficos · IGN",
+          "url": "https://www.ign.gob.ar/NuestrasActividades/Geografia/DatosArgentina/BasesAntartida"
+        }
+      ],
+      "verificado": "2026-11-18",
+      "notaCoordenadas": "Las coordenadas IGN de la ficha difieren de las del terreno. Se conserva la posición original del marcador."
     }
   ]
 }
