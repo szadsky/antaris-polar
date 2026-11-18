@@ -171,6 +171,55 @@ async function main(){
   if(embed)parent.postMessage({type:'antaris:stations',positions},parentOrigin);
  }
 
+ // Shared hover/picking for the model, its label, and the inactive home overlay.
+ const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+ const pickMeshes:THREE.Mesh[]=[];
+ const owners=new Map<THREE.Object3D,string>();
+ const outlines=new Map<string,THREE.LineSegments[]>();
+ for(const o of structures){
+  const edges:THREE.LineSegments[]=[];
+  o.s.group.traverse(obj=>{if(!(obj instanceof THREE.Mesh))return;pickMeshes.push(obj);owners.set(obj,o.spec.id);});
+  for(const mesh of pickMeshes.filter(m=>owners.get(m)===o.spec.id)){
+   const line=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,35),new THREE.LineBasicMaterial({color:0x6dc9ef,transparent:true,opacity:.8,depthWrite:false}));
+   line.visible=false;line.renderOrder=3;mesh.add(line);edges.push(line);
+  }
+  outlines.set(o.spec.id,edges);
+ }
+ let hovered:string|null=null;
+ function hoverStation(id:string|null){
+  if(hovered===id)return;hovered=id;
+  for(const [key,edges] of outlines)for(const edge of edges)edge.visible=key===id;
+  for(const st of stations)st.a.classList.toggle('is-hovered',st.id===id);
+  renderer.domElement.style.cursor=id?'pointer':'';
+  if(embed)parent.postMessage({type:'antaris:hover',id},parentOrigin);
+ }
+ function pickStation(x:number,y:number){
+  if(preloading)return null;
+  pointer.set(x*2-1,1-y*2);camera.updateMatrixWorld();scene.updateMatrixWorld();raycaster.setFromCamera(pointer,camera);
+  const hit=raycaster.intersectObjects(pickMeshes,false)[0];return hit?owners.get(hit.object)??null:null;
+ }
+ function openStation(id:string|null){
+  if(!id||!destinations[id])return;
+  if(embed)parent.postMessage({type:'antaris:navigate',id},parentOrigin);
+  else location.assign(destinations[id].url);
+ }
+ const canvas=renderer.domElement;
+ let press:{x:number;y:number;id:string|null;dragged:boolean}|null=null;
+ const point=(e:PointerEvent)=>{const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};};
+ canvas.addEventListener('pointermove',e=>{if(press&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>6)press.dragged=true;const p=point(e);hoverStation(press?.dragged?null:pickStation(p.x,p.y));});
+ canvas.addEventListener('pointerleave',()=>hoverStation(null));
+ canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const p=point(e);press={x:e.clientX,y:e.clientY,id:pickStation(p.x,p.y),dragged:false};});
+ canvas.addEventListener('pointerup',e=>{const start=press;press=null;if(!start||start.dragged||Math.hypot(e.clientX-start.x,e.clientY-start.y)>6)return;const p=point(e),id=pickStation(p.x,p.y);if(id===start.id)openStation(id);});
+ canvas.addEventListener('pointercancel',()=>{press=null;hoverStation(null);});
+ for(const st of stations){st.a.addEventListener('pointerenter',()=>hoverStation(st.id));st.a.addEventListener('pointerleave',()=>hoverStation(null));st.a.addEventListener('focus',()=>hoverStation(st.id));st.a.addEventListener('blur',()=>hoverStation(null));}
+ window.addEventListener('message',e=>{
+  if(!embed||e.source!==parent||e.origin!==parentOrigin)return;
+  if(e.data?.type==='antaris:label-hover')hoverStation(destinations[e.data.id]?e.data.id:null);
+  if(e.data?.type==='antaris:pick'&&Number.isFinite(e.data.x)&&Number.isFinite(e.data.y)){
+   const id=pickStation(e.data.x,e.data.y);hoverStation(id);if(e.data.click)openStation(id);
+  }
+ });
+
  const movementStatus=document.getElementById('movement-status')!;let lastState='';
  let animated=!matchMedia('(prefers-reduced-motion: reduce)').matches,disposed=false;const button=document.getElementById('animate')!;
  const sync=()=>{button.textContent=animated?'Reposo animado':'Reposo quieto';button.setAttribute('aria-pressed',String(animated));};sync();button.onclick=()=>{animated=!animated;sync();};document.getElementById('reset')!.onclick=reset;
@@ -303,6 +352,6 @@ async function main(){
  tick(dt);
  perfFrames++;const elapsed=performance.now()-perfStarted;if(elapsed>=2000){perfLabel.textContent=Math.round(perfFrames*1000/elapsed)+' FPS · '+renderer.info.render.triangles.toLocaleString('es-AR')+' triángulos · '+renderer.info.render.calls+' llamadas · huellas CPU '+(ground.cpuMs/perfFrames).toFixed(2)+' ms/cuadro';perfStarted=performance.now();perfFrames=0;ground.cpuMs=0;}});status.hidden=true;
  construction.finish(scene,()=>{}).then(()=>{preloading=false;});
- window.addEventListener('pagehide',()=>{if(disposed)return;disposed=true;stepAudio.dispose();renderer.domElement.removeEventListener('pointerdown',unlockAudio);renderer.setAnimationLoop(null);window.removeEventListener('resize',resize);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);controls.dispose();mixer.stopAllAction();mixer.uncacheRoot(penguin);const materials=new Set<THREE.Material>(),textureSet=new Set<THREE.Texture>();scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textureSet.add(value);m.dispose();}for(const u of Object.values(ground.uniforms))if(u.value instanceof THREE.Texture)textureSet.add(u.value);for(const t of textureSet)t.dispose();snowParticles.dispose();sun.shadow.map?.dispose();renderer.dispose();},{once:true});
+ window.addEventListener('pagehide',()=>{if(disposed)return;disposed=true;for(const edges of outlines.values())for(const line of edges){line.geometry.dispose();(line.material as THREE.Material).dispose();}stepAudio.dispose();renderer.domElement.removeEventListener('pointerdown',unlockAudio);renderer.setAnimationLoop(null);window.removeEventListener('resize',resize);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',clearKeys);controls.dispose();mixer.stopAllAction();mixer.uncacheRoot(penguin);const materials=new Set<THREE.Material>(),textureSet=new Set<THREE.Texture>();scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textureSet.add(value);m.dispose();}for(const u of Object.values(ground.uniforms))if(u.value instanceof THREE.Texture)textureSet.add(u.value);for(const t of textureSet)t.dispose();snowParticles.dispose();sun.shadow.map?.dispose();renderer.dispose();},{once:true});
 }
 main().catch(error=>{status.hidden=false;status.textContent='No se pudo preparar la prueba: '+String(error);console.error(error);});

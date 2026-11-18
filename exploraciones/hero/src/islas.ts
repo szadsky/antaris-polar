@@ -34,9 +34,11 @@ export function mountIslas() {
   for(const [button,id] of [[sound,'step-sound'],[reset,'reset']] as const)button.addEventListener('click',()=>iframe?.contentWindow?.postMessage({type:'antaris:control',id},origin));
   const destinations:Record<string,{label:string;url:string}>={base:{label:'Bases',url:'/descubrir/'},comunicaciones:{label:'Investigaciones',url:'/investigaciones/'},antena:{label:'Noticias',url:'/noticias/'},oruga:{label:'AntarisPlay',url:'/antarisplay/'}};
   const labels=new Map<string,HTMLAnchorElement>();
-  for(const [id,d] of Object.entries(destinations)){const a=document.createElement('a');a.className='islas-station';a.textContent=d.label;a.href=ORIGEN+d.url;a.hidden=true;marco.append(a);labels.set(id,a);}
+  for(const [id,d] of Object.entries(destinations)){const a=document.createElement('a');a.className='islas-station';a.textContent=d.label;a.href=ORIGEN+d.url;a.hidden=true;marco.append(a);labels.set(id,a);for(const event of ['pointerenter','focus'])a.addEventListener(event,()=>iframe?.contentWindow?.postMessage({type:'antaris:label-hover',id},origin));for(const event of ['pointerleave','blur'])a.addEventListener(event,()=>iframe?.contentWindow?.postMessage({type:'antaris:label-hover',id:null},origin));}
   window.addEventListener('message',e=>{if(e.origin!==origin||e.source!==iframe?.contentWindow)return;
    if(e.data?.type==='antaris:stations'&&Array.isArray(e.data.positions))for(const p of e.data.positions){const a=labels.get(p.id);if(!a||!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;const x=p.x*marco.clientWidth,y=p.y*marco.clientHeight;const half=(a.offsetWidth||140)/2;const height=a.offsetHeight||40;a.hidden=!p.shown||x<half+12||x>marco.clientWidth-half-12||y<height+16||y>marco.clientHeight-24;a.style.left='0';a.style.top='0';a.style.transform='translate3d('+x+'px,'+y+'px,0) translate(-50%,-100%)';}
+   if(e.data?.type==='antaris:hover'){for(const [id,a] of labels)a.classList.toggle('is-hovered',id===e.data.id);marco.style.cursor=e.data.id?'pointer':'';}
+   if(e.data?.type==='antaris:navigate'){const d=destinations[e.data.id];if(d)location.assign(ORIGEN+d.url);}
    if(e.data?.type==='antaris:sound'){const on=e.data.text==='Sonido activado';sound.textContent=on?'Sonido activado':'Sonido desactivado';sound.setAttribute('aria-pressed',String(on));}
   });
   const actions=document.createElement('div');actions.className='islas-actions';marco.after(actions);actions.append(activar);
@@ -74,9 +76,11 @@ export function mountIslas() {
     estado.textContent = 'La escena se mueve: se carga solo si la pedís.';
   }
   activar.addEventListener('click', () => { if (!iframe) { cargar(); activar.textContent = 'Explorar las islas'; } setActiva(true); });
-  marco.addEventListener('pointerleave', () => setActiva(false));
+  marco.addEventListener('pointerleave', () => {setActiva(false);iframe?.contentWindow?.postMessage({type:'antaris:label-hover',id:null},origin);});
+  const pick=(e:PointerEvent|MouseEvent,click=false)=>{const r=marco.getBoundingClientRect();iframe?.contentWindow?.postMessage({type:'antaris:pick',x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height,click},origin);};
+  marco.addEventListener('pointermove',e=>{if(e.target===marco&&!marco.classList.contains('activa'))pick(e);});
   // Un clic en cualquier parte de la escena (la capa ::before) también la activa.
-  marco.addEventListener('click', (e) => { if (iframe && e.target === marco) setActiva(true); });
+  marco.addEventListener('click', (e) => { if (iframe && e.target === marco) {pick(e,true);setActiva(true);} });
 
   // Cerca (≈ 1 pantalla antes): crear el iframe. En vista: dibujar; fuera: pausar.
   if (!reduce) {
