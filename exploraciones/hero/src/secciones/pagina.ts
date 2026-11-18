@@ -39,6 +39,15 @@ function armar(main: HTMLElement, p: Pagina) {
   main.append(hero);
   mountModelo(modelo, { url: p.modelo.url, giro: p.modelo.giro, elevacion: p.modelo.elevacion });
 
+  if (p.introduccion) {
+    const intro = el('section', 'sec-intro');
+    intro.setAttribute('aria-labelledby', 'sec-intro-titulo');
+    const titulo = el('h2', 'sec-carrusel__titulo', p.introduccion.titulo);
+    titulo.id = 'sec-intro-titulo';
+    intro.append(titulo, el('p', 'sec-intro__texto', p.introduccion.texto));
+    main.append(intro);
+  }
+
   // Secciones con carrusel
   p.secciones.forEach((s, i) => main.append(seccion(s.titulo, s.tarjetas, i)));
   if (p.papers?.length) main.append(listaPapers(p.papers));

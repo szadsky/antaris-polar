@@ -22,6 +22,7 @@ export interface Pagina {
   ejemplo: boolean;
   secciones: Seccion[];
   papers?: typeof investigaciones.papers;
+  introduccion?: { titulo: string; texto: string };
 }
 
 const IMG = '/secciones/tarjeta-ejemplo.webp';
@@ -54,6 +55,10 @@ export const PAGINAS: Record<'noticias' | 'investigaciones', Pagina> = {
     modelo: { url: '/assets/models/estacion-comunicaciones-web.glb', nombre: 'estación de comunicaciones', giro: -0.5, elevacion: 0.2 },
     ejemplo: false, // plantilla sin rótulo visible (ver arriba)
     papers: investigaciones.papers,
+    introduccion: {
+      titulo: 'CADIC-CONICET: ciencia desde el sur',
+      texto: 'El Centro Austral de Investigaciones Científicas (CADIC) es el centro de investigación multidisciplinario más austral del CONICET. Ubicado en Ushuaia, genera ciencia y tecnología sobre Tierra del Fuego, la Antártida y el Atlántico Sur.',
+    },
     secciones: [
       { titulo: '_Ciencia antártica · CONICET / CADIC', tarjetas: [...noticias.notas.filter(n => /CONICET/.test(n.organismo)), ...investigaciones.noticias].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(tarjetaNoticia) },
     ],
