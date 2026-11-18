@@ -1,0 +1,86 @@
+[
+  {
+    "id": "ushuaia",
+    "nombre": "Ushuaia",
+    "lat": -54.80833,
+    "lon": -68.30833
+  },
+  {
+    "id": "carlini",
+    "nombre": "Base Carlini",
+    "lat": -62.23833333333334,
+    "lon": -58.66694444444444
+  },
+  {
+    "id": "belgrano-ii",
+    "nombre": "Base Belgrano II",
+    "lat": -77.87555555555555,
+    "lon": -34.67944444444444
+  },
+  {
+    "id": "brown",
+    "nombre": "Base Brown",
+    "lat": -64.89527777777778,
+    "lon": -62.870555555555555
+  },
+  {
+    "id": "camara",
+    "nombre": "Base Cámara",
+    "lat": -62.595,
+    "lon": -59.91833333333333
+  },
+  {
+    "id": "decepcion",
+    "nombre": "Base Decepción",
+    "lat": -62.97555555555556,
+    "lon": -60.69777777777777
+  },
+  {
+    "id": "esperanza",
+    "nombre": "Base Esperanza",
+    "lat": -63.39805555555556,
+    "lon": -56.99722222222222
+  },
+  {
+    "id": "marambio",
+    "nombre": "Base Marambio",
+    "lat": -64.24111111111111,
+    "lon": -56.625277777777775
+  },
+  {
+    "id": "matienzo",
+    "nombre": "Base Matienzo",
+    "lat": -64.97583333333334,
+    "lon": -60.07083333333334
+  },
+  {
+    "id": "melchior",
+    "nombre": "Base Melchior",
+    "lat": -64.32583333333334,
+    "lon": -62.97638888888889
+  },
+  {
+    "id": "orcadas",
+    "nombre": "Base Orcadas",
+    "lat": -60.73777777777778,
+    "lon": -44.74
+  },
+  {
+    "id": "petrel",
+    "nombre": "Base Petrel",
+    "lat": -63.47777777777778,
+    "lon": -56.22694444444445
+  },
+  {
+    "id": "primavera",
+    "nombre": "Base Primavera",
+    "lat": -64.15583333333333,
+    "lon": -60.95472222222222
+  },
+  {
+    "id": "san-martin",
+    "nombre": "Base San Martín",
+    "lat": -68.13,
+    "lon": -67.10083333333333
+  }
+]

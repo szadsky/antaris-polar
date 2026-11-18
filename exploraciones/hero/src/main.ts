@@ -1,3 +1,5 @@
+import { mountWeather } from './weather';
+mountWeather();
 import { mountDeviceParallax } from './device-parallax';
 import { mountJourney } from './journey';
 mountJourney();

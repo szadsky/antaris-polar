@@ -1,0 +1,91 @@
+.hero-weather { width: min(470px, 100%); margin-top: 10px; pointer-events: auto; color: #263d4c; text-align: left; text-shadow: none; }
+.weather-card { display: grid; grid-template-columns: 1fr 1fr; padding: 18px 22px; border: 1px solid #ffffff90; border-radius: 22px; background: linear-gradient(150deg, #f4fbffeb, #deebf2d9); backdrop-filter: blur(18px); box-shadow: 0 8px 28px #122b4520, inset 0 1px 0 #fff; }
+.weather-place { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+.weather-place + .weather-place { padding-left: 24px; margin-left: 12px; border-left: 1px solid #b2c6d366; }
+.weather-place__name, .weather-select { font: 500 15px/1.4 var(--sans); color: #263d4c; }
+.weather-select { border: 0; background: transparent; max-width: 100%; width: 100%; padding: 0 2px 0 0; cursor: pointer; }
+.weather-reading { display: flex; align-items: center; gap: 10px; margin: 6px 0 0; }
+.weather-art { display: flex; flex: 0 0 56px; }
+.weather-temp { font: 300 40px/1 var(--sans); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.weather-condition { font: 500 12px/1.4 var(--sans); }
+.weather-wind { min-height: 17px; margin-top: 3px; color: #617989; font: 500 11px/1.4 var(--sans); }
+.weather-footer { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 36px; margin: 0 22px; padding: 0 8px; border-radius: 0 0 14px 14px; background: #e3edf1e6; box-shadow: 0 4px 12px #122b4512; }
+.weather-difference { font: 500 11px/1.3 var(--mono); }
+.weather-source { margin: 7px 0 0; color: #fff; text-align: center; font: 500 10px/1.4 var(--sans); text-shadow: 0 1px 4px #102333; }
+.weather-source a { color: inherit; text-underline-offset: 2px; }
+.hero-weather :focus-visible { outline: 2px solid #315f7d; outline-offset: 3px; }
+.limpio .hero-weather { display: none; }
+@media(max-width:640px) {
+ .hero-weather { width: min(390px, 100%); margin-top: 4px; }
+ .weather-card { padding: 12px 14px; border-radius: 18px; }
+ .weather-place + .weather-place { padding-left: 14px; margin-left: 8px; }
+ .weather-reading { gap: 4px; }
+ .weather-temp { font-size: 34px; }
+ .weather-place__name, .weather-select { font-size: 13px; }
+ .weather-footer { margin: 0 12px; }
+ .weather-source { font-size: 10px; }
+}
+@media(max-height:650px) and (min-width:641px) {
+ .hero-center { gap: 12px; }
+ .weather-card { padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* Widget compacto, separado del contenido central. */
+.hero-weather { position: absolute; z-index: 5; left: 24px; bottom: 100px; width: 320px; margin: 0; }
+.weather-card { padding: 12px 14px; border-radius: 16px; }
+.weather-place + .weather-place { padding-left: 12px; margin-left: 8px; }
+.weather-place__name, .weather-select { font-size: 12px; }
+.weather-reading { gap: 4px; margin-top: 4px; }
+.weather-art { flex-basis: 38px; }
+.weather-art svg { width: 38px; height: 38px; }
+.weather-temp { font-size: 29px; }
+.weather-condition { font-size: 11px; }
+.weather-wind { font-size: 10px; min-height: 14px; }
+.weather-footer { min-height: 28px; margin: 0 14px; border-radius: 0 0 11px 11px; }
+.weather-difference { font-size: 10px; }
+.weather-source { font-size: 9px; margin-top: 5px; }
+@media(max-width:640px) {
+ .hero-weather { left: 16px; bottom: 90px; width: min(300px, calc(100% - 32px)); }
+ .hero-center { top: 36%; }
+}
+@media(max-height:600px) and (min-width:641px) {
+ .hero-weather { bottom: 76px; }
+ .hero-center { top: 30%; }
+}
+
+/* La lista comparte SelectControl y los tokens del visor de bases. */
+body.weather-dial-theme {
+ --dial-surface:#f3f6f9;--dial-surface-hover:#eaf0f5;--dial-surface-active:#e1edf5;--dial-surface-subtle:#f3f6f9;
+ --dial-text-root:#172b3a;--dial-text-section:#536777;--dial-text-label:#415868;--dial-text-focus:#172b3a;
+ --dial-text-primary:#172b3a;--dial-text-secondary:#536777;--dial-text-tertiary:#687d8c;
+ --dial-border:#dce4eb;--dial-border-hover:#a7bdcd;--dial-focus-ring:#236991;
+ --dial-glass-bg:#fff;--dial-dropdown-bg:#fff;--dial-backdrop-blur:0px;--dial-radius:8px;
+ --dial-shadow-dropdown:0 8px 24px #102a431a;
+}
+.weather-dial-theme .dialkit-select-dropdown { color-scheme:light; max-width:calc(100vw - 24px); }
+.weather-dial-theme .dialkit-select-option { min-height:36px; font:400 13px/1.4 var(--sans); color:var(--ink); }
+.hero-weather { width:270px; }
+.weather-card { padding:10px 12px; border-radius:14px; box-shadow:0 3px 12px #122b451a; }
+.weather-place + .weather-place { padding-left:10px; margin-left:6px; }
+.weather-condition, .weather-wind { display:none; }
+.weather-art { flex-basis:28px; }
+.weather-art svg { width:28px; height:28px; }
+.weather-temp { font-size:25px; }
+.weather-place__name { font-size:11px; min-height:24px; display:flex; align-items:center; }
+.weather-select .dialkit-select-trigger { padding:0; min-height:24px; height:24px; border:0; background:none; box-shadow:none; gap:4px; }
+.weather-select .dialkit-select-label { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.weather-select .dialkit-select-right { max-width:100%; width:100%; gap:4px; justify-content:space-between; }
+.weather-select .dialkit-select-value { font:500 11px/1.4 var(--sans); color:#263d4c; transform:none; }
+.weather-select .dialkit-select-chevron { width:12px; height:12px; }
+.weather-footer { min-height:24px; background:#e3edf1d9; }
+.weather-source { font-size:9px; }
+@media(max-width:640px) { .hero-weather { width:min(270px,calc(100% - 32px)); } }
+.hero-weather { left:max(20px, env(safe-area-inset-left)); bottom:max(20px, env(safe-area-inset-bottom)); }
+@media(max-width:760px) {
+ .hero-weather { left:max(16px, env(safe-area-inset-left)); bottom:max(16px, env(safe-area-inset-bottom)); }
+ .hero-copy > .hero-explore { bottom:140px; }
+}
+.hero-weather { width:320px; }
+@media(max-width:640px) { .hero-weather { width:min(320px,calc(100% - 32px)); } }
+/* Más aire debajo de las temperaturas. */
+.weather-card { padding-bottom:18px; }
